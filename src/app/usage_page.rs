@@ -528,7 +528,7 @@ impl Waku {
                             .flex()
                             .items_center()
                             .gap(px(8.0))
-                            .child(icon(provider_icon(kind), 14.0, color))
+                            .child(asset_icon(provider_icon(kind), 14.0, color))
                             .child(
                                 div()
                                     .flex_1()
@@ -636,7 +636,11 @@ impl Waku {
                     .flex()
                     .items_center()
                     .gap(px(5.0))
-                    .child(icon(provider_icon(kind), 12.0, provider_color(theme, kind)))
+                    .child(asset_icon(
+                        provider_icon(kind),
+                        12.0,
+                        provider_color(theme, kind),
+                    ))
                     .child(
                         div()
                             .text_size(px(10.5))
@@ -1558,7 +1562,11 @@ fn usage_chart_readout(
                 .flex()
                 .items_center()
                 .gap(px(10.0))
-                .child(icon(provider_icon(kind), 11.0, provider_color(theme, kind)))
+                .child(asset_icon(
+                    provider_icon(kind),
+                    11.0,
+                    provider_color(theme, kind),
+                ))
                 .child(
                     div()
                         .flex_1()
@@ -1768,7 +1776,11 @@ fn usage_model_table(history: &UsageHistory, theme: &Theme) -> Div {
                         .flex()
                         .items_center()
                         .gap(px(7.0))
-                        .child(icon(provider_icon(kind), 12.0, provider_color(theme, kind)))
+                        .child(asset_icon(
+                            provider_icon(kind),
+                            12.0,
+                            provider_color(theme, kind),
+                        ))
                         .child(
                             div()
                                 .min_w_0()
@@ -2240,7 +2252,11 @@ fn usage_provider_values(
                 .flex()
                 .items_center()
                 .gap(px(5.0))
-                .child(icon(provider_icon(kind), 11.0, provider_color(theme, kind)))
+                .child(asset_icon(
+                    provider_icon(kind),
+                    11.0,
+                    provider_color(theme, kind),
+                ))
                 .child(
                     div()
                         .text_size(px(10.5))

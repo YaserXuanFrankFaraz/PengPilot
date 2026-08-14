@@ -29,6 +29,30 @@ pub fn file_icon(path: &'static str, size: f32) -> Img {
     img(path).w(px(size)).h(px(size)).flex_none()
 }
 
+/// Render monochrome and full-color provider marks through one fixed footprint.
+/// Full-tile artwork is inset so its visible size matches glyph-style logos.
+pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> Div {
+    let is_full_color = matches!(
+        path,
+        "icons/provider-omp-color.svg" | "icons/provider-hermes.png"
+    );
+    let visual_size = if is_full_color { size * 0.82 } else { size };
+    let mark = if is_full_color {
+        file_icon(path, visual_size).into_any_element()
+    } else {
+        icon(path, visual_size, color).into_any_element()
+    };
+
+    div()
+        .size(px(size))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .when(is_full_color, |element| element.opacity(color.a))
+        .child(mark)
+}
+
 /// A compact ghost icon button: the only button shape outside the composer's
 /// bespoke send control.
 pub fn icon_button(id: impl Into<ElementId>, path: &'static str, theme: Theme) -> Stateful<Div> {
@@ -79,9 +103,9 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::OpenCode => "icons/provider-opencode.svg",
         ProviderKind::Grok => "icons/provider-grok.svg",
         ProviderKind::Pi => "icons/provider-pi.svg",
-        ProviderKind::Omp => "icons/provider-omp.svg",
+        ProviderKind::Omp => "icons/provider-omp-color.svg",
         ProviderKind::Kiro => "icons/provider-kiro.svg",
-        ProviderKind::Hermes => "icons/provider-hermes.svg",
+        ProviderKind::Hermes => "icons/provider-hermes.png",
     }
 }
 
@@ -245,7 +269,7 @@ impl RenderOnce for MenuChip {
             })
             .when(self.disabled, |element| element.opacity(0.7))
             .when_some(self.icon, |element, (path, color)| {
-                element.child(icon(path, 10.5, color))
+                element.child(asset_icon(path, 10.5, color))
             })
             .child(
                 div()
