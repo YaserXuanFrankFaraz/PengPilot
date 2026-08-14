@@ -51,12 +51,14 @@ pub fn provider_color(theme: &Theme, provider: ProviderKind) -> Hsla {
         ProviderKind::Amp => rgb(0xF34E3F).into(),
         ProviderKind::Claude => rgb(0xD97757).into(),
         ProviderKind::DeepSeek => rgb(0x4D6BFE).into(),
+        ProviderKind::Kiro => rgb(0x9046FF).into(),
         ProviderKind::Codex
         | ProviderKind::Cursor
         | ProviderKind::OpenCode
         | ProviderKind::Grok
         | ProviderKind::Pi
-        | ProviderKind::Omp => {
+        | ProviderKind::Omp
+        | ProviderKind::Hermes => {
             if theme.is_dark {
                 rgb(0xF3F3F3).into()
             } else {
@@ -78,6 +80,8 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::Grok => "icons/provider-grok.svg",
         ProviderKind::Pi => "icons/provider-pi.svg",
         ProviderKind::Omp => "icons/provider-omp.svg",
+        ProviderKind::Kiro => "icons/provider-kiro.svg",
+        ProviderKind::Hermes => "icons/provider-hermes.svg",
     }
 }
 

@@ -77,6 +77,9 @@ pub fn fallback_models(provider: ProviderKind) -> Vec<ProviderModel> {
         // fabricated fallback would make unavailable models look selectable.
         ProviderKind::Pi => Vec::new(),
         ProviderKind::Omp => Vec::new(),
+        ProviderKind::Kiro | ProviderKind::Hermes => {
+            vec![ProviderModel::new("default", tr!("model_option.auto")).default()]
+        }
     }
 }
 
@@ -119,6 +122,8 @@ pub fn discover_catalog(
         ProviderKind::Grok => (discover_grok_models(binary), None),
         ProviderKind::Pi => (discover_pi_models(binary), None),
         ProviderKind::Omp => (discover_omp_models(binary), None),
+        ProviderKind::Kiro => (discover_kiro_models(binary), None),
+        ProviderKind::Hermes => (discover_hermes_models(binary), None),
     };
     let models = if discovered.is_empty() {
         // A failed or empty probe keeps the last successful discovery over
@@ -626,6 +631,106 @@ fn parse_omp_models(output: &str) -> Vec<ProviderModel> {
             Some(model)
         })
         .collect()
+}
+
+fn discover_kiro_models(binary: &Path) -> Vec<ProviderModel> {
+    let mut command = crate::command_env::command(binary);
+    let command = command.args(["chat", "--list-models", "--format", "json"]);
+    let Ok(output) = crate::command_env::output(command) else {
+        return Vec::new();
+    };
+    parse_kiro_models(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_kiro_models(output: &str) -> Vec<ProviderModel> {
+    let Ok(response) = serde_json::from_str::<Value>(output) else {
+        return Vec::new();
+    };
+    let current = response
+        .get("currentModel")
+        .or_else(|| response.get("current_model"))
+        .or_else(|| response.get("defaultModel"))
+        .and_then(Value::as_str);
+    let values = response
+        .as_array()
+        .or_else(|| response.get("models").and_then(Value::as_array))
+        .or_else(|| response.get("data").and_then(Value::as_array));
+    values
+        .into_iter()
+        .flatten()
+        .filter_map(|value| {
+            let (id, name, marked_default) = match value {
+                Value::String(id) if !id.trim().is_empty() => {
+                    (id.as_str(), display_name_from_slug(id), false)
+                }
+                Value::Object(object) => {
+                    let id = ["id", "modelId", "model_id", "name"]
+                        .into_iter()
+                        .find_map(|key| object.get(key).and_then(Value::as_str))
+                        .filter(|id| !id.trim().is_empty())?;
+                    let name = ["displayName", "display_name", "name"]
+                        .into_iter()
+                        .find_map(|key| object.get(key).and_then(Value::as_str))
+                        .filter(|name| !name.trim().is_empty())
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| display_name_from_slug(id));
+                    let marked_default = ["isDefault", "is_default", "default", "isCurrent"]
+                        .into_iter()
+                        .any(|key| object.get(key).and_then(Value::as_bool) == Some(true));
+                    (id, name, marked_default)
+                }
+                _ => return None,
+            };
+            let mut model = ProviderModel::new(id, name);
+            model.is_default = marked_default || current == Some(id);
+            Some(model)
+        })
+        .collect()
+}
+
+fn discover_hermes_models(binary: &Path) -> Vec<ProviderModel> {
+    let mut command = crate::command_env::command(binary);
+    let command = command.args(["config", "get", "model", "--json"]);
+    let Ok(output) = crate::command_env::output(command) else {
+        return Vec::new();
+    };
+    parse_hermes_model(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_hermes_model(output: &str) -> Vec<ProviderModel> {
+    let Ok(mut value) = serde_json::from_str::<Value>(output) else {
+        return Vec::new();
+    };
+    if let Some(model) = value.get("model") {
+        value = model.clone();
+    }
+    let (provider, model) = match &value {
+        Value::String(model) => (None, model.as_str()),
+        Value::Object(object) => {
+            let model = object
+                .get("default")
+                .or_else(|| object.get("id"))
+                .and_then(Value::as_str);
+            let provider = object.get("provider").and_then(Value::as_str);
+            (provider, model.unwrap_or_default())
+        }
+        _ => return Vec::new(),
+    };
+    if model.trim().is_empty() {
+        return Vec::new();
+    }
+    let id = match provider.filter(|provider| !provider.trim().is_empty()) {
+        Some(provider) if !model.contains(':') => format!("{provider}:{model}"),
+        _ => model.to_owned(),
+    };
+    let model_name = model
+        .rsplit_once([':', '/'])
+        .map_or(model, |(_, model)| model);
+    let mut discovered = ProviderModel::new(id, display_name_from_slug(model_name)).default();
+    if let Some(provider) = provider.filter(|provider| !provider.trim().is_empty()) {
+        discovered.sub_provider = Some(display_name_from_slug(provider));
+    }
+    vec![discovered]
 }
 
 fn pi_reasoning_options(model: &Value) -> Vec<ProviderModelOption> {
@@ -1282,6 +1387,30 @@ mod tests {
         );
         assert!(models[1].reasoning_efforts.is_empty());
         assert_eq!(models[1].default_reasoning_effort, None);
+    }
+
+    #[test]
+    fn parses_kiro_json_model_catalog() {
+        let models = parse_kiro_models(
+            r#"{"currentModel":"claude-sonnet-4","models":[{"id":"claude-sonnet-4","displayName":"Claude Sonnet 4"},{"modelId":"auto","name":"Auto"}]}"#,
+        );
+
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "claude-sonnet-4");
+        assert_eq!(models[0].name, "Claude Sonnet 4");
+        assert!(models[0].is_default);
+        assert_eq!(models[1].id, "auto");
+    }
+
+    #[test]
+    fn parses_hermes_configured_model() {
+        let models = parse_hermes_model(r#"{"default":"claude-sonnet-4","provider":"anthropic"}"#);
+
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].id, "anthropic:claude-sonnet-4");
+        assert_eq!(models[0].name, "Claude Sonnet 4");
+        assert_eq!(models[0].sub_provider.as_deref(), Some("Anthropic"));
+        assert!(models[0].is_default);
     }
 
     #[cfg(unix)]

@@ -63,10 +63,12 @@ struct AcpLaunch {
 
 fn launch_for(provider: ProviderKind) -> anyhow::Result<AcpLaunch> {
     match provider {
-        ProviderKind::Cursor | ProviderKind::Omp => Ok(AcpLaunch {
-            args: vec!["acp".into()],
-            env: Vec::new(),
-        }),
+        ProviderKind::Cursor | ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => {
+            Ok(AcpLaunch {
+                args: vec!["acp".into()],
+                env: Vec::new(),
+            })
+        }
         ProviderKind::Grok => Ok(AcpLaunch {
             args: vec!["agent".into(), "stdio".into()],
             env: vec![("GROK_OAUTH2_REFERRER".into(), "waku".into())],
@@ -585,6 +587,11 @@ async fn apply_model(
     let Some(model) = model else {
         return;
     };
+    // These ACP agents own their default model. Waku uses this sentinel only
+    // when their local model probe is unavailable.
+    if model == "default" && matches!(provider, ProviderKind::Kiro | ProviderKind::Hermes) {
+        return;
+    }
     let result = if provider == ProviderKind::Omp {
         connection
             .send_request(SetSessionConfigOptionRequest::new(
@@ -1124,10 +1131,12 @@ mod tests {
     };
 
     #[test]
-    fn omp_launches_its_acp_subcommand() {
-        let launch = launch_for(ProviderKind::Omp).unwrap();
-        assert_eq!(launch.args, ["acp"]);
-        assert!(launch.env.is_empty());
+    fn providers_launch_their_acp_subcommand() {
+        for provider in [ProviderKind::Omp, ProviderKind::Kiro, ProviderKind::Hermes] {
+            let launch = launch_for(provider).unwrap();
+            assert_eq!(launch.args, ["acp"], "{provider:?}");
+            assert!(launch.env.is_empty(), "{provider:?}");
+        }
     }
 
     #[test]

@@ -329,6 +329,17 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
                 scan_skill_files(&home.join(".omp/agent/skills"), &mut commands);
             }
         }
+        ProviderKind::Kiro => {
+            scan_skill_files(&project_root.join(".kiro/skills"), &mut commands);
+            if let Some(home) = home.as_deref() {
+                scan_skill_files(&home.join(".kiro/skills"), &mut commands);
+            }
+        }
+        ProviderKind::Hermes => {
+            if let Some(home) = home.as_deref() {
+                scan_skill_files(&home.join(".hermes/skills"), &mut commands);
+            }
+        }
         ProviderKind::Amp => {
             if let Some(home) = home.as_deref() {
                 scan_skill_files(&home.join(".config/agents/skills"), &mut commands);
@@ -1203,6 +1214,7 @@ mod tests {
             (ProviderKind::Cursor, ".cursor/skills"),
             (ProviderKind::OpenCode, ".opencode/skills"),
             (ProviderKind::Pi, ".pi/skills"),
+            (ProviderKind::Kiro, ".kiro/skills"),
         ] {
             let skill_dir = root.join(dir).join("native-skill");
             std::fs::create_dir_all(&skill_dir).unwrap();

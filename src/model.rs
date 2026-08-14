@@ -17,10 +17,12 @@ pub enum ProviderKind {
     Grok,
     Pi,
     Omp,
+    Kiro,
+    Hermes,
 }
 
 impl ProviderKind {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 11] = [
         Self::Amp,
         Self::Claude,
         Self::Codex,
@@ -30,6 +32,8 @@ impl ProviderKind {
         Self::Grok,
         Self::Pi,
         Self::Omp,
+        Self::Kiro,
+        Self::Hermes,
     ];
 
     pub fn id(self) -> &'static str {
@@ -43,6 +47,8 @@ impl ProviderKind {
             Self::Grok => "grok",
             Self::Pi => "pi",
             Self::Omp => "omp",
+            Self::Kiro => "kiro",
+            Self::Hermes => "hermes",
         }
     }
 
@@ -57,6 +63,8 @@ impl ProviderKind {
             Self::Grok => "Grok Build",
             Self::Pi => "Pi",
             Self::Omp => "Oh My Pi",
+            Self::Kiro => "Kiro CLI",
+            Self::Hermes => "Hermes Agent",
         }
     }
 
@@ -71,6 +79,8 @@ impl ProviderKind {
             Self::Grok => "Grok",
             Self::Pi => "Pi",
             Self::Omp => "OMP",
+            Self::Kiro => "Kiro",
+            Self::Hermes => "Hermes",
         }
     }
 
@@ -87,6 +97,8 @@ impl ProviderKind {
             Self::Grok => "grok",
             Self::Pi => "pi",
             Self::Omp => "omp",
+            Self::Kiro => "kiro-cli",
+            Self::Hermes => "hermes",
         }
     }
 
@@ -128,6 +140,8 @@ impl ProviderKind {
                 | Self::Grok
                 | Self::Pi
                 | Self::Omp
+                | Self::Kiro
+                | Self::Hermes
         )
     }
 }
@@ -174,6 +188,12 @@ pub enum ProviderResumeCursor {
     Omp {
         session_id: String,
     },
+    Kiro {
+        session_id: String,
+    },
+    Hermes {
+        session_id: String,
+    },
 }
 
 impl ProviderResumeCursor {
@@ -200,6 +220,8 @@ impl ProviderResumeCursor {
                 session_file: None,
             },
             ProviderKind::Omp => Self::Omp { session_id: id },
+            ProviderKind::Kiro => Self::Kiro { session_id: id },
+            ProviderKind::Hermes => Self::Hermes { session_id: id },
         }
     }
 
@@ -214,6 +236,8 @@ impl ProviderResumeCursor {
             Self::Grok { .. } => ProviderKind::Grok,
             Self::Pi { .. } => ProviderKind::Pi,
             Self::Omp { .. } => ProviderKind::Omp,
+            Self::Kiro { .. } => ProviderKind::Kiro,
+            Self::Hermes { .. } => ProviderKind::Hermes,
         }
     }
 
@@ -227,6 +251,7 @@ impl ProviderResumeCursor {
             | Self::Grok { session_id }
             | Self::Pi { session_id, .. }
             | Self::Omp { session_id } => session_id,
+            Self::Kiro { session_id } | Self::Hermes { session_id } => session_id,
             Self::Codex { thread_id } => thread_id,
         }
     }
@@ -2835,6 +2860,8 @@ mod tests {
         assert_eq!(ProviderKind::Grok.command(), "grok");
         assert_eq!(ProviderKind::Pi.command(), "pi");
         assert_eq!(ProviderKind::Omp.command(), "omp");
+        assert_eq!(ProviderKind::Kiro.command(), "kiro-cli");
+        assert_eq!(ProviderKind::Hermes.command(), "hermes");
     }
 
     #[test]
@@ -2854,6 +2881,10 @@ mod tests {
         }
         assert!(!ProviderKind::Omp.supports_conversation_fork());
         assert!(!ProviderKind::Omp.supports_conversation_rollback());
+        assert!(!ProviderKind::Kiro.supports_conversation_fork());
+        assert!(!ProviderKind::Kiro.supports_conversation_rollback());
+        assert!(!ProviderKind::Hermes.supports_conversation_fork());
+        assert!(!ProviderKind::Hermes.supports_conversation_rollback());
     }
 
     #[test]
@@ -2867,6 +2898,8 @@ mod tests {
         assert!(ProviderKind::Grok.supports_model_discovery());
         assert!(ProviderKind::Pi.supports_model_discovery());
         assert!(ProviderKind::Omp.supports_model_discovery());
+        assert!(ProviderKind::Kiro.supports_model_discovery());
+        assert!(ProviderKind::Hermes.supports_model_discovery());
     }
 
     #[test]

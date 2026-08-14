@@ -333,7 +333,7 @@ fn perform_provider_rewind(
             let cursor = driver.rollback(request.rollback_turns)?;
             Ok((cursor, None, prepared_driver))
         }
-        ProviderKind::Omp => anyhow::bail!(
+        ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => anyhow::bail!(
             "{} does not support conversation rollback in Waku yet",
             provider.display_name()
         ),
@@ -594,7 +594,7 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
                 let (cursor, prepared_driver) = fork_response_with_driver(&mut request)?;
                 Ok((cursor, None, prepared_driver))
             }
-            ProviderKind::Omp => anyhow::bail!(
+            ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => anyhow::bail!(
                 "{} does not support conversation forks in Waku yet",
                 provider.display_name()
             ),

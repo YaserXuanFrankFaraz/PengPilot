@@ -367,6 +367,18 @@ fn agent_arguments(
                 push(&mut args, effort);
             }
         }
+        ProviderKind::Kiro => {
+            push(&mut args, "chat");
+            push(&mut args, "--no-interactive");
+            if let Some(model) = model.filter(|model| *model != "default") {
+                push(&mut args, "--model");
+                push(&mut args, model);
+            }
+        }
+        ProviderKind::Hermes => {
+            push(&mut args, "chat");
+            push(&mut args, "-q");
+        }
     }
     push(&mut args, prompt);
     args
@@ -776,6 +788,13 @@ mod tests {
                     assert!(has(&args, "--no-tools"));
                     assert!(has(&args, "--no-rules"));
                     assert!(has_pair(&args, "--thinking", "low"));
+                }
+                ProviderKind::Kiro => {
+                    assert!(has_pair(&args, "chat", "--no-interactive"));
+                    assert!(has_pair(&args, "--model", "model"));
+                }
+                ProviderKind::Hermes => {
+                    assert!(has_pair(&args, "chat", "-q"));
                 }
             }
         }

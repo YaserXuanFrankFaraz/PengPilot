@@ -504,6 +504,8 @@ impl Waku {
             SkillSource::Provider(ProviderKind::OpenCode),
             SkillSource::Provider(ProviderKind::Pi),
             SkillSource::Provider(ProviderKind::Omp),
+            SkillSource::Provider(ProviderKind::Kiro),
+            SkillSource::Provider(ProviderKind::Hermes),
             SkillSource::Provider(ProviderKind::Amp),
         ];
         dropdown_menu(

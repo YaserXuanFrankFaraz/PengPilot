@@ -19,6 +19,8 @@ Waku works with:
 - OpenCode
 - Pi
 - [Oh My Pi](https://omp.sh/)
+- [Kiro CLI](https://kiro.dev/cli/)
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 
 Install and authenticate at least one supported agent CLI before starting Waku.
 Waku detects available CLIs automatically and uses each provider's native

@@ -212,6 +212,14 @@ pub fn user_skill_locations() -> Vec<SkillLocation> {
         home_join(".omp/agent/skills"),
     );
     push(
+        SkillSource::Provider(ProviderKind::Kiro),
+        home_join(".kiro/skills"),
+    );
+    push(
+        SkillSource::Provider(ProviderKind::Hermes),
+        home_join(".hermes/skills"),
+    );
+    push(
         SkillSource::Provider(ProviderKind::Amp),
         home_join(".config/agents/skills"),
     );
@@ -236,6 +244,7 @@ pub fn project_skill_locations(project_root: &Path, project_name: &str) -> Vec<S
             ".cursor/skills",
         ),
         (SkillSource::Provider(ProviderKind::Pi), ".pi/skills"),
+        (SkillSource::Provider(ProviderKind::Kiro), ".kiro/skills"),
     ]
     .into_iter()
     .map(|(source, suffix)| SkillLocation {
