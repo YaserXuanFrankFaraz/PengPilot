@@ -19,16 +19,16 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.1.1</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>1001</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <!-- PengPilot releases publish their appcast with the GitHub release.
          Add PengPilot's own SUPublicEDKey before enabling production updates;
          the upstream Waku signing identity must never be reused. -->
     <key>SUFeedURL</key>
-    <string>https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download/appcast.xml</string>
+    <string>https://github.com/YaserXuanFrankFaraz/PengPilot/releases/latest/download/appcast.xml</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>

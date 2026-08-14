@@ -33,7 +33,7 @@ bun run dev
 ```
 
 On macOS the watcher builds and signs `target/debug/PengPilot Debug.app`; on Linux
-it builds `target/debug/waku`. It launches the result and rebuilds and
+it builds `target/debug/pengpilot`. It launches the result and rebuilds and
 relaunches it after source changes. Keep that watcher running while you work.
 Do not start a second watcher or manually relaunch the debug app. Press
 `Ctrl-C`, or quit the app, to stop it.

@@ -177,7 +177,11 @@ if (explicitBuildNumber && !/^\d+(?:\.\d+){0,2}$/.test(explicitBuildNumber)) {
 if (!Number.isSafeInteger(historyCount) || historyCount < 0) {
   throw new Error("PENGPILOT_HISTORY_COUNT must be a non-negative integer.");
 }
-if (!values["skip-build"] && (!analyticsEndpoint || !analyticsWebsiteId)) {
+if (
+  !values["skip-build"] &&
+  !adhoc &&
+  (!analyticsEndpoint || !analyticsWebsiteId)
+) {
   throw new Error(
     "Set PENGPILOT_ANALYTICS_ENDPOINT and PENGPILOT_ANALYTICS_WEBSITE_ID before building a release.",
   );

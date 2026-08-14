@@ -30,13 +30,16 @@ pub fn file_icon(path: &'static str, size: f32) -> Img {
 }
 
 /// Render monochrome and full-color provider marks through one fixed footprint.
-/// Full-tile artwork is inset so its visible size matches glyph-style logos.
 pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> Div {
     let is_full_color = matches!(
         path,
         "icons/provider-omp-color.svg" | "icons/provider-hermes.png"
     );
-    let visual_size = if is_full_color { size * 0.82 } else { size };
+    let visual_size = if path == "icons/provider-omp-color.svg" {
+        size * 0.82
+    } else {
+        size
+    };
     let mark = if is_full_color {
         file_icon(path, visual_size).into_any_element()
     } else {

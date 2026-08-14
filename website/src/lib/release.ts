@@ -7,7 +7,7 @@ export interface LatestRelease {
   pubDate: string | null
 }
 
-const RELEASES_BASE = 'https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download'
+const RELEASES_BASE = 'https://github.com/YaserXuanFrankFaraz/PengPilot/releases/latest/download'
 
 // Versioned artifact names are a stable contract and old archives stay in R2
 // (see RELEASING.md), so a known-published version is a safe fallback while

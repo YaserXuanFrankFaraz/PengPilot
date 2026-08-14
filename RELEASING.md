@@ -47,29 +47,28 @@ The release runs on [Bun](https://bun.sh) and needs
 Updates are signed with an ed25519 key; the private half stays in the login
 keychain and the public half ships in Info.plist as `SUPublicEDKey`.
 
-**This Mac already has the key** — PengPilot signs with the same default-account
-Sparkle key as kero, and the matching public key is already in Info.plist.
-Nothing to do.
+The current checkout intentionally has no `SUPublicEDKey`. Configure a
+PengPilot-specific key before publishing the first automatic update. Never
+reuse Waku's or another application's private signing key.
 
-On a fresh machine, restore the key from the password-manager backup with the
-Sparkle tools (they land in `.pengpilot-cache/sparkle/<version>/bin` after any
-build, or download the release from
+Generate or restore the PengPilot key with the Sparkle tools (they land in
+`.pengpilot-cache/sparkle/<version>/bin` after any build, or download the release from
 [sparkle-project/Sparkle](https://github.com/sparkle-project/Sparkle/releases)):
 
 ```sh
-./bin/generate_keys -f sparkle_private_key.txt   # import the backed-up key
-./bin/generate_keys -p                            # prints the public key — must
-                                                  # match SUPublicEDKey
+./bin/generate_keys --account pengpilot
+./bin/generate_keys -p --account pengpilot
 ```
+
+Add the printed public key to `resources/Info.plist` as `SUPublicEDKey`. Keep
+the private key in the login keychain and in a secure backup.
 
 > ⚠️ Lose the private key and existing installs can never update again. Keep
 > the backup current.
 
-To split PengPilot onto its own key: `generate_keys --account pengpilot`, put the
-new public key in Info.plist, and pass `--account waku` through to
-`generate_appcast` in `scripts/appcast.ts`. Users on old builds only trust the
-old key, so do this on a release that still signs with the old key… in other
-words, don't do it casually.
+If the account name changes, pass the same account to `generate_appcast` in
+`scripts/appcast.ts`. Existing installs trust only the public key embedded in
+their build, so key rotation requires an intentionally staged migration.
 
 ### 2. Developer ID signing + notarization
 
@@ -129,7 +128,7 @@ section as release notes, regenerates the signed `appcast.xml`, and uploads
 everything with immutable cache headers (the appcast itself stays
 `max-age=300`). When it finishes:
 
-- **Download link**: `https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download/PengPilot-<version>.dmg`
+- **Download link**: `https://github.com/YaserXuanFrankFaraz/PengPilot/releases/latest/download/PengPilot-<version>.dmg`
 - **In-app updates**: served from the same origin via the appcast.
 
 Test by keeping an older build around, launching it, and choosing
@@ -147,8 +146,8 @@ writes the same artifacts as a local release:
 
 Linux CI adds:
 
-- `waku-<version>-x86_64-unknown-linux-gnu.tar.gz`
-- `waku-<version>-aarch64-unknown-linux-gnu.tar.gz`
+- `pengpilot-<version>-x86_64-unknown-linux-gnu.tar.gz`
+- `pengpilot-<version>-aarch64-unknown-linux-gnu.tar.gz`
 
 The workflow opens (or updates) a **draft** GitHub release with those files and
 the matching `CHANGELOG.md` section. Publishing the GitHub release syncs the
@@ -226,7 +225,7 @@ secrets first:
 - **Platform artifacts:** keep the bucket layout flat and platform-tagged by
   artifact name/extension — today's macOS names
   (`PengPilot-<v>.dmg`, `PengPilot-<v>.zip`, `appcast.xml`) must keep their URLs.
-  Linux CI releases produce `waku-<v>-<target>.tar.gz` with
+  Linux CI releases produce `pengpilot-<v>-<target>.tar.gz` with
   `scripts/bundle-linux.sh` and land in GitHub Releases, then R2 via the
   sync workflow. Automatic Linux updates are not yet wired. Windows can later join with
   `PengPilot-<v>-Setup.exe` + `appcast-windows.xml` (WinSparkle reads the same

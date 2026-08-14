@@ -21,7 +21,7 @@ import { join, resolve } from "node:path";
 const projectRoot = resolve(import.meta.dir, "..");
 
 export const defaultDownloadUrlPrefix =
-  "https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download/";
+  "https://github.com/YaserXuanFrankFaraz/PengPilot/releases/latest/download/";
 
 /** Locate Sparkle's `generate_appcast`: SPARKLE_BIN first, then the pinned
  *  distribution scripts/bundle.sh caches under .pengpilot-cache, then PATH. */
