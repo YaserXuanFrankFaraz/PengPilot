@@ -920,12 +920,14 @@ impl Waku {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(if kind == ProviderKind::Hermes {
-                            file_icon("icons/provider-hermes.png", 16.0)
+                        .child(match kind {
+                            ProviderKind::Omp => file_icon("icons/provider-omp-color.svg", 16.0)
                                 .opacity(if installed { 1.0 } else { 0.5 })
-                                .into_any_element()
-                        } else {
-                            icon(
+                                .into_any_element(),
+                            ProviderKind::Hermes => file_icon("icons/provider-hermes.png", 16.0)
+                                .opacity(if installed { 1.0 } else { 0.5 })
+                                .into_any_element(),
+                            _ => icon(
                                 provider_icon(kind),
                                 16.0,
                                 provider_color(&theme, kind).opacity(if installed {
@@ -934,7 +936,7 @@ impl Waku {
                                     0.5
                                 }),
                             )
-                            .into_any_element()
+                            .into_any_element(),
                         })
                         .child(
                             div()

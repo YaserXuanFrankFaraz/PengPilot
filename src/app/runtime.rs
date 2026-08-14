@@ -2758,7 +2758,7 @@ fn probe_provider_version(binary: &std::path::Path) -> Option<String> {
 /// Code)", "v1.3.0-beta"); the number is the part worth showing.
 fn parse_cli_version(output: &str) -> Option<String> {
     let line = output.lines().find(|line| !line.trim().is_empty())?;
-    line.split_whitespace()
+    line.split(|c: char| c.is_whitespace() || c == '/')
         .map(|token| {
             token
                 .trim_start_matches('v')
@@ -2801,6 +2801,19 @@ mod version_tests {
         );
         assert_eq!(parse_cli_version("not a version"), None);
         assert_eq!(parse_cli_version(""), None);
+    }
+
+    #[test]
+    fn parses_added_provider_version_banners() {
+        assert_eq!(parse_cli_version("omp/17.3.4"), Some("17.3.4".to_owned()));
+        assert_eq!(
+            parse_cli_version("kiro-cli 1.23.0"),
+            Some("1.23.0".to_owned())
+        );
+        assert_eq!(
+            parse_cli_version("Hermes Agent v0.1.0 (2026-08-15)"),
+            Some("0.1.0".to_owned())
+        );
     }
 
     #[test]
