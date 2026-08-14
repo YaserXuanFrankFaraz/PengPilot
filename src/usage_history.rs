@@ -1,7 +1,8 @@
 //! Historical token and cost usage for the settings Usage page, scanned from
 //! the provider CLIs' own on-disk session transcripts (Claude Code's
-//! `~/.claude/projects` and Codex's `~/.codex/sessions`) the way T3 Code and
-//! `ccusage` do it, so usage covers turns driven outside Waku too. Costs are
+//! `~/.claude/projects`, Codex's `~/.codex/sessions`, and Grok's
+//! `~/.grok/sessions`) the way T3 Code and `ccusage` do it, so usage covers
+//! turns driven outside Waku too. Costs are
 //! priced against LiteLLM's model rate table, fetched at most daily and cached
 //! beside the app database.
 //!
@@ -89,15 +90,22 @@ const RATES_TTL: Duration = Duration::from_secs(24 * 3600);
 pub enum UsageProvider {
     Claude,
     Codex,
+    Grok,
 }
 
 impl UsageProvider {
-    pub const ALL: [UsageProvider; 2] = [UsageProvider::Claude, UsageProvider::Codex];
+    pub const COUNT: usize = 3;
+    pub const ALL: [UsageProvider; Self::COUNT] = [
+        UsageProvider::Claude,
+        UsageProvider::Codex,
+        UsageProvider::Grok,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             UsageProvider::Claude => "Claude Code",
             UsageProvider::Codex => "Codex",
+            UsageProvider::Grok => "Grok",
         }
     }
 
@@ -106,6 +114,7 @@ impl UsageProvider {
         match self {
             UsageProvider::Claude => 0,
             UsageProvider::Codex => 1,
+            UsageProvider::Grok => 2,
         }
     }
 }
@@ -160,6 +169,7 @@ fn might_carry_usage(line: &str, provider: UsageProvider) -> bool {
     match provider {
         UsageProvider::Claude => line.contains("\"usage\""),
         UsageProvider::Codex => line.contains("\"token_count\""),
+        UsageProvider::Grok => line.contains("\"turn_completed\""),
     }
 }
 
@@ -352,6 +362,176 @@ fn parse_codex_line(line: &str, state: &mut CodexScanState) -> Option<UsageRecor
     })
 }
 
+struct GrokScanState {
+    session_id: String,
+    project: String,
+    default_model: Option<String>,
+}
+
+impl GrokScanState {
+    fn from_updates_path(path: &Path) -> Self {
+        let session_id = path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_owned();
+        let project = path
+            .parent()
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .map(percent_decode)
+            .unwrap_or_default();
+        let summary = std::fs::read_to_string(path.with_file_name("summary.json"))
+            .ok()
+            .and_then(|content| serde_json::from_str::<Value>(&content).ok());
+        Self {
+            session_id: summary
+                .as_ref()
+                .and_then(|summary| summary.pointer("/info/id"))
+                .and_then(Value::as_str)
+                .unwrap_or(&session_id)
+                .to_owned(),
+            project: summary
+                .as_ref()
+                .and_then(|summary| {
+                    summary
+                        .pointer("/info/cwd")
+                        .or_else(|| summary.get("git_root_dir"))
+                })
+                .and_then(Value::as_str)
+                .unwrap_or(&project)
+                .to_owned(),
+            default_model: summary
+                .as_ref()
+                .and_then(|summary| summary.get("current_model_id"))
+                .and_then(Value::as_str)
+                .filter(|model| !model.is_empty())
+                .map(str::to_owned),
+        }
+    }
+}
+
+/// Grok writes one complete per-turn usage report, optionally split by model.
+/// Input includes cache reads/writes; reasoning is already inside output.
+fn parse_grok_line(line: &str, state: &GrokScanState) -> Vec<UsageRecord> {
+    let Some(record) = serde_json::from_str::<Value>(line).ok() else {
+        return Vec::new();
+    };
+    let Some(params) = record.get("params") else {
+        return Vec::new();
+    };
+    let Some(update) = params.get("update") else {
+        return Vec::new();
+    };
+    if update.get("sessionUpdate").and_then(Value::as_str) != Some("turn_completed") {
+        return Vec::new();
+    }
+    let Some(usage) = update.get("usage") else {
+        return Vec::new();
+    };
+    let timestamp_ms = params
+        .pointer("/_meta/agentTimestampMs")
+        .and_then(number_i64)
+        .filter(|timestamp| *timestamp > 0)
+        .or_else(|| {
+            record
+                .get("timestamp")
+                .and_then(number_i64)
+                .filter(|timestamp| *timestamp > 0)
+                .map(|seconds| seconds.saturating_mul(1_000))
+        });
+    let Some(timestamp_ms) = timestamp_ms else {
+        return Vec::new();
+    };
+    let session_id = params
+        .get("sessionId")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .unwrap_or(&state.session_id);
+    let event_id = params.pointer("/_meta/eventId").and_then(Value::as_str);
+
+    let model_usage = usage.get("modelUsage").and_then(Value::as_object);
+    let mut rows: Vec<(&str, &Value)> = model_usage
+        .filter(|models| !models.is_empty())
+        .map(|models| {
+            models
+                .iter()
+                .map(|(model, usage)| (model.as_str(), usage))
+                .collect()
+        })
+        .unwrap_or_else(|| vec![(state.default_model.as_deref().unwrap_or("unknown"), usage)]);
+    rows.sort_by_key(|(model, _)| *model);
+    let single_model = rows.len() == 1;
+
+    rows.into_iter()
+        .filter_map(|(model, model_usage)| {
+            if model.is_empty() {
+                return None;
+            }
+            let input = int(model_usage.get("inputTokens"));
+            let cached_input = int(model_usage.get("cachedReadTokens")).min(input);
+            let cache_creation =
+                int(model_usage.get("cacheCreationTokens")).min(input.saturating_sub(cached_input));
+            let output = int(model_usage.get("outputTokens"));
+            let totals = TokenTotals {
+                uncached_input: input.saturating_sub(cached_input + cache_creation),
+                cached_input,
+                cache_creation,
+                output,
+                reasoning: int(model_usage.get("reasoningTokens")).min(output),
+            };
+            if totals.total() == 0 {
+                return None;
+            }
+            let ticks = int(model_usage.get("costUsdTicks"));
+            let ticks = if ticks == 0 && single_model {
+                int(usage.get("costUsdTicks"))
+            } else {
+                ticks
+            };
+            Some(UsageRecord {
+                provider: UsageProvider::Grok,
+                timestamp_ms,
+                model: model.to_owned(),
+                session_id: session_id.to_owned(),
+                project: state.project.clone(),
+                totals,
+                // xAI defines one cost tick as 1e-10 USD.
+                reported_cost_usd: (ticks > 0).then(|| ticks as f64 / 1e10),
+                dedupe_key: event_id.map(|id| format!("{id}:{model}")),
+            })
+        })
+        .collect()
+}
+
+fn number_i64(value: &Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_u64().and_then(|number| i64::try_from(number).ok()))
+        .or_else(|| value.as_f64().map(|number| number as i64))
+}
+
+fn percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
+            && let Ok(byte) = u8::from_str_radix(&value[index + 1..index + 3], 16)
+        {
+            decoded.push(byte);
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
 /* ------------------------------------------------------------------------- */
 /* Pricing                                                                   */
 /* ------------------------------------------------------------------------- */
@@ -421,7 +601,11 @@ fn lookup_rate<'a>(table: &'a RateTable, model: &str) -> Option<&'a ModelRate> {
     if normalized.is_empty() || UNPRICEABLE_MODELS.contains(&normalized.as_str()) {
         return None;
     }
-    table.rates.get(&normalized)
+    table.rates.get(&normalized).or_else(|| {
+        normalized
+            .strip_suffix("-build")
+            .and_then(|model| table.rates.get(model))
+    })
 }
 
 /// Projects the LiteLLM document into a rate table. Entries without both an
@@ -576,6 +760,10 @@ fn provider_root(provider: UsageProvider) -> Option<PathBuf> {
             Some(dir) if !dir.is_empty() => Some(PathBuf::from(dir).join("sessions")),
             _ => dirs::home_dir().map(|home| home.join(".codex/sessions")),
         },
+        UsageProvider::Grok => match std::env::var_os("GROK_HOME") {
+            Some(dir) if !dir.is_empty() => Some(PathBuf::from(dir).join("sessions")),
+            _ => dirs::home_dir().map(|home| home.join(".grok/sessions")),
+        },
     }
 }
 
@@ -622,6 +810,42 @@ fn list_transcript_files(
     skipped
 }
 
+/// Grok's session tree contains large tool logs below each session. Its usage
+/// file has a fixed depth, so visit only that path instead of walking them all.
+fn list_grok_transcript_files(
+    root: &Path,
+    since_ms: i64,
+    found: &mut Vec<(PathBuf, u64, i64)>,
+) -> usize {
+    let mut skipped = 0;
+    let Ok(projects) = std::fs::read_dir(root) else {
+        return 0;
+    };
+    for project in projects.flatten() {
+        let Ok(sessions) = std::fs::read_dir(project.path()) else {
+            continue;
+        };
+        for session in sessions.flatten() {
+            let path = session.path().join("updates.jsonl");
+            let Ok(metadata) = std::fs::metadata(&path) else {
+                continue;
+            };
+            let mtime_ms = metadata
+                .modified()
+                .ok()
+                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                .map(|elapsed| elapsed.as_millis() as i64)
+                .unwrap_or(0);
+            if mtime_ms < since_ms {
+                skipped += 1;
+            } else {
+                found.push((path, metadata.len(), mtime_ms));
+            }
+        }
+    }
+    skipped
+}
+
 /// Streams one transcript and returns the usage records it contains, already
 /// de-duplicated within the file, or `None` when it could not be read. The
 /// distinction matters to the cache: an empty transcript is a stable fact
@@ -633,6 +857,8 @@ fn read_transcript_records(path: &Path, provider: UsageProvider) -> Option<Vec<U
     let mut line = String::new();
     let mut records = Vec::new();
     let mut codex_state = CodexScanState::new();
+    let grok_state =
+        (provider == UsageProvider::Grok).then(|| GrokScanState::from_updates_path(path));
     let mut seen_in_file = HashSet::new();
 
     loop {
@@ -674,6 +900,11 @@ fn read_transcript_records(path: &Path, provider: UsageProvider) -> Option<Vec<U
                     records.push(record);
                 }
             }
+            UsageProvider::Grok => {
+                if might_carry_usage(&line, provider) {
+                    records.extend(parse_grok_line(&line, grok_state.as_ref()?));
+                }
+            }
         }
     }
     Some(records)
@@ -705,7 +936,7 @@ struct Bucket {
 struct ProjectAccumulator {
     cost_usd: f64,
     total_tokens: u64,
-    by_provider: [ProviderDay; 2],
+    by_provider: [ProviderDay; UsageProvider::COUNT],
     sessions: HashSet<(UsageProvider, String)>,
     /// Cost per model, for the row's "top models" caption.
     models: HashMap<String, f64>,
@@ -871,7 +1102,7 @@ pub struct DaySlice {
     pub day: NaiveDate,
     pub cost_usd: f64,
     pub total_tokens: u64,
-    pub by_provider: [ProviderDay; 2],
+    pub by_provider: [ProviderDay; UsageProvider::COUNT],
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -889,7 +1120,7 @@ pub struct MonthSlice {
     pub first_day: NaiveDate,
     pub cost_usd: f64,
     pub total_tokens: u64,
-    pub by_provider: [ProviderDay; 2],
+    pub by_provider: [ProviderDay; UsageProvider::COUNT],
     /// Distinct sessions active in the month.
     pub sessions: u64,
     /// Days in the month with any tokens.
@@ -907,7 +1138,7 @@ pub struct ProjectSlice {
     pub path: String,
     pub cost_usd: f64,
     pub total_tokens: u64,
-    pub by_provider: [ProviderDay; 2],
+    pub by_provider: [ProviderDay; UsageProvider::COUNT],
     pub sessions: u64,
     pub cost_share: f64,
     pub last_day: Option<NaiveDate>,
@@ -1000,7 +1231,11 @@ pub fn scan(
             continue;
         }
         let mut files = Vec::new();
-        skipped_files += list_transcript_files(&root, mtime_cutoff_ms, &mut files);
+        skipped_files += if provider == UsageProvider::Grok {
+            list_grok_transcript_files(&root, mtime_cutoff_ms, &mut files)
+        } else {
+            list_transcript_files(&root, mtime_cutoff_ms, &mut files)
+        };
         if files.is_empty() && std::fs::read_dir(&root).is_err() {
             errors.push(format!(
                 "{} transcripts at {} could not be read.",
@@ -1105,7 +1340,7 @@ fn derive_history(
             day: *day,
             cost_usd: 0.0,
             total_tokens: 0,
-            by_provider: [ProviderDay::default(); 2],
+            by_provider: [ProviderDay::default(); UsageProvider::COUNT],
         });
         day_entry.cost_usd += bucket.cost_usd;
         day_entry.total_tokens += tokens;
@@ -1165,7 +1400,7 @@ fn derive_history(
                 first_day: first_of_month(day.day),
                 cost_usd: 0.0,
                 total_tokens: 0,
-                by_provider: [ProviderDay::default(); 2],
+                by_provider: [ProviderDay::default(); UsageProvider::COUNT],
                 sessions: 0,
                 active_days: 0,
                 top_models: Vec::new(),
@@ -1374,6 +1609,41 @@ mod tests {
     }
 
     #[test]
+    fn grok_completed_turns_split_cache_and_use_reported_cost() {
+        let state = GrokScanState {
+            session_id: "session-1".to_owned(),
+            project: "/Users/me/dev/waku".to_owned(),
+            default_model: Some("grok-4.5".to_owned()),
+        };
+        let line = r#"{"timestamp":1750000000,"params":{"sessionId":"session-1",
+            "update":{"sessionUpdate":"turn_completed","usage":{"modelUsage":{
+            "grok-4.5-build":{"inputTokens":100,"outputTokens":20,
+            "cachedReadTokens":30,"cacheCreationTokens":10,"reasoningTokens":8,
+            "costUsdTicks":1250000000}}}},"_meta":{"eventId":"event-1",
+            "agentTimestampMs":1750000000123}}}"#
+            .replace('\n', " ");
+        let records = parse_grok_line(&line, &state);
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.provider, UsageProvider::Grok);
+        assert_eq!(record.timestamp_ms, 1_750_000_000_123);
+        assert_eq!(record.model, "grok-4.5-build");
+        assert_eq!(record.session_id, "session-1");
+        assert_eq!(record.project, "/Users/me/dev/waku");
+        assert_eq!(record.totals.uncached_input, 60);
+        assert_eq!(record.totals.cached_input, 30);
+        assert_eq!(record.totals.cache_creation, 10);
+        assert_eq!(record.totals.output, 20);
+        assert_eq!(record.totals.reasoning, 8);
+        assert_eq!(record.totals.total(), 120);
+        assert_eq!(record.reported_cost_usd, Some(0.125));
+        assert_eq!(record.dedupe_key.as_deref(), Some("event-1:grok-4.5-build"));
+
+        let incomplete = line.replace("turn_completed", "agent_message_chunk");
+        assert!(parse_grok_line(&incomplete, &state).is_empty());
+    }
+
+    #[test]
     fn aggregation_dedupes_across_files_and_prices_records() {
         let rates = rate_table(&[("claude-fable-5", FLAT_RATE)]);
         let record = UsageRecord {
@@ -1547,6 +1817,8 @@ mod tests {
         );
         assert!(lookup_rate(&rates, "<synthetic>").is_none());
         assert!(lookup_rate(&rates, "anthropic/claude-fable-5").is_some());
+        let grok_rates = rate_table(&[("grok-4.5", FLAT_RATE)]);
+        assert!(lookup_rate(&grok_rates, "grok-4.5-build").is_some());
     }
 
     #[test]
