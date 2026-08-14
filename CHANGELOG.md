@@ -16,6 +16,12 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.0]
+
+- Rebrand the app as PengPilot with new bundle IDs, data paths, and icon
+- Add Oh My Pi, Kiro CLI, and Hermes Agent CLI providers
+- Add Grok Build history to Usage charts and cost aggregation
+
 ## [0.0.13]
 
 - Add DeepSeek Harness provider
