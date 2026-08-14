@@ -208,6 +208,7 @@ fn builtin_claude_commands() -> Vec<SlashCommand> {
 /// - Cursor: `.cursor/commands` in the project and home, expanded by Waku.
 /// - Pi: prompt templates in `.pi/prompts` and `~/.pi/agent/prompts`,
 ///   expanded by Waku, plus skills in `.pi/skills` and `~/.pi/agent/skills`.
+/// - OMP: skills in `~/.omp/agent/skills`; live ACP commands are merged later.
 /// - Amp registers commands through TypeScript plugins and Grok publishes no
 ///   file convention, so neither has a native command scan; Amp's skills in
 ///   `~/.config/agents/skills` are listed.
@@ -321,6 +322,11 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
                     &mut commands,
                 );
                 scan_skill_files(&home.join(".pi/agent/skills"), &mut commands);
+            }
+        }
+        ProviderKind::Omp => {
+            if let Some(home) = home.as_deref() {
+                scan_skill_files(&home.join(".omp/agent/skills"), &mut commands);
             }
         }
         ProviderKind::Amp => {

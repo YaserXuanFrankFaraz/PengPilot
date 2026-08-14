@@ -14,9 +14,11 @@ Waku works with:
 - Claude Code
 - Codex CLI
 - Cursor CLI
+- DeepSeek Harness
 - Grok Build
 - OpenCode
 - Pi
+- [Oh My Pi](https://omp.sh/)
 
 Install and authenticate at least one supported agent CLI before starting Waku.
 Waku detects available CLIs automatically and uses each provider's native

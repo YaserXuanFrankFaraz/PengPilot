@@ -350,6 +350,23 @@ fn agent_arguments(
                 push(&mut args, effort);
             }
         }
+        ProviderKind::Omp => {
+            push(&mut args, "--print");
+            push(&mut args, "--no-session");
+            push(&mut args, "--no-tools");
+            push(&mut args, "--no-extensions");
+            push(&mut args, "--no-skills");
+            push(&mut args, "--no-rules");
+            push(&mut args, "--no-title");
+            if let Some(model) = model {
+                push(&mut args, "--model");
+                push(&mut args, model);
+            }
+            if let Some(effort) = reasoning_effort {
+                push(&mut args, "--thinking");
+                push(&mut args, effort);
+            }
+        }
     }
     push(&mut args, prompt);
     args
@@ -751,6 +768,13 @@ mod tests {
                     assert!(has(&args, "--print"));
                     assert!(has(&args, "--no-session"));
                     assert!(has(&args, "--no-tools"));
+                    assert!(has_pair(&args, "--thinking", "low"));
+                }
+                ProviderKind::Omp => {
+                    assert!(has(&args, "--print"));
+                    assert!(has(&args, "--no-session"));
+                    assert!(has(&args, "--no-tools"));
+                    assert!(has(&args, "--no-rules"));
                     assert!(has_pair(&args, "--thinking", "low"));
                 }
             }

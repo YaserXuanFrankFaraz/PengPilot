@@ -16,10 +16,11 @@ pub enum ProviderKind {
     OpenCode,
     Grok,
     Pi,
+    Omp,
 }
 
 impl ProviderKind {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Amp,
         Self::Claude,
         Self::Codex,
@@ -28,6 +29,7 @@ impl ProviderKind {
         Self::OpenCode,
         Self::Grok,
         Self::Pi,
+        Self::Omp,
     ];
 
     pub fn id(self) -> &'static str {
@@ -40,6 +42,7 @@ impl ProviderKind {
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
             Self::Pi => "pi",
+            Self::Omp => "omp",
         }
     }
 
@@ -53,6 +56,7 @@ impl ProviderKind {
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok Build",
             Self::Pi => "Pi",
+            Self::Omp => "Oh My Pi",
         }
     }
 
@@ -66,6 +70,7 @@ impl ProviderKind {
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok",
             Self::Pi => "Pi",
+            Self::Omp => "OMP",
         }
     }
 
@@ -81,6 +86,7 @@ impl ProviderKind {
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
             Self::Pi => "pi",
+            Self::Omp => "omp",
         }
     }
 
@@ -115,7 +121,13 @@ impl ProviderKind {
     pub fn supports_model_discovery(self) -> bool {
         matches!(
             self,
-            Self::Codex | Self::Cursor | Self::DeepSeek | Self::OpenCode | Self::Grok | Self::Pi
+            Self::Codex
+                | Self::Cursor
+                | Self::DeepSeek
+                | Self::OpenCode
+                | Self::Grok
+                | Self::Pi
+                | Self::Omp
         )
     }
 }
@@ -159,6 +171,9 @@ pub enum ProviderResumeCursor {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_file: Option<PathBuf>,
     },
+    Omp {
+        session_id: String,
+    },
 }
 
 impl ProviderResumeCursor {
@@ -184,6 +199,7 @@ impl ProviderResumeCursor {
                 session_id: id,
                 session_file: None,
             },
+            ProviderKind::Omp => Self::Omp { session_id: id },
         }
     }
 
@@ -197,6 +213,7 @@ impl ProviderResumeCursor {
             Self::OpenCode { .. } => ProviderKind::OpenCode,
             Self::Grok { .. } => ProviderKind::Grok,
             Self::Pi { .. } => ProviderKind::Pi,
+            Self::Omp { .. } => ProviderKind::Omp,
         }
     }
 
@@ -208,7 +225,8 @@ impl ProviderResumeCursor {
             | Self::DeepSeek { session_id }
             | Self::OpenCode { session_id }
             | Self::Grok { session_id }
-            | Self::Pi { session_id, .. } => session_id,
+            | Self::Pi { session_id, .. }
+            | Self::Omp { session_id } => session_id,
             Self::Codex { thread_id } => thread_id,
         }
     }
@@ -2816,6 +2834,7 @@ mod tests {
         assert_eq!(ProviderKind::OpenCode.command(), "opencode");
         assert_eq!(ProviderKind::Grok.command(), "grok");
         assert_eq!(ProviderKind::Pi.command(), "pi");
+        assert_eq!(ProviderKind::Omp.command(), "omp");
     }
 
     #[test]
@@ -2833,6 +2852,8 @@ mod tests {
             assert!(provider.supports_conversation_fork());
             assert!(provider.supports_conversation_rollback());
         }
+        assert!(!ProviderKind::Omp.supports_conversation_fork());
+        assert!(!ProviderKind::Omp.supports_conversation_rollback());
     }
 
     #[test]
@@ -2845,6 +2866,7 @@ mod tests {
         assert!(ProviderKind::OpenCode.supports_model_discovery());
         assert!(ProviderKind::Grok.supports_model_discovery());
         assert!(ProviderKind::Pi.supports_model_discovery());
+        assert!(ProviderKind::Omp.supports_model_discovery());
     }
 
     #[test]

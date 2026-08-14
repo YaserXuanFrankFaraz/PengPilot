@@ -208,6 +208,10 @@ pub fn user_skill_locations() -> Vec<SkillLocation> {
         home_join(".pi/agent/skills"),
     );
     push(
+        SkillSource::Provider(ProviderKind::Omp),
+        home_join(".omp/agent/skills"),
+    );
+    push(
         SkillSource::Provider(ProviderKind::Amp),
         home_join(".config/agents/skills"),
     );

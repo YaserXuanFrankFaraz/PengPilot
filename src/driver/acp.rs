@@ -63,7 +63,7 @@ struct AcpLaunch {
 
 fn launch_for(provider: ProviderKind) -> anyhow::Result<AcpLaunch> {
     match provider {
-        ProviderKind::Cursor => Ok(AcpLaunch {
+        ProviderKind::Cursor | ProviderKind::Omp => Ok(AcpLaunch {
             args: vec!["acp".into()],
             env: Vec::new(),
         }),
@@ -399,11 +399,13 @@ async fn run_sdk_connection(
             });
 
             let mut current_model = model;
+            let mut current_reasoning_effort = reasoning_effort;
             apply_model(
                 &connection,
                 &session_id,
+                provider,
                 current_model.as_deref(),
-                reasoning_effort.as_deref(),
+                current_reasoning_effort.as_deref(),
                 &events,
             )
             .await;
@@ -488,13 +490,17 @@ async fn run_sdk_connection(
                         }
                     }
                     CommandMessage::Options(options) => {
-                        if options.model != current_model {
+                        if options.model != current_model
+                            || options.reasoning_effort != current_reasoning_effort
+                        {
                             current_model = options.model;
+                            current_reasoning_effort = options.reasoning_effort;
                             apply_model(
                                 &connection,
                                 &session_id,
+                                provider,
                                 current_model.as_deref(),
-                                options.reasoning_effort.as_deref(),
+                                current_reasoning_effort.as_deref(),
                                 &events,
                             )
                             .await;
@@ -571,6 +577,7 @@ fn desired_mode(
 async fn apply_model(
     connection: &ConnectionTo<Agent>,
     session_id: &SessionId,
+    provider: ProviderKind,
     model: Option<&str>,
     reasoning_effort: Option<&str>,
     events: &DriverEventSender,
@@ -578,20 +585,37 @@ async fn apply_model(
     let Some(model) = model else {
         return;
     };
-    let request = match UntypedMessage::new(
-        "session/set_model",
-        json!({"sessionId": session_id, "modelId": model}),
-    ) {
-        Ok(request) => request,
-        Err(error) => {
-            let _ = events.send(DriverEvent::Error(tr!(
-                "errors.select_model",
-                error = error
-            )));
-            return;
-        }
+    let result = if provider == ProviderKind::Omp {
+        connection
+            .send_request(SetSessionConfigOptionRequest::new(
+                session_id.clone(),
+                "model",
+                model,
+            ))
+            .block_task()
+            .await
+            .map(|_| ())
+    } else {
+        let request = match UntypedMessage::new(
+            "session/set_model",
+            json!({"sessionId": session_id, "modelId": model}),
+        ) {
+            Ok(request) => request,
+            Err(error) => {
+                let _ = events.send(DriverEvent::Error(tr!(
+                    "errors.select_model",
+                    error = error
+                )));
+                return;
+            }
+        };
+        connection
+            .send_request(request)
+            .block_task()
+            .await
+            .map(|_| ())
     };
-    if let Err(error) = connection.send_request(request).block_task().await {
+    if let Err(error) = result {
         let _ = events.send(DriverEvent::Error(tr!(
             "errors.select_model",
             error = error
@@ -604,7 +628,11 @@ async fn apply_model(
         let _ = connection
             .send_request(SetSessionConfigOptionRequest::new(
                 session_id.clone(),
-                "mode",
+                if provider == ProviderKind::Omp {
+                    "thinking"
+                } else {
+                    "mode"
+                },
                 effort,
             ))
             .block_task()
@@ -1094,6 +1122,13 @@ mod tests {
     use agent_client_protocol::schema::v1::{
         SessionMode, SessionModeState, ToolCallUpdate, ToolCallUpdateFields,
     };
+
+    #[test]
+    fn omp_launches_its_acp_subcommand() {
+        let launch = launch_for(ProviderKind::Omp).unwrap();
+        assert_eq!(launch.args, ["acp"]);
+        assert!(launch.env.is_empty());
+    }
 
     #[test]
     fn plan_mode_selects_the_advertised_plan_mode() {

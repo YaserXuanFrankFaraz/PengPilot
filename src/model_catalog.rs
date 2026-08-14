@@ -76,6 +76,7 @@ pub fn fallback_models(provider: ProviderKind) -> Vec<ProviderModel> {
         // Pi's catalog depends on the user's configured LLM providers. A
         // fabricated fallback would make unavailable models look selectable.
         ProviderKind::Pi => Vec::new(),
+        ProviderKind::Omp => Vec::new(),
     }
 }
 
@@ -117,6 +118,7 @@ pub fn discover_catalog(
         ProviderKind::OpenCode => (discover_opencode_models(binary), None),
         ProviderKind::Grok => (discover_grok_models(binary), None),
         ProviderKind::Pi => (discover_pi_models(binary), None),
+        ProviderKind::Omp => (discover_omp_models(binary), None),
     };
     let models = if discovered.is_empty() {
         // A failed or empty probe keeps the last successful discovery over
@@ -561,6 +563,65 @@ fn parse_pi_model_response(state: &Value, response: &Value) -> Vec<ProviderModel
                             .map(|option| option.id.as_str())
                     });
                 model.default_reasoning_effort = preferred.map(str::to_owned);
+            }
+            Some(model)
+        })
+        .collect()
+}
+
+fn discover_omp_models(binary: &Path) -> Vec<ProviderModel> {
+    let mut command = crate::command_env::command(binary);
+    let command = command.args(["models", "--json"]);
+    let Ok(output) = crate::command_env::output(command) else {
+        return Vec::new();
+    };
+    parse_omp_models(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_omp_models(output: &str) -> Vec<ProviderModel> {
+    let Ok(response) = serde_json::from_str::<Value>(output) else {
+        return Vec::new();
+    };
+    response
+        .get("models")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|value| {
+            let provider = value.get("provider").and_then(Value::as_str)?;
+            let model_id = value.get("id").and_then(Value::as_str)?;
+            let selector = value
+                .get("selector")
+                .and_then(Value::as_str)
+                .filter(|selector| !selector.trim().is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("{provider}/{model_id}"));
+            if provider.trim().is_empty() || model_id.trim().is_empty() {
+                return None;
+            }
+            let name = value
+                .get("name")
+                .and_then(Value::as_str)
+                .filter(|name| !name.trim().is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| display_name_from_slug(model_id));
+            let mut model =
+                ProviderModel::new(selector, name).sub_provider(display_name_from_slug(provider));
+            if value.get("reasoning").and_then(Value::as_bool) == Some(true) {
+                model.reasoning_efforts = value
+                    .get("thinking")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(|effort| ProviderModelOption::new(effort, reasoning_effort_label(effort)))
+                    .collect();
+                model.default_reasoning_effort = model
+                    .reasoning_efforts
+                    .iter()
+                    .find(|option| option.id == "medium")
+                    .or_else(|| model.reasoning_efforts.first())
+                    .map(|option| option.id.clone());
             }
             Some(model)
         })
@@ -1183,6 +1244,44 @@ mod tests {
         );
         assert_eq!(models[0].default_reasoning_effort.as_deref(), Some("xhigh"));
         assert!(models[1].reasoning_efforts.is_empty());
+    }
+
+    #[test]
+    fn parses_omp_models_and_model_specific_thinking_levels() {
+        let models = parse_omp_models(
+            r#"{
+                "models": [
+                    {
+                        "provider": "github-copilot",
+                        "id": "gpt-5.6-terra",
+                        "selector": "github-copilot/gpt-5.6-terra",
+                        "name": "GPT-5.6 Terra",
+                        "reasoning": true,
+                        "thinking": ["low", "medium", "high", "xhigh"]
+                    },
+                    {
+                        "provider": "openai",
+                        "id": "gpt-4o-mini",
+                        "selector": "openai/gpt-4o-mini",
+                        "name": "GPT-4o mini",
+                        "reasoning": false,
+                        "thinking": null
+                    }
+                ]
+            }"#,
+        );
+
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "github-copilot/gpt-5.6-terra");
+        assert_eq!(models[0].sub_provider.as_deref(), Some("Github Copilot"));
+        assert_eq!(models[0].reasoning_efforts[3].id, "xhigh");
+        assert_eq!(models[0].reasoning_efforts[3].label, "Extra High");
+        assert_eq!(
+            models[0].default_reasoning_effort.as_deref(),
+            Some("medium")
+        );
+        assert!(models[1].reasoning_efforts.is_empty());
+        assert_eq!(models[1].default_reasoning_effort, None);
     }
 
     #[cfg(unix)]
