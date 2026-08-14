@@ -29,6 +29,15 @@ pub fn file_icon(path: &'static str, size: f32) -> Img {
     img(path).w(px(size)).h(px(size)).flex_none()
 }
 
+/// An embedded icon that may be either a tinted SVG or a full-color image.
+pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> AnyElement {
+    if path.ends_with(".svg") {
+        icon(path, size, color).into_any_element()
+    } else {
+        file_icon(path, size).into_any_element()
+    }
+}
+
 /// A compact ghost icon button: the only button shape outside the composer's
 /// bespoke send control.
 pub fn icon_button(id: impl Into<ElementId>, path: &'static str, theme: Theme) -> Stateful<Div> {
@@ -81,7 +90,7 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::Pi => "icons/provider-pi.svg",
         ProviderKind::Omp => "icons/provider-omp.svg",
         ProviderKind::Kiro => "icons/provider-kiro.svg",
-        ProviderKind::Hermes => "icons/provider-hermes.svg",
+        ProviderKind::Hermes => "icons/provider-hermes.png",
     }
 }
 
@@ -245,7 +254,7 @@ impl RenderOnce for MenuChip {
             })
             .when(self.disabled, |element| element.opacity(0.7))
             .when_some(self.icon, |element, (path, color)| {
-                element.child(icon(path, 10.5, color))
+                element.child(asset_icon(path, 10.5, color))
             })
             .child(
                 div()

@@ -169,7 +169,6 @@ const ICONS: &[(&str, &[u8])] = icons![
     "provider-opencode",
     "provider-omp",
     "provider-kiro",
-    "provider-hermes",
     "provider-pi",
     "regex",
     "replace",
@@ -195,6 +194,11 @@ const ICONS: &[(&str, &[u8])] = icons![
     "x",
     "zap",
 ];
+
+const IMAGES: &[(&str, &[u8])] = &[(
+    "icons/provider-hermes.png",
+    include_bytes!("../assets/icons/provider-hermes.png"),
+)];
 
 const TEXT_FONTS: &[&[u8]] = &[
     include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),
@@ -224,6 +228,7 @@ impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         Ok(ICONS
             .iter()
+            .chain(IMAGES.iter())
             .find(|(name, _)| *name == path)
             .map(|(_, bytes)| Cow::Borrowed(*bytes)))
     }
@@ -231,6 +236,7 @@ impl AssetSource for Assets {
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         Ok(ICONS
             .iter()
+            .chain(IMAGES.iter())
             .filter(|(name, _)| name.starts_with(path))
             .map(|(name, _)| SharedString::from(*name))
             .collect())

@@ -1065,7 +1065,7 @@ impl Waku {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(icon(icon_path, 16.0, icon_color)),
+                                .child(asset_icon(icon_path, 16.0, icon_color)),
                         )
                         .child(
                             div()

@@ -920,7 +920,7 @@ impl Waku {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(icon(
+                        .child(asset_icon(
                             provider_icon(kind),
                             16.0,
                             provider_color(&theme, kind).opacity(if installed { 1.0 } else { 0.5 }),
