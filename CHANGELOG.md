@@ -16,6 +16,10 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.2]
+
+- Replace the PengPilot app icon with the new red, blue, and silver artwork
+
 ## [0.1.1]
 
 - Refresh the app icon with the new white-background artwork
