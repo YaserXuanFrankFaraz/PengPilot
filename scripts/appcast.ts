@@ -5,7 +5,7 @@
 // Usage:
 //   bun scripts/appcast.ts <updates-dir>
 //
-// <updates-dir> holds the packaged archives (e.g. Waku-0.2.0.zip) plus any
+// <updates-dir> holds the packaged archives (e.g. PengPilot-0.2.0.zip) plus any
 // older archives so Sparkle can build binary deltas. appcast.xml is written
 // into that directory. The private EdDSA key is read from SPARKLE_PRIVATE_KEY
 // when set, otherwise from the login keychain (see RELEASING.md).
@@ -13,17 +13,18 @@
 // Env overrides:
 //   SPARKLE_BIN                dir containing the Sparkle tools
 //   SPARKLE_PRIVATE_KEY        EdDSA private key (CI; otherwise the keychain)
-//   WAKU_DOWNLOAD_URL_PREFIX   base URL for enclosure links
+//   PENGPILOT_DOWNLOAD_URL_PREFIX   base URL for enclosure links
 import { $ } from "bun";
 import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const projectRoot = resolve(import.meta.dir, "..");
 
-export const defaultDownloadUrlPrefix = "https://releases.waku.sh/";
+export const defaultDownloadUrlPrefix =
+  "https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download/";
 
 /** Locate Sparkle's `generate_appcast`: SPARKLE_BIN first, then the pinned
- *  distribution scripts/bundle.sh caches under .waku-cache, then PATH. */
+ *  distribution scripts/bundle.sh caches under .pengpilot-cache, then PATH. */
 export function findGenerateAppcast(): string | null {
   const fromEnv = process.env.SPARKLE_BIN;
   if (fromEnv) {
@@ -31,7 +32,7 @@ export function findGenerateAppcast(): string | null {
     if (existsSync(candidate)) return candidate;
   }
 
-  const cacheRoot = join(projectRoot, ".waku-cache", "sparkle");
+  const cacheRoot = join(projectRoot, ".pengpilot-cache", "sparkle");
   if (existsSync(cacheRoot)) {
     const versionOrder = new Intl.Collator("en", { numeric: true });
     const versions = readdirSync(cacheRoot)
@@ -55,11 +56,11 @@ export async function generateAppcast(
   if (!generator) {
     throw new Error(
       "generate_appcast not found. Run scripts/bundle.sh once to populate " +
-        ".waku-cache/sparkle, or set SPARKLE_BIN to a Sparkle tools bin/ dir.",
+        ".pengpilot-cache/sparkle, or set SPARKLE_BIN to a Sparkle tools bin/ dir.",
     );
   }
   console.log(`Using: ${generator}`);
-  // Same prefix for both: archives and the Waku-<version>.md release notes are
+  // Same prefix for both: archives and PengPilot-<version>.md release notes are
   // served from the same origin. The notes prefix makes generate_appcast emit
   // <sparkle:releaseNotesLink> for any notes file matching an archive name.
   const privateKey = process.env.SPARKLE_PRIVATE_KEY?.trim();
@@ -87,6 +88,6 @@ if (import.meta.main) {
     process.exit(1);
   }
   const prefix =
-    process.env.WAKU_DOWNLOAD_URL_PREFIX ?? defaultDownloadUrlPrefix;
+    process.env.PENGPILOT_DOWNLOAD_URL_PREFIX ?? defaultDownloadUrlPrefix;
   await generateAppcast(updatesDir, prefix);
 }

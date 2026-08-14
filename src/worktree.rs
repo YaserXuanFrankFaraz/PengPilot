@@ -1,7 +1,7 @@
 //! Isolated Git worktrees for tasks.
 //!
 //! A draft records only the user's choice. The first submission creates the
-//! worktree beneath `~/.waku/worktrees`, then every workspace consumer uses
+//! worktree beneath `~/.pengpilot/worktrees`, then every workspace consumer uses
 //! the returned project-relative path for the lifetime of the task.
 
 use std::fs;
@@ -31,8 +31,8 @@ pub fn create(
     base_branch: Option<&str>,
 ) -> anyhow::Result<CreatedWorktree> {
     let root = dirs::home_dir()
-        .ok_or_else(|| anyhow!("could not locate the home directory for ~/.waku/worktrees"))?
-        .join(".waku/worktrees");
+        .ok_or_else(|| anyhow!("could not locate the home directory for ~/.pengpilot/worktrees"))?
+        .join(".pengpilot/worktrees");
     create_in(
         project_path,
         &root,

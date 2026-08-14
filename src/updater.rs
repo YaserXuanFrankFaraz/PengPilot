@@ -9,9 +9,9 @@
 //! driver so the original updater window still appears when requested.
 //!
 //! Debug builds stay dormant so the dev watcher's app never offers to replace
-//! itself with a production build. `WAKU_PREVIEW_UPDATE=1` fakes only the
+//! itself with a production build. `PENGPILOT_PREVIEW_UPDATE=1` fakes only the
 //! automatic sidebar result while retaining the real Sparkle flow for the
-//! Check for Updates menu; `WAKU_FORCE_UPDATER=1` exercises everything for
+//! Check for Updates menu; `PENGPILOT_FORCE_UPDATER=1` exercises everything for
 //! real from a debug bundle.
 
 use gpui::Global;
@@ -92,7 +92,7 @@ mod macos {
 
     define_class!(
         #[unsafe(super(NSObject))]
-        #[name = "WakuSparkleUserDriver"]
+        #[name = "PengPilotSparkleUserDriver"]
         #[thread_kind = MainThreadOnly]
         #[ivars = UserDriverIvars]
         struct UserDriver;
@@ -582,8 +582,9 @@ mod macos {
         /// running outside a bundle with an embedded framework.
         pub fn init() -> Option<Self> {
             let preview = cfg!(debug_assertions)
-                && std::env::var_os("WAKU_PREVIEW_UPDATE").is_some_and(|value| value == "1");
-            let forced = std::env::var_os("WAKU_FORCE_UPDATER").is_some_and(|value| value == "1");
+                && std::env::var_os("PENGPILOT_PREVIEW_UPDATE").is_some_and(|value| value == "1");
+            let forced =
+                std::env::var_os("PENGPILOT_FORCE_UPDATER").is_some_and(|value| value == "1");
             if cfg!(debug_assertions) && !forced && !preview {
                 return None;
             }
@@ -603,7 +604,7 @@ mod macos {
                         .to_string_lossy()
                         .into_owned()
                 };
-                eprintln!("Waku updater: failed to load Sparkle: {reason}");
+                eprintln!("PengPilot updater: failed to load Sparkle: {reason}");
                 return None;
             }
 
@@ -652,7 +653,7 @@ mod macos {
                 ]
             };
             if !started {
-                eprintln!("Waku updater: Sparkle rejected its updater configuration");
+                eprintln!("PengPilot updater: Sparkle rejected its updater configuration");
                 return None;
             }
 
@@ -782,7 +783,7 @@ mod macos {
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target"));
             let library = target_dir
-                .join("debug/Waku Debug.app/Contents/Frameworks/Sparkle.framework/Sparkle");
+                .join("debug/PengPilot Debug.app/Contents/Frameworks/Sparkle.framework/Sparkle");
             if !library.exists() {
                 return;
             }

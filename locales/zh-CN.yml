@@ -30,7 +30,7 @@ window.restore: 还原
 updater.update: 更新
 updater.checking: 正在检查更新…
 updater.updating: 正在更新…
-updater.up_to_date: Waku 已是最新版本
+updater.up_to_date: PengPilot 已是最新版本
 updater.failed: "更新失败：%{error}"
 command_palette.placeholder: 搜索任务或运行命令…
 command_palette.suggested: 建议
@@ -51,7 +51,7 @@ command_palette.no_results: 未找到匹配的任务或命令
 command_palette.no_results_hint: 可尝试搜索任务标题、消息、项目、设置或命令
 language.title: 语言
 language.system: 跟随系统
-language.description: 选择 Waku 的界面语言
+language.description: 选择 PengPilot 的界面语言
 settings.general: 通用
 settings.appearance: 外观
 settings.providers: 服务商
@@ -90,9 +90,9 @@ settings.local_by_default_description: 项目、对话和设置均存储在这�
 settings.automatic_updates: 自动更新
 settings.automatic_updates_description: 在后台检查新版本，并在发现更新时提示安装
 settings.share_anonymous_usage_data: 分享匿名使用数据
-settings.share_anonymous_usage_data_description: 分享功能使用情况和可靠性数据，帮助改进 Waku。不会包含提示词、回复、项目名称、文件路径等个人信息
+settings.share_anonymous_usage_data_description: 分享功能使用情况和可靠性数据，帮助改进 PengPilot。不会包含提示词、回复、项目名称、文件路径等个人信息
 providers.coding_agents: 编程智能体
-providers.description: Waku 调用安装在这台 Mac 上的智能体命令行工具。请先安装相应工具或完成登录，然后刷新
+providers.description: PengPilot 调用安装在这台 Mac 上的智能体命令行工具。请先安装相应工具或完成登录，然后刷新
 providers.disabled_for_new_tasks: 新建任务时不可用
 providers.model_count_one: "%{count} 个模型"
 providers.model_count_many: "%{count} 个模型"
@@ -100,22 +100,22 @@ providers.not_detected_as: 未在 PATH 中找到 %{command}
 providers.using_override: 正在使用 %{path}，不再从 PATH 自动检测
 providers.invalid_override: 此路径下没有可执行文件。清空后可恢复从 PATH 自动检测
 providers.detected_at: 已在 %{path} 检测到
-providers.searches_path: Waku 未在 PATH 中找到 %{command}
+providers.searches_path: PengPilot 未在 PATH 中找到 %{command}
 providers.binary_path: 可执行文件路径
-providers.binary_path_description: Waku 用于启动 %{provider} 的可执行文件。按 Return 应用；留空则从 PATH 自动检测
+providers.binary_path_description: PengPilot 用于启动 %{provider} 的可执行文件。按 Return 应用；留空则从 PATH 自动检测
 providers.checked_just_now: 刚刚检查过
 providers.checked_minutes_ago: "%{count} 分钟前检查过"
 providers.checked_hours_ago: "%{count} 小时前检查过"
-computer_use.allow_apps: 允许 Waku 操作其他应用
+computer_use.allow_apps: 允许 PengPilot 操作其他应用
 computer_use.availability: Codex、OpenCode、Grok 和 Pi 支持电脑操作功能
 computer_use.macos_access: macOS 权限
-computer_use.helper_access: 请向 Waku 的独立控制助手 %{helper} 授予权限
+computer_use.helper_access: 请向 PengPilot 的独立控制助手 %{helper} 授予权限
 computer_use.screen_recording: 屏幕录制
 computer_use.screen_recording_description: 仅截取已允许应用的窗口
 computer_use.accessibility: 辅助功能
 computer_use.accessibility_description: 获得批准后发送鼠标与键盘操作
 computer_use.always_allowed_apps: 始终允许的应用
-computer_use.always_allowed_apps_description: Waku 会将授权绑定到应用的 Bundle ID 和签名团队
+computer_use.always_allowed_apps_description: PengPilot 会将授权绑定到应用的 Bundle ID 和签名团队
 computer_use.no_always_allowed_apps: 尚未始终允许任何应用。仅限当前任务的授权只会保存在内存中
 computer_use.access_granted: 已授权
 computer_use.grant_access: 授予权限
@@ -145,7 +145,7 @@ project.project_lower: 项目
 project.without_a_project: 不使用项目
 project.your_project: 你的项目
 onboarding.open_project_to_begin: 打开一个项目即可开始
-onboarding.description: Waku 会在你选择的文件夹中运行编程智能体。代码、任务和历史记录都保留在这台 Mac 上
+onboarding.description: PengPilot 会在你选择的文件夹中运行编程智能体。代码、任务和历史记录都保留在这台 Mac 上
 onboarding.open_project_folder: 打开项目文件夹…
 onboarding.what_should_we_build: 想构建什么？
 onboarding.what_should_we_build_in: "想在 "
@@ -287,7 +287,7 @@ agent_preset.no_description: 暂无描述。
 agent_preset.minimal_no_plan: 极简模式不包含计划功能
 computer_use.allow_for_task: 本次任务允许
 computer_use.always_allow_app: 始终允许此应用
-computer_use.allow_control: 允许 Waku 控制“%{app}”吗？
+computer_use.allow_control: 允许 PengPilot 控制“%{app}”吗？
 computer_use.screenshot_shared: 此窗口的截图将发送给当前使用的 Codex 模型
 computer_use.sensitive_action: 此操作可以输入文字或按下按键
 computer_use.bundle_id: "Bundle ID：%{id}"
@@ -416,9 +416,9 @@ session.agent_ran_out_of_context: 智能体在本轮任务中耗尽了上下文�
 session.agent_declined_turn: 智能体拒绝执行本轮任务
 session.agent_stopped_reason: "智能体已停止：%{reason}"
 errors.open_session: "无法打开该任务：%{error}"
-errors.create_projectless_task: "无法在 ~/.waku 下创建任务：%{error}"
+errors.create_projectless_task: "无法在 ~/.pengpilot 下创建任务：%{error}"
 errors.save_projectless_migration: "无法保存无项目任务的迁移结果：%{error}"
-errors.move_projectless_task: "无法将旧的根目录无项目任务移至 ~/.waku：%{error}"
+errors.move_projectless_task: "无法将旧的根目录无项目任务移至 ~/.pengpilot：%{error}"
 errors.change_branch: "无法切换分支：%{error}"
 errors.capture_pre_turn_checkpoint: "无法创建任务开始前的检查点：%{error}"
 errors.capture_turn_checkpoint: "无法创建本轮任务的检查点：%{error}"
@@ -428,7 +428,7 @@ errors.provider_native_session_unavailable: "%{provider} 的原生会话不可�
 errors.provider_native_thread_unavailable: "%{provider} 的原生线程不可用"
 errors.provider_native_cursor_unavailable: "%{provider} 的原生会话位置不可用"
 errors.provider_native_thread_cursor_unavailable: "%{provider} 的原生线程位置不可用"
-errors.provider_waku_task_unavailable: "%{provider} 对应的 Waku 任务不可用"
+errors.provider_waku_task_unavailable: "%{provider} 对应的 PengPilot 任务不可用"
 errors.provider_not_installed: "尚未安装 %{provider}"
 errors.provider_not_found: "尚未安装 %{provider}，或无法找到该程序"
 errors.claude_fork_checkpoint_missing: Claude 未返回派生任务所需的检查点
@@ -467,7 +467,7 @@ errors.select_model: "无法选择模型：%{error}"
 errors.read_provider_event_stream: "无法读取 %{provider} 事件流：%{error}"
 errors.answer_provider_permission: "无法响应 %{provider} 的权限请求：%{error}"
 errors.initialize_codex_app_server: 无法初始化 Codex app-server
-errors.register_computer_use_skill: 无法向 Codex 注册 Waku 电脑操作技能
+errors.register_computer_use_skill: 无法向 Codex 注册 PengPilot 电脑操作技能
 errors.codex_thread_open_incomplete: Codex 未能完成线程打开操作
 errors.provider_receive_prompt: "%{provider} 未能接收消息"
 errors.provider_start_turn: "%{provider} 未能开始本轮"

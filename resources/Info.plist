@@ -5,17 +5,17 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>
-    <string>Waku</string>
+    <string>PengPilot</string>
     <key>CFBundleExecutable</key>
-    <string>Waku</string>
+    <string>PengPilot</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>sh.waku</string>
+    <string>com.pengpilot.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Waku</string>
+    <string>PengPilot</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -24,14 +24,11 @@
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
-    <!-- Sparkle auto-update configuration. The appcast feed lives in the
-         waku-releases Cloudflare R2 bucket behind releases.waku.sh, and the
-         private half of SUPublicEDKey signs each archive from the login
-         keychain during `bun run release` (see RELEASING.md). -->
+    <!-- PengPilot releases publish their appcast with the GitHub release.
+         Add PengPilot's own SUPublicEDKey before enabling production updates;
+         the upstream Waku signing identity must never be reused. -->
     <key>SUFeedURL</key>
-    <string>https://releases.waku.sh/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>gv9GLMPjH5yMQkZMFXnoNfHOyL8/7KGzl/jzAqlzZZY=</string>
+    <string>https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download/appcast.xml</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>

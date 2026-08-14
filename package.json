@@ -1,5 +1,5 @@
 {
-  "name": "waku-workspace",
+  "name": "pengpilot-workspace",
   "type": "module",
   "scripts": {
     "dev": "bun ./scripts/dev.ts",

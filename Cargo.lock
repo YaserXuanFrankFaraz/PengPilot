@@ -5040,6 +5040,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "pengpilot"
+version = "0.0.13"
+dependencies = [
+ "agent-client-protocol",
+ "alacritty_terminal",
+ "anyhow",
+ "base64",
+ "block2 0.6.2",
+ "chrono",
+ "crossbeam-channel",
+ "dirs",
+ "futures",
+ "futures-lite",
+ "gpui",
+ "gpui_platform",
+ "image",
+ "libc",
+ "nucleo-matcher",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-graphics",
+ "objc2-foundation 0.3.2",
+ "objc2-quartz-core 0.3.2",
+ "objc2-user-notifications",
+ "objc2-web-kit",
+ "parking_lot",
+ "pulldown-cmark",
+ "raw-window-handle",
+ "regex",
+ "ropey",
+ "rquickjs",
+ "rusqlite",
+ "rust-i18n",
+ "rust-umami",
+ "serde",
+ "serde_json",
+ "smol",
+ "tokio",
+ "toml 0.8.23",
+ "trash",
+ "unicode-segmentation",
+ "url",
+ "uuid",
+ "wry",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8064,53 +8111,6 @@ name = "waker-fn"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "317211a0dc0ceedd78fb2ca9a44aed3d7b9b26f81870d485c07122b4350673b7"
-
-[[package]]
-name = "waku"
-version = "0.0.13"
-dependencies = [
- "agent-client-protocol",
- "alacritty_terminal",
- "anyhow",
- "base64",
- "block2 0.6.2",
- "chrono",
- "crossbeam-channel",
- "dirs",
- "futures",
- "futures-lite",
- "gpui",
- "gpui_platform",
- "image",
- "libc",
- "nucleo-matcher",
- "objc2 0.6.4",
- "objc2-app-kit 0.3.2",
- "objc2-core-graphics",
- "objc2-foundation 0.3.2",
- "objc2-quartz-core 0.3.2",
- "objc2-user-notifications",
- "objc2-web-kit",
- "parking_lot",
- "pulldown-cmark",
- "raw-window-handle",
- "regex",
- "ropey",
- "rquickjs",
- "rusqlite",
- "rust-i18n",
- "rust-umami",
- "serde",
- "serde_json",
- "smol",
- "tokio",
- "toml 0.8.23",
- "trash",
- "unicode-segmentation",
- "url",
- "uuid",
- "wry",
-]
 
 [[package]]
 name = "walkdir"

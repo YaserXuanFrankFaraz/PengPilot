@@ -1,14 +1,14 @@
-# Waku
+# PengPilot
 
-Waku is a fast, native desktop app for working with local coding agents. It is
+PengPilot is a fast, native desktop app for working with local coding agents. It is
 built in Rust with [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui)
 and keeps projects, sessions, transcripts on your machine.
 
-[Download Waku](https://waku.sh)
+[Download PengPilot](https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest)
 
 ## Supported agents
 
-Waku works with:
+PengPilot works with:
 
 - [Amp](https://ampcode.com/)
 - Claude Code
@@ -22,8 +22,8 @@ Waku works with:
 - [Kiro CLI](https://kiro.dev/cli/)
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 
-Install and authenticate at least one supported agent CLI before starting Waku.
-Waku detects available CLIs automatically and uses each provider's native
+Install and authenticate at least one supported agent CLI before starting PengPilot.
+PengPilot detects available CLIs automatically and uses each provider's native
 structured protocol and session continuity.
 
 ## Highlights
@@ -32,7 +32,7 @@ structured protocol and session continuity.
 - Switch models, reasoning effort, and access modes from a shared interface.
 - Queue or steer follow-up messages while an agent is working.
 - Rewind Git-backed tasks with conversation-aware checkpoints.
-- Store app state locally, with no Waku account or remote service required.
+- Store app state locally, with no PengPilot account or remote service required.
 
 ## Development
 
@@ -59,4 +59,4 @@ You can support the project development via [GitHub Sponsors](https://github.com
 
 ## License
 
-Waku is licensed under the [GNU General Public License v3.0 only](LICENSE).
+PengPilot is licensed under the [GNU General Public License v3.0 only](LICENSE).

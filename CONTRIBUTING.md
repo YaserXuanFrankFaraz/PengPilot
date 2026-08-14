@@ -1,6 +1,6 @@
-# Contributing to Waku
+# Contributing to PengPilot
 
-Thanks for helping improve Waku. Bug reports, focused fixes, tests, and
+Thanks for helping improve PengPilot. Bug reports, focused fixes, tests, and
 well-scoped features are welcome.
 
 ## Development setup
@@ -32,7 +32,7 @@ bun install
 bun run dev
 ```
 
-On macOS the watcher builds and signs `target/debug/Waku Debug.app`; on Linux
+On macOS the watcher builds and signs `target/debug/PengPilot Debug.app`; on Linux
 it builds `target/debug/waku`. It launches the result and rebuilds and
 relaunches it after source changes. Keep that watcher running while you work.
 Do not start a second watcher or manually relaunch the debug app. Press

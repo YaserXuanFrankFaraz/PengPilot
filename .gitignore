@@ -1,4 +1,5 @@
 target
+.pengpilot-cache
 .waku-cache
 .DS_Store
 *.log

@@ -6,11 +6,11 @@ import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
 const isMacOS = process.platform === "darwin";
-const appName = "Waku Debug";
+const appName = "PengPilot Debug";
 const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || "target");
 const appPath = isMacOS
-  ? join(targetDir, "debug/Waku Debug.app")
-  : join(targetDir, "debug/waku");
+  ? join(targetDir, "debug/PengPilot Debug.app")
+  : join(targetDir, "debug/pengpilot");
 const watchedDirectories = ["src", "assets", "resources", "locales"];
 const watchedFiles = ["Cargo.toml", "Cargo.lock", "build.rs"];
 const rebuildDebounceMs = 1_000;
@@ -26,12 +26,12 @@ let rebuildTimer: ReturnType<typeof setTimeout> | undefined;
 const watchers: FSWatcher[] = [];
 
 async function build(): Promise<boolean> {
-  console.log(`[waku-dev] Building ${isMacOS ? "app bundle" : "app"}...`);
+  console.log(`[pengpilot-dev] Building ${isMacOS ? "app bundle" : "app"}...`);
   const result = isMacOS
     ? await $`${join(root, "scripts/bundle.sh")} debug`.nothrow()
-    : await $`cargo build --bin waku --bin waku_js_repl`.nothrow();
+    : await $`cargo build --bin pengpilot --bin pengpilot_js_repl`.nothrow();
   if (result.exitCode !== 0) {
-    console.error("[waku-dev] Build failed; keeping the current app open.");
+    console.error("[pengpilot-dev] Build failed; keeping the current app open.");
     return false;
   }
   return true;
@@ -51,7 +51,7 @@ async function stopApp(): Promise<void> {
 }
 
 function launchApp(): ReturnType<typeof Bun.spawn> {
-  console.log(`[waku-dev] Launching ${appPath}`);
+  console.log(`[pengpilot-dev] Launching ${appPath}`);
   const command = isMacOS ? ["open", "-n", "-W", appPath] : [appPath];
   const launchedApp = Bun.spawn(command, {
     cwd: root,
@@ -64,7 +64,7 @@ function launchApp(): ReturnType<typeof Bun.spawn> {
     stopping = true;
     closeWatchers();
     clearRebuildTimer();
-    console.log("[waku-dev] App exited; stopping the watcher.");
+    console.log("[pengpilot-dev] App exited; stopping the watcher.");
     process.exitCode = exitCode;
   });
   return launchedApp;
@@ -81,7 +81,7 @@ function closeWatchers(): void {
 }
 
 function reportWatcherError(error: Error): void {
-  console.error("[waku-dev] File watcher failed:", error);
+  console.error("[pengpilot-dev] File watcher failed:", error);
   process.exitCode = 1;
   void cleanup();
 }
@@ -136,7 +136,7 @@ async function drainBuildQueue(): Promise<void> {
         buildQueued
       ) {
         console.log(
-          "[waku-dev] More changes arrived during the build; waiting to rebuild.",
+          "[pengpilot-dev] More changes arrived during the build; waiting to rebuild.",
         );
         continue;
       }
@@ -153,7 +153,7 @@ async function drainBuildQueue(): Promise<void> {
 async function cleanup(): Promise<void> {
   if (stopping) return;
   stopping = true;
-  console.log("[waku-dev] Stopping watcher and app...");
+  console.log("[pengpilot-dev] Stopping watcher and app...");
   closeWatchers();
   clearRebuildTimer();
   await stopApp();
@@ -181,11 +181,11 @@ if (
   app = launchApp();
 } else {
   console.log(
-    "[waku-dev] Changes arrived during the initial build; waiting to rebuild.",
+    "[pengpilot-dev] Changes arrived during the initial build; waiting to rebuild.",
   );
   if (buildQueued) void drainBuildQueue();
 }
 
 console.log(
-  "[waku-dev] Watching for source changes. Quit the app or press Ctrl-C to stop.",
+  "[pengpilot-dev] Watching for source changes. Quit the app or press Ctrl-C to stop.",
 );

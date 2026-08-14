@@ -53,10 +53,10 @@ fn configure_pi_computer_use_command(
             .arg(extension)
             .arg("--skill")
             .arg(&config.skill_path)
-            .env("WAKU_JS_REPL_SERVER", &config.repl_path)
-            .env("WAKU_COMPUTER_USE_SERVER", &config.server_path)
+            .env("PENGPILOT_JS_REPL_SERVER", &config.repl_path)
+            .env("PENGPILOT_COMPUTER_USE_SERVER", &config.server_path)
             .env(
-                "WAKU_COMPUTER_USE_PROCESS_DIRECTORY",
+                "PENGPILOT_COMPUTER_USE_PROCESS_DIRECTORY",
                 &config.process_directory,
             );
     }
@@ -781,7 +781,7 @@ fn fork_pi_session(
 fn pi_fork_request(messages: &[Value], turns_to_remove: usize) -> Result<Value, String> {
     if turns_to_remove > messages.len() {
         return Err(format!(
-            "Pi has only {} native turns, but Waku needs to remove {turns_to_remove}",
+            "Pi has only {} native turns, but PengPilot needs to remove {turns_to_remove}",
             messages.len()
         ));
     }
@@ -1173,10 +1173,10 @@ mod tests {
     #[test]
     fn pi_computer_use_uses_only_session_scoped_extension_and_skill_arguments() {
         let config = computer_use_runtime::ComputerUseConfig {
-            server_path: PathBuf::from("/tmp/Waku Computer Use"),
-            repl_path: PathBuf::from("/Applications/Waku.app/Resources/waku_js_repl"),
-            skill_path: PathBuf::from("/Applications/Waku.app/Resources/skills/SKILL.md"),
-            process_directory: PathBuf::from("/tmp/waku-computer-use/session"),
+            server_path: PathBuf::from("/tmp/PengPilot Computer Use"),
+            repl_path: PathBuf::from("/Applications/PengPilot.app/Resources/pengpilot_js_repl"),
+            skill_path: PathBuf::from("/Applications/PengPilot.app/Resources/skills/SKILL.md"),
+            process_directory: PathBuf::from("/tmp/pengpilot-computer-use/session"),
         };
         let mut command = std::process::Command::new("pi");
 
@@ -1184,7 +1184,7 @@ mod tests {
             &mut command,
             Some((
                 &config,
-                Path::new("/Applications/Waku.app/Resources/computer-use/pi-extension.ts"),
+                Path::new("/Applications/PengPilot.app/Resources/computer-use/pi-extension.ts"),
             )),
         );
 
@@ -1196,9 +1196,9 @@ mod tests {
             arguments,
             [
                 "--extension",
-                "/Applications/Waku.app/Resources/computer-use/pi-extension.ts",
+                "/Applications/PengPilot.app/Resources/computer-use/pi-extension.ts",
                 "--skill",
-                "/Applications/Waku.app/Resources/skills/SKILL.md",
+                "/Applications/PengPilot.app/Resources/skills/SKILL.md",
             ]
         );
         let environment = command
@@ -1211,14 +1211,14 @@ mod tests {
             })
             .collect::<HashMap<_, _>>();
         assert_eq!(
-            environment.get("WAKU_JS_REPL_SERVER"),
+            environment.get("PENGPILOT_JS_REPL_SERVER"),
             Some(&Some(
-                "/Applications/Waku.app/Resources/waku_js_repl".into()
+                "/Applications/PengPilot.app/Resources/pengpilot_js_repl".into()
             ))
         );
         assert_eq!(
-            environment.get("WAKU_COMPUTER_USE_PROCESS_DIRECTORY"),
-            Some(&Some("/tmp/waku-computer-use/session".into()))
+            environment.get("PENGPILOT_COMPUTER_USE_PROCESS_DIRECTORY"),
+            Some(&Some("/tmp/pengpilot-computer-use/session".into()))
         );
     }
 

@@ -41,7 +41,7 @@ function SessionRow({
   )
 }
 
-// A stylized, hand-drawn impression of the Waku window — always graphite,
+// A stylized, hand-drawn impression of the PengPilot window — always graphite,
 // independent of the page theme, because that's what the app looks like.
 export function AppWindow() {
   return (

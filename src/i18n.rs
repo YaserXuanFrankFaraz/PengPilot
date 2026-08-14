@@ -183,7 +183,7 @@ mod tests {
                 locale = "zh-CN",
                 app = "Finder"
             ),
-            "允许 Waku 控制“Finder”吗？"
+            "允许 PengPilot 控制“Finder”吗？"
         );
         assert_eq!(
             &*rust_i18n::t!("session.rewound", locale = "zh-CN", turn = 3),
@@ -192,7 +192,7 @@ mod tests {
         assert_eq!(&*rust_i18n::t!("settings.general", locale = "ja"), "一般");
         assert_eq!(
             &*rust_i18n::t!("computer_use.allow_control", locale = "ja", app = "Finder"),
-            "Waku に「Finder」の操作を許可しますか？"
+            "PengPilot に「Finder」の操作を許可しますか？"
         );
         assert_eq!(
             &*rust_i18n::t!("session.rewound", locale = "ja", turn = 3),

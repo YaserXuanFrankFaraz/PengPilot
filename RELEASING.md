@@ -1,10 +1,10 @@
-# Releasing Waku
+# Releasing PengPilot
 
-Waku auto-updates with [Sparkle](https://sparkle-project.org). Releases live in
-a **Cloudflare R2** bucket served at **`https://releases.waku.sh`**. New users
+PengPilot auto-updates with [Sparkle](https://sparkle-project.org). Releases can live in
+a **Cloudflare R2** bucket or GitHub Releases. New users
 download a notarized **`.dmg`**; existing users get smaller in-app updates
 (binary deltas when available) via Sparkle, which reads the appcast at
-`https://releases.waku.sh/appcast.xml`, verifies each build's EdDSA signature,
+the configured `appcast.xml`, verifies each build's EdDSA signature,
 and installs it. One release command produces and publishes both.
 
 Once set up, cutting a release is:
@@ -14,7 +14,7 @@ bun run release
 ```
 
 - Updater code: [`src/updater.rs`](src/updater.rs) — loads the embedded
-  Sparkle.framework at runtime and starts `SPUUpdater` with Waku's custom user
+  Sparkle.framework at runtime and starts `SPUUpdater` with PengPilot's custom user
   driver. Available updates appear in the sidebar footer; download, signature
   verification, install, and relaunch remain owned by Sparkle. **Check for
   Updates…** lives in the app menu, and the **Automatic updates** toggle in
@@ -24,7 +24,7 @@ bun run release
 - Framework embedding + pinned Sparkle version:
   [`scripts/bundle.sh`](scripts/bundle.sh) (bump `sparkle_version` and
   `sparkle_sha256` together; the distribution is cached under
-  `.waku-cache/sparkle/`).
+  `.pengpilot-cache/sparkle/`).
 - Release automation: [`scripts/release.ts`](scripts/release.ts),
   [`scripts/appcast.ts`](scripts/appcast.ts),
   [`scripts/changelog.ts`](scripts/changelog.ts).
@@ -47,12 +47,12 @@ The release runs on [Bun](https://bun.sh) and needs
 Updates are signed with an ed25519 key; the private half stays in the login
 keychain and the public half ships in Info.plist as `SUPublicEDKey`.
 
-**This Mac already has the key** — Waku signs with the same default-account
+**This Mac already has the key** — PengPilot signs with the same default-account
 Sparkle key as kero, and the matching public key is already in Info.plist.
 Nothing to do.
 
 On a fresh machine, restore the key from the password-manager backup with the
-Sparkle tools (they land in `.waku-cache/sparkle/<version>/bin` after any
+Sparkle tools (they land in `.pengpilot-cache/sparkle/<version>/bin` after any
 build, or download the release from
 [sparkle-project/Sparkle](https://github.com/sparkle-project/Sparkle/releases)):
 
@@ -65,7 +65,7 @@ build, or download the release from
 > ⚠️ Lose the private key and existing installs can never update again. Keep
 > the backup current.
 
-To split Waku onto its own key later: `generate_keys --account waku`, put the
+To split PengPilot onto its own key: `generate_keys --account pengpilot`, put the
 new public key in Info.plist, and pass `--account waku` through to
 `generate_appcast` in `scripts/appcast.ts`. Users on old builds only trust the
 old key, so do this on a release that still signs with the old key… in other
@@ -85,19 +85,19 @@ xcrun notarytool store-credentials NOTARY \
 ```
 
 Override the environment with `--signing-identity`, or change the notary
-profile with `--notary-profile` / `WAKU_NOTARY_PROFILE`.
+profile with `--notary-profile` / `PENGPILOT_NOTARY_PROFILE`.
 
 ### 3. Cloudflare R2 bucket + domain  ← **still to do once**
 
-1. Create the bucket **`waku-releases`** (Cloudflare dashboard → R2 → Create
+1. Create the bucket **`pengpilot-releases`** (Cloudflare dashboard → R2 → Create
    bucket). The release script will not create it — a bucket-scoped API token
    can't.
-2. Attach the custom domain **`releases.waku.sh`** to the bucket (bucket →
+2. Attach a PengPilot release domain to the bucket (bucket →
    Settings → Custom Domains). This serves objects publicly at
-   `https://releases.waku.sh/<file>`.
+   `https://your-release-domain/<file>`.
 3. Make sure the R2 API token behind the `r2` rclone remote covers this bucket
    (R2 → Manage API Tokens → Object Read & Write). The remote already exists
-   for kero; if `rclone lsf r2:waku-releases --s3-no-check-bucket` returns
+   for PengPilot; if `rclone lsf r2:pengpilot-releases --s3-no-check-bucket` returns
    *AccessDenied* after the bucket exists, extend the token's bucket list.
 
 The rclone remote itself (`~/.config/rclone/rclone.conf`, type S3, provider
@@ -129,7 +129,7 @@ section as release notes, regenerates the signed `appcast.xml`, and uploads
 everything with immutable cache headers (the appcast itself stays
 `max-age=300`). When it finishes:
 
-- **Download link**: `https://releases.waku.sh/Waku-<version>.dmg`
+- **Download link**: `https://github.com/YaserXuanFrankFaraz/PengAIpilot/releases/latest/download/PengPilot-<version>.dmg`
 - **In-app updates**: served from the same origin via the appcast.
 
 Test by keeping an older build around, launching it, and choosing
@@ -141,8 +141,8 @@ Pushing a `v*` tag (matching the `version` in `Cargo.toml`) runs the Release
 workflow. macOS CI runs `bun run release --local`, which signs, notarizes, and
 writes the same artifacts as a local release:
 
-- `Waku-<version>.dmg`
-- `Waku-<version>.zip`
+- `PengPilot-<version>.dmg`
+- `PengPilot-<version>.zip`
 - `appcast.xml` (Sparkle-signed)
 
 Linux CI adds:
@@ -155,14 +155,14 @@ the matching `CHANGELOG.md` section. Publishing the GitHub release syncs the
 assets — including the signed `appcast.xml` — to R2.
 
 Publishing that GitHub release (or running **Sync release** from Actions)
-uploads the assets to the `waku-releases` R2 bucket. Configure these repository
+uploads the assets to the `pengpilot-releases` R2 bucket. Configure these repository
 secrets first:
 
 | Secret | Purpose |
 | --- | --- |
-| `WAKU_ANALYTICS_ENDPOINT` | embedded in the macOS CI build |
-| `WAKU_ANALYTICS_WEBSITE_ID` | embedded in the macOS CI build |
-| `WAKU_SIGNING_IDENTITY` | Developer ID identity selector |
+| `PENGPILOT_ANALYTICS_ENDPOINT` | embedded in the macOS CI build |
+| `PENGPILOT_ANALYTICS_WEBSITE_ID` | embedded in the macOS CI build |
+| `PENGPILOT_SIGNING_IDENTITY` | Developer ID identity selector |
 | `APPLE_CERTIFICATE` | base64-encoded Developer ID Application `.p12` |
 | `APPLE_CERTIFICATE_PASSWORD` | password for that `.p12` |
 | `APPLE_ID` | Apple ID used by `notarytool` |
@@ -172,7 +172,7 @@ secrets first:
 | `R2_ACCOUNT_ID` | Cloudflare account id for the R2 API |
 | `R2_ACCESS_KEY_ID` | R2 Object Read & Write token |
 | `R2_SECRET_ACCESS_KEY` | matching secret |
-| `R2_BUCKET` | optional; defaults to `waku-releases` |
+| `R2_BUCKET` | optional; defaults to `pengpilot-releases` |
 
 ### Options
 
@@ -182,13 +182,13 @@ secrets first:
 | `--force` | — | re-publish a version that already exists in R2 |
 | `--adhoc`, `--skip-notarize` | — | local test builds (imply `--local`) |
 | `--skip-build` | — | reuse existing release binaries |
-| `--build-number <n>` / `WAKU_BUILD_NUMBER` | derived | `CFBundleVersion` override |
-| `WAKU_R2_REMOTE` | `r2` | rclone remote name |
-| `WAKU_R2_BUCKET` | `waku-releases` | R2 bucket |
-| `WAKU_DOWNLOAD_URL_PREFIX` | `https://releases.waku.sh/` | base URL in the appcast |
-| `WAKU_HISTORY_COUNT` | `15` | recent archives pulled for delta generation |
-| `WAKU_NO_HISTORY=1` | — | skip pulling old archives (full updates only) |
-| `SPARKLE_BIN` | the `.waku-cache` copy | Sparkle tools directory |
+| `--build-number <n>` / `PENGPILOT_BUILD_NUMBER` | derived | `CFBundleVersion` override |
+| `PENGPILOT_R2_REMOTE` | `r2` | rclone remote name |
+| `PENGPILOT_R2_BUCKET` | `pengpilot-releases` | R2 bucket |
+| `PENGPILOT_DOWNLOAD_URL_PREFIX` | GitHub latest release assets | base URL in the appcast |
+| `PENGPILOT_HISTORY_COUNT` | `15` | recent archives pulled for delta generation |
+| `PENGPILOT_NO_HISTORY=1` | — | skip pulling old archives (full updates only) |
+| `SPARKLE_BIN` | the `.pengpilot-cache` copy | Sparkle tools directory |
 
 ---
 
@@ -200,10 +200,10 @@ secrets first:
   at the DMG.
 - **Debug builds never update themselves.** `Updater::init` returns `None`
   under `debug_assertions`, so the dev watcher's app can't offer to replace
-  itself with a production Waku. Set `WAKU_FORCE_UPDATER=1` to exercise the
+  itself with a production PengPilot. Set `PENGPILOT_FORCE_UPDATER=1` to exercise the
   real Sparkle flow from a debug bundle anyway. A bare `cargo run` binary has
   no embedded framework and also degrades to no updater. For UI-only testing,
-  start the watcher with `WAKU_PREVIEW_UPDATE=1`; the sidebar immediately
+  start the watcher with `PENGPILOT_PREVIEW_UPDATE=1`; the sidebar immediately
   shows an available update and clicking it changes to the spinner without
   installing anything. The preview flag fakes only that sidebar result;
   **Check for Updates…** still uses the embedded Sparkle framework and its
@@ -217,7 +217,7 @@ secrets first:
 - **First-run consent:** Sparkle shows its one-time "check automatically?"
   prompt on the second launch. The Settings → General toggle reads and writes
   the same persisted value.
-- **Waku isn't sandboxed**, so Sparkle's XPC services are unnecessary;
+- **PengPilot isn't sandboxed**, so Sparkle's XPC services are unnecessary;
   `bundle.sh` strips them (plus headers/modules) from the embedded framework
   and re-signs the rest with the app's identity — hardened-runtime library
   validation requires the identities to match.
@@ -225,11 +225,11 @@ secrets first:
   the recent history is staged locally under `dist/updates/` (git-ignored).
 - **Platform artifacts:** keep the bucket layout flat and platform-tagged by
   artifact name/extension — today's macOS names
-  (`Waku-<v>.dmg`, `Waku-<v>.zip`, `appcast.xml`) must keep their URLs.
+  (`PengPilot-<v>.dmg`, `PengPilot-<v>.zip`, `appcast.xml`) must keep their URLs.
   Linux CI releases produce `waku-<v>-<target>.tar.gz` with
   `scripts/bundle-linux.sh` and land in GitHub Releases, then R2 via the
   sync workflow. Automatic Linux updates are not yet wired. Windows can later join with
-  `Waku-<v>-Setup.exe` + `appcast-windows.xml` (WinSparkle reads the same
+  `PengPilot-<v>-Setup.exe` + `appcast-windows.xml` (WinSparkle reads the same
   appcast format). `src/updater.rs` is the per-platform seam, and everything
   mac-specific in the existing release pipeline lives behind the Darwin guard
   in `scripts/release.ts` plus `scripts/bundle.sh`.

@@ -932,7 +932,7 @@ fn handle_question_request(
             .and_then(Value::as_array)
             .is_some_and(|options| !options.is_empty());
     if !supported {
-        let message = "Waku currently supports one single-select Harness question at a time";
+        let message = "PengPilot currently supports one single-select Harness question at a time";
         let _ = server.reject_response(rpc_id, message);
         let _ = events.send(DriverEvent::Error(message.into()));
         return;

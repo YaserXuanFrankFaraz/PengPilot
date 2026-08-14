@@ -2,7 +2,7 @@
 //!
 //! Codex allocates ordinary projectless chats beneath a per-user root using
 //! `<root>/<local date>/<prompt slug>`, with numeric collision suffixes and a
-//! random fallback. Waku mirrors that layout beneath `~/.waku`.
+//! random fallback. PengPilot mirrors that layout beneath `~/.pengpilot`.
 
 use std::fs;
 use std::io;
@@ -27,7 +27,7 @@ pub struct Workspace {
 /// builders and render paths. Those callers must only perform path compares.
 pub fn workspace_root() -> Option<&'static Path> {
     static ROOT: OnceLock<Option<PathBuf>> = OnceLock::new();
-    ROOT.get_or_init(|| dirs::home_dir().map(|home| home.join(".waku")))
+    ROOT.get_or_init(|| dirs::home_dir().map(|home| home.join(".pengpilot")))
         .as_deref()
 }
 
@@ -45,7 +45,7 @@ pub fn create_workspace(prompt: Option<&str>) -> io::Result<Workspace> {
     let root = workspace_root().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::NotFound,
-            "could not locate the home directory for ~/.waku",
+            "could not locate the home directory for ~/.pengpilot",
         )
     })?;
     create_workspace_in(root, Local::now().date_naive(), None, prompt)

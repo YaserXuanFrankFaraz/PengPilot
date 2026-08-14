@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "waku",
+      "name": "pengpilot-workspace",
       "devDependencies": {
         "@libsql/client": "^0.17.4",
         "@types/bun": "latest",

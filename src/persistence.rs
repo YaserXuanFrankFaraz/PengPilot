@@ -3,7 +3,7 @@
 //! Sessions and projects live in SQLite (`app.db`), app-managed UI state in
 //! `state.json`, user settings in a readable `settings.json`, and binary
 //! payloads in [`crate::blob_store`]. Debug builds keep both JSON files beside
-//! the database; release settings live at `~/.waku/settings.json`.
+//! the database; release settings live at `~/.pengpilot/settings.json`.
 //!
 //! A save writes only the rows whose contents changed, so a streaming turn
 //! costs a few kilobytes no matter how much history exists. Fields the sidebar
@@ -253,7 +253,7 @@ impl ComposerDraftStore {
 ///
 /// This deliberately excludes navigation, panel geometry, and other values
 /// that the app changes as a side effect of ordinary use. Release builds keep
-/// this at `~/.waku/settings.json` so it can become a Zed-style editable config
+/// this at `~/.pengpilot/settings.json` so it can become a Zed-style editable config
 /// file without exposing app-managed state.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -888,7 +888,7 @@ pub struct StateStore {
     path: PathBuf,
     /// App-managed navigation and layout state stays local to this database.
     app_state_path: PathBuf,
-    /// Release settings are user-owned and shared from `~/.waku`; debug
+    /// Release settings are user-owned and shared from `~/.pengpilot`; debug
     /// settings stay in the checkout's isolated `temp/` directory.
     settings_path: PathBuf,
     storage: Mutex<Option<Storage>>,
@@ -922,7 +922,7 @@ impl StateStore {
         } else {
             dirs::home_dir()
                 .unwrap_or_else(std::env::temp_dir)
-                .join(".waku")
+                .join(".pengpilot")
                 .join("settings.json")
         };
         Self::with_settings_path(path, settings_path)
@@ -2300,12 +2300,12 @@ mod tests {
         }
         #[cfg(not(debug_assertions))]
         {
-            assert_eq!(directory, Some(std::ffi::OsStr::new("Waku")));
+            assert_eq!(directory, Some(std::ffi::OsStr::new("PengPilot")));
             assert_eq!(
                 store.settings_path,
                 dirs::home_dir()
                     .unwrap_or_else(std::env::temp_dir)
-                    .join(".waku/settings.json")
+                    .join(".pengpilot/settings.json")
             );
         }
     }

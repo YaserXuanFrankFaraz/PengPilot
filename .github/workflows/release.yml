@@ -189,9 +189,9 @@ jobs:
 
       - name: Release
         env:
-          WAKU_SIGNING_IDENTITY: ${{ secrets.WAKU_SIGNING_IDENTITY }}
-          WAKU_ANALYTICS_ENDPOINT: ${{ secrets.WAKU_ANALYTICS_ENDPOINT }}
-          WAKU_ANALYTICS_WEBSITE_ID: ${{ secrets.WAKU_ANALYTICS_WEBSITE_ID }}
+          PENGPILOT_SIGNING_IDENTITY: ${{ secrets.PENGPILOT_SIGNING_IDENTITY }}
+          PENGPILOT_ANALYTICS_ENDPOINT: ${{ secrets.PENGPILOT_ANALYTICS_ENDPOINT }}
+          PENGPILOT_ANALYTICS_WEBSITE_ID: ${{ secrets.PENGPILOT_ANALYTICS_WEBSITE_ID }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: bun run release --local
 
@@ -199,8 +199,8 @@ jobs:
         with:
           name: macos
           path: |
-            dist/Waku-*.dmg
-            dist/Waku-*.zip
+            dist/PengPilot-*.dmg
+            dist/PengPilot-*.zip
             dist/appcast.xml
           if-no-files-found: error
 

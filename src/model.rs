@@ -2776,7 +2776,7 @@ mod tests {
     #[test]
     fn projectless_projects_are_descendants_of_the_waku_root() {
         let home = dirs::home_dir().expect("test user has a home directory");
-        let root = home.join(".waku");
+        let root = home.join(".pengpilot");
         let legacy = Project::from_path(root.clone());
         let project = Project::from_path(root.join("2026-08-08/new-chat"));
         let ordinary = Project::from_path(home.join("dev/waku"));

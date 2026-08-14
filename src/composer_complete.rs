@@ -219,7 +219,7 @@ fn builtin_claude_commands() -> Vec<SlashCommand> {
 /// the provider's own skill machinery takes it from there.
 ///
 /// On top of the native sources, every provider reads Waku's own layer —
-/// `.waku/commands` in the project and `~/.config/waku/commands` — and gets
+/// `.pengpilot/commands` in the project and `~/.config/pengpilot/commands` — and gets
 /// Waku's built-ins ([`builtin_waku_commands`]), always expanded by Waku, so
 /// a template written once works over any transport. Native files scan
 /// first, so they win a same-scope name collision. Live processes may add
@@ -355,14 +355,14 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
         scan_skill_files(&home.join(".agents/skills"), &mut commands);
     }
     scan_command_files(
-        &project_root.join(".waku/commands"),
+        &project_root.join(".pengpilot/commands"),
         CommandScope::Project,
         true,
         &mut commands,
     );
     if let Some(home) = home.as_deref() {
         scan_command_files(
-            &home.join(".config/waku/commands"),
+            &home.join(".config/pengpilot/commands"),
             CommandScope::User,
             true,
             &mut commands,
@@ -1156,7 +1156,7 @@ mod tests {
                 if provider != ProviderKind::Claude {
                     assert!(
                         command.template.is_some(),
-                        "{} /{expected} must be a Waku template",
+                        "{} /{expected} must be a PengPilot template",
                         provider.display_name()
                     );
                 }

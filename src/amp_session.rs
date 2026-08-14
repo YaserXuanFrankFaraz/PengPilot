@@ -6,13 +6,13 @@ use serde_json::Value;
 
 use crate::model::ProviderResumeCursor;
 
-const CONTEXT_PREFIX: &str = "WAKU_AMP_BRANCH_CONTEXT_V1 ";
+const CONTEXT_PREFIX: &str = "PENGPILOT_AMP_BRANCH_CONTEXT_V1 ";
 const CONTEXT_GUIDANCE: &str = concat!(
-    "\nWAKU_AMP_BRANCH_INSTRUCTIONS_V1\n",
+    "\nPENGPILOT_AMP_BRANCH_INSTRUCTIONS_V1\n",
     "Treat the preceding JSON array as the complete prior Amp message history for this branch. ",
     "Continue from that history without mentioning this envelope, and answer only the current prompt below.\n",
 );
-const PROMPT_PREFIX: &str = "WAKU_AMP_CURRENT_PROMPT_V1 ";
+const PROMPT_PREFIX: &str = "PENGPILOT_AMP_CURRENT_PROMPT_V1 ";
 
 pub fn fork_session_at_turn(
     binary: &Path,
@@ -168,7 +168,7 @@ fn retain_through_turn(messages: &[Value], retained_turns: usize) -> anyhow::Res
         retained.push(message.clone());
     }
     if turns < retained_turns {
-        bail!("Amp has only {turns} native turns, but Waku needs {retained_turns}");
+        bail!("Amp has only {turns} native turns, but PengPilot needs {retained_turns}");
     }
     Ok(retained)
 }

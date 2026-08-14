@@ -148,23 +148,26 @@ fn configure_computer_use_command(command: &mut Command, config: Option<&CodexCo
             .arg(DISABLE_EXTERNAL_COMPUTER_USE_SKILL)
             .arg("-c")
             .arg(DISABLE_CODEX_NODE_REPL)
-            .env("WAKU_COMPUTER_USE_SERVER", &config.server_path)
+            .env("PENGPILOT_COMPUTER_USE_SERVER", &config.server_path)
             .env(
-                "WAKU_COMPUTER_USE_PROCESS_DIRECTORY",
+                "PENGPILOT_COMPUTER_USE_PROCESS_DIRECTORY",
                 &config.process_directory,
             )
             .arg("-c")
-            .arg(format!("mcp_servers.waku_js_repl.command={}", config.repl))
+            .arg(format!(
+                "mcp_servers.pengpilot_js_repl.command={}",
+                config.repl
+            ))
             .arg("-c")
-            .arg("mcp_servers.waku_js_repl.args=[]")
+            .arg("mcp_servers.pengpilot_js_repl.args=[]")
             .arg("-c")
             .arg(format!(
-                "mcp_servers.waku_js_repl.env.WAKU_COMPUTER_USE_SERVER={}",
+                "mcp_servers.pengpilot_js_repl.env.PENGPILOT_COMPUTER_USE_SERVER={}",
                 config.server
             ))
             .arg("-c")
             .arg(format!(
-                "mcp_servers.waku_js_repl.env.WAKU_COMPUTER_USE_PROCESS_DIRECTORY={}",
+                "mcp_servers.pengpilot_js_repl.env.PENGPILOT_COMPUTER_USE_PROCESS_DIRECTORY={}",
                 config.process_directory_config
             ));
     }
@@ -270,7 +273,7 @@ impl CodexDriver {
         let writer_events = events.clone();
         let cwd_string = cwd.display().to_string();
         thread::Builder::new()
-            .name("waku-codex-writer".into())
+            .name("pengpilot-codex-writer".into())
             .spawn(move || {
                 let mut stdin = stdin;
                 let initialize = json!({
@@ -278,8 +281,8 @@ impl CodexDriver {
                     "id": 0,
                     "params": {
                         "clientInfo": {
-                            "name": "waku",
-                            "title": "Waku",
+                            "name": "pengpilot",
+                            "title": "PengPilot",
                             "version": env!("CARGO_PKG_VERSION")
                         },
                         "capabilities": {
@@ -304,14 +307,14 @@ impl CodexDriver {
                 }
 
                 if let Some(computer_use_skill_root) = computer_use_skill_root {
-                    // Register Waku's bundled skill through Codex's discoverable-skill
+                    // Register PengPilot's bundled skill through Codex's discoverable-skill
                     // mechanism. Keep the skill out of developerInstructions so it is
                     // loaded and displayed like Codex's own bundled skills.
                     if write_json_line(
                         &mut stdin,
                         &json!({
                             "method": "skills/extraRoots/set",
-                            "id": "waku-computer-use-skill",
+                            "id": "pengpilot-computer-use-skill",
                             "params": {
                                 "extraRoots": [computer_use_skill_root.display().to_string()]
                             }
@@ -1010,8 +1013,8 @@ fn generate_codex_title(binary: &Path, cwd: &Path, prompt: &str) -> anyhow::Resu
                 "id": 0,
                 "params": {
                     "clientInfo": {
-                        "name": "waku-title",
-                        "title": "Waku Title",
+                        "name": "pengpilot-title",
+                        "title": "PengPilot Title",
                         "version": env!("CARGO_PKG_VERSION")
                     },
                     "capabilities": {"experimentalApi": true}
@@ -2329,19 +2332,19 @@ mod tests {
             .map(|argument| argument.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
         assert!(disabled_arguments.is_empty());
-        assert!(
-            disabled
-                .get_envs()
-                .all(|(name, _)| { !name.to_string_lossy().starts_with("WAKU_COMPUTER_USE_") })
-        );
+        assert!(disabled.get_envs().all(|(name, _)| {
+            !name
+                .to_string_lossy()
+                .starts_with("PENGPILOT_COMPUTER_USE_")
+        }));
 
         let config = CodexComputerUseConfig {
-            server_path: PathBuf::from("/tmp/waku-computer-use-server"),
-            server: toml_string("/tmp/waku-computer-use-server"),
-            repl: toml_string("/tmp/waku"),
-            skill_root: PathBuf::from("/tmp/waku-computer-use-skill"),
-            process_directory: PathBuf::from("/tmp/waku-computer-use-processes"),
-            process_directory_config: toml_string("/tmp/waku-computer-use-processes"),
+            server_path: PathBuf::from("/tmp/pengpilot-computer-use-server"),
+            server: toml_string("/tmp/pengpilot-computer-use-server"),
+            repl: toml_string("/tmp/pengpilot"),
+            skill_root: PathBuf::from("/tmp/pengpilot-computer-use-skill"),
+            process_directory: PathBuf::from("/tmp/pengpilot-computer-use-processes"),
+            process_directory_config: toml_string("/tmp/pengpilot-computer-use-processes"),
         };
         let mut enabled = Command::new("/usr/bin/true");
         configure_computer_use_command(&mut enabled, Some(&config));
@@ -2350,21 +2353,21 @@ mod tests {
             .map(|argument| argument.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
         // The raw helper must never be registered as a Codex MCP server: the
-        // Waku REPL owns it and exposes only `sky` inside JavaScript.
+        // PengPilot REPL owns it and exposes only `sky` inside JavaScript.
         assert!(
             !enabled_arguments
                 .iter()
-                .any(|argument| argument.contains("mcp_servers.waku_computer_use"))
+                .any(|argument| argument.contains("mcp_servers.pengpilot_computer_use"))
         );
         assert!(
             enabled_arguments
                 .iter()
-                .any(|argument| argument.contains("mcp_servers.waku_js_repl.command"))
+                .any(|argument| argument.contains("mcp_servers.pengpilot_js_repl.command"))
         );
         assert!(
             enabled_arguments
                 .iter()
-                .any(|argument| { argument == "mcp_servers.waku_js_repl.args=[]" })
+                .any(|argument| { argument == "mcp_servers.pengpilot_js_repl.args=[]" })
         );
         assert!(
             enabled_arguments
@@ -2389,14 +2392,14 @@ mod tests {
         assert!(
             enabled
                 .get_envs()
-                .any(|(name, _)| { name.to_string_lossy() == "WAKU_COMPUTER_USE_SERVER" })
+                .any(|(name, _)| { name.to_string_lossy() == "PENGPILOT_COMPUTER_USE_SERVER" })
         );
     }
 
     #[test]
     fn computer_use_process_registry_accepts_only_pid_files() {
         let directory = std::env::temp_dir().join(format!(
-            "waku-computer-use-process-test-{}",
+            "pengpilot-computer-use-process-test-{}",
             Uuid::new_v4().simple()
         ));
         fs::create_dir_all(directory.join("456")).unwrap();
@@ -2799,7 +2802,7 @@ mod tests {
     fn mcp_tool_title_prefers_the_human_facing_argument() {
         let titled = json!({
             "type": "mcpToolCall",
-            "server": "waku_js_repl",
+            "server": "pengpilot_js_repl",
             "tool": "js",
             "arguments": {
                 "title": "Inspect Helium browser",
@@ -2808,7 +2811,7 @@ mod tests {
         });
         let untitled = json!({
             "type": "mcpToolCall",
-            "server": "waku_js_repl",
+            "server": "pengpilot_js_repl",
             "tool": "js",
             "arguments": { "code": "sky.list_apps()" }
         });

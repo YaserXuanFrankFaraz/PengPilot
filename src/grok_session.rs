@@ -165,7 +165,7 @@ fn truncate_at_turn(
     if cutoff.is_none() {
         turns = values.iter().filter(|value| is_prompt(value)).count();
         if turns < retained_turns {
-            bail!("Grok has only {turns} native turns, but Waku needs {retained_turns}");
+            bail!("Grok has only {turns} native turns, but PengPilot needs {retained_turns}");
         }
     }
     Ok(values[..cutoff.unwrap_or(values.len())].to_vec())
@@ -220,7 +220,7 @@ fn write_atomic(
     let parent = path
         .parent()
         .ok_or_else(|| anyhow!("Grok history path has no parent"))?;
-    let temp = parent.join(format!(".waku-{}.tmp", Uuid::new_v4()));
+    let temp = parent.join(format!(".pengpilot-{}.tmp", Uuid::new_v4()));
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]

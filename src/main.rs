@@ -153,7 +153,7 @@ fn main() {
             crate::platform::init_reduce_motion(cx);
 
             // Sparkle only runs from a bundled release build (or when forced
-            // via WAKU_FORCE_UPDATER=1); everywhere else the menu item is
+            // via PENGPILOT_FORCE_UPDATER=1); everywhere else the menu item is
             // omitted along with the updater itself.
             let updater = crate::updater::Updater::init();
             let updater_available = updater.is_some();
@@ -279,7 +279,7 @@ fn main() {
                         waku
                     },
                 )
-                .expect("failed to open Waku window");
+                .expect("failed to open PengPilot window");
 
             cx.on_system_notification_response({
                 let window = window;
