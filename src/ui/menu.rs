@@ -78,7 +78,7 @@ pub fn init(cx: &mut App) {
 }
 
 use crate::theme::Theme;
-use crate::ui::{asset_icon, icon};
+use crate::ui::icon;
 
 /// One row of a menu.
 pub enum MenuItem {
@@ -978,7 +978,7 @@ impl RenderOnce for MenuCard {
                     .text_color(color)
                     .when(selected, |element| element.font_weight(FontWeight::MEDIUM))
                     .when_some(item_icon, |element, path| {
-                        element.child(asset_icon(path, 12.0, color))
+                        element.child(icon(path, 12.0, color))
                     })
                     .child(div().flex_1().min_w_0().truncate().child(label))
                     .when(selected, |element| {

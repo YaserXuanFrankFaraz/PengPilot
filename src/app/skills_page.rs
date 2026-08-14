@@ -743,7 +743,7 @@ impl Waku {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(asset_icon(
+                            .child(icon(
                                 skill.icon(),
                                 13.0,
                                 theme
@@ -1113,7 +1113,7 @@ impl Waku {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(asset_icon(
+                            .child(icon(
                                 skill.icon(),
                                 18.0,
                                 theme

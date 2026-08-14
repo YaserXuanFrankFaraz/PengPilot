@@ -516,7 +516,7 @@ impl Waku {
                 .flex()
                 .items_center()
                 .gap(px(6.0))
-                .child(asset_icon(
+                .child(icon(
                     provider_icon(provider),
                     10.5,
                     provider_color(&theme, provider).opacity(0.9),
@@ -721,7 +721,7 @@ impl Waku {
                                     },
                                 )
                             })
-                            .child(asset_icon(
+                            .child(icon(
                                 provider_icon(kind),
                                 18.0,
                                 provider_color(&theme, kind).opacity(if selected {
@@ -846,7 +846,7 @@ impl Waku {
                                             .flex()
                                             .items_center()
                                             .gap(px(6.0))
-                                            .child(asset_icon(
+                                            .child(icon(
                                                 provider_icon(kind),
                                                 10.5,
                                                 provider_color(&theme, kind).opacity(0.85),
