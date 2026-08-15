@@ -5041,7 +5041,7 @@ dependencies = [
 
 [[package]]
 name = "pengpilot"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "agent-client-protocol",
  "alacritty_terminal",
