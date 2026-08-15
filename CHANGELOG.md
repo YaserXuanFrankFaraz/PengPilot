@@ -16,6 +16,11 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.5]
+
+- Reduce the macOS ad-hoc release size while preserving runtime features
+- Clarify PengPilot's independent identity and thank the Waku project
+
 ## [0.1.4]
 
 - Replace the PengPilot app icon with the latest eagle-and-P artwork

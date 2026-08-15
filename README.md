@@ -22,10 +22,12 @@ settings on your machine while preserving each provider's native session and
 structured event stream.
 
 > [!IMPORTANT]
-> PengPilot is an independent modified version of
-> [Waku](https://github.com/egoist/waku), not an official Waku release. The
-> PengPilot modifications began on August 14, 2026. This repository retains
-> Waku's Git history and identifies PengPilot-specific changes.
+> PengPilot is an independent project with its own name, brand, product
+> direction, design, releases, and community. It is not affiliated with or
+> endorsed by Waku. PengPilot began as a GPL-3.0 modification of
+> [Waku](https://github.com/egoist/waku) on August 14, 2026. This repository
+> retains Waku's Git history, required attribution, and PengPilot-specific
+> changes.
 
 [Download PengPilot](https://github.com/YaserXuanFrankFaraz/PengPilot/releases)
 
@@ -75,8 +77,8 @@ where the selected provider supports them.
   quota data, including Grok Build history.
 - On macOS, optionally enable isolated Computer Use for Codex, OpenCode, Grok,
   and Pi, with per-app approval plus Screen Recording and Accessibility grants.
-- Bundle Sparkle update support in macOS release builds; public distribution
-  requires a configured feed and signing key.
+- Support Sparkle updates in properly signed macOS release builds. Current
+  ad-hoc GitHub releases use manual updates.
 
 The embedded browser and Computer Use are currently macOS-only. Core agent
 sessions, projects, transcripts, skills, usage, diffs, file editing, and the
@@ -104,6 +106,11 @@ PengPilot requires macOS 13 or newer.
 3. Install and authenticate the agent CLI or CLIs you want to use.
 4. Launch PengPilot and confirm detection under Settings → Providers.
 
+Current GitHub builds are ad-hoc signed and not notarized. On first launch,
+Control-click PengPilot and choose Open. If macOS still blocks it, use System
+Settings → Privacy & Security → Open Anyway. Updates are installed manually
+from GitHub Releases.
+
 Computer Use requires separate macOS Screen Recording and Accessibility
 permission for PengPilot's isolated helper.
 
@@ -130,22 +137,22 @@ changes. Do not run a second watcher against the same checkout.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for platform prerequisites and checks,
 and [RELEASING.md](RELEASING.md) for signed release packaging.
 
-### Changes from Waku
+### PengPilot direction
 
-PengPilot currently adds independent branding, bundle identifiers, local data
-paths, Oh My Pi, Kiro CLI, and Hermes Agent integrations, Grok Build usage
-history, and PengPilot-specific release infrastructure. The exact changes are
-preserved in this repository's Git history.
+PengPilot has its own product direction, visual identity, bundle identifiers,
+local data paths, provider integrations, and release infrastructure. Current
+work includes Oh My Pi, Kiro CLI, and Hermes Agent integrations plus Grok Build
+usage history. Exact changes are preserved in this repository's Git history.
 
-### Upstream and attribution
+### Thanks and attribution
 
-PengPilot is based on [Waku](https://github.com/egoist/waku) by egoist and Waku
-contributors. Copyright remains with the respective Waku and PengPilot
-contributors. Upstream copyright, license, attribution, and no-warranty
-notices are retained in this repository and its history.
-
-The `upstream` Git remote should point to `https://github.com/egoist/waku.git`
-when synchronizing future Waku changes.
+PengPilot gratefully thanks egoist and every
+[Waku](https://github.com/egoist/waku) contributor for the foundation on which
+this project began. PengPilot is independently named, developed, maintained,
+and released; it is not a Waku product or official successor. Copyright
+remains with the respective Waku and PengPilot contributors. Upstream
+copyright, license, attribution, and no-warranty notices remain in this
+repository and its history.
 
 ### License and redistribution obligations
 
@@ -192,9 +199,10 @@ PengPilot 是一款使用 Rust 和
 同时保留各服务商原生会话及结构化事件流。
 
 > [!IMPORTANT]
-> PengPilot 是 [Waku](https://github.com/egoist/waku) 的独立修改版本，
-> 并非 Waku 官方发行版。PengPilot 的修改始于 2026 年 8 月 14 日。
-> 本仓库保留 Waku 的完整 Git 历史，并标识 PengPilot 的专属修改。
+> PengPilot 是拥有独立名称、品牌、产品方向、设计、发行与社区的独立项目，
+> 与 Waku 无隶属关系，也未获得其官方背书。PengPilot 于 2026 年 8 月 14 日
+> 从 [Waku](https://github.com/egoist/waku) 的 GPL-3.0 修改版本起步。
+> 本仓库保留 Waku 的完整 Git 历史、必要署名及 PengPilot 专属修改。
 
 [下载 PengPilot](https://github.com/YaserXuanFrankFaraz/PengPilot/releases)
 
@@ -235,7 +243,8 @@ PengPilot 是一款使用 Rust 和
 - 查看本地用量历史、Token/费用拆分及可用的账户额度信息，包括 Grok Build 历史。
 - macOS 上可为 Codex、OpenCode、Grok 和 Pi 启用隔离的 Computer Use，并通过
   应用白名单、屏幕录制和辅助功能权限控制访问。
-- macOS Release 构建包含 Sparkle 更新能力；公开分发前必须配置更新源和签名密钥。
+- 使用正式签名的 macOS Release 构建支持 Sparkle 更新；当前 GitHub ad-hoc
+  发行版采用手动更新。
 
 内嵌浏览器与 Computer Use 目前仅支持 macOS。Linux 原生支持智能体会话、项目、
 对话记录、Skills、用量、差异审查、文件编辑和终端。
@@ -259,6 +268,10 @@ PengPilot 要求 macOS 13 或更高版本。
 2. 打开 DMG，将 `PengPilot.app` 拖入「应用程序」。
 3. 安装并登录需要使用的智能体 CLI。
 4. 启动 PengPilot，在「设置 → 服务商」中确认检测结果。
+
+当前 GitHub 构建使用 ad-hoc 签名且未经 Apple 公证。首次启动时，请按住 Control
+点击 PengPilot 并选择「打开」。如果 macOS 仍然拦截，请前往「系统设置 →
+隐私与安全性 → 仍要打开」。后续版本需从 GitHub Releases 手动下载安装。
 
 Computer Use 需要为 PengPilot 的隔离辅助程序单独授予 macOS「屏幕录制」和
 「辅助功能」权限。
@@ -284,20 +297,18 @@ bun run dev
 平台依赖和检查命令见 [CONTRIBUTING.md](CONTRIBUTING.md)，签名发行流程见
 [RELEASING.md](RELEASING.md)。
 
-### 相比 Waku 的修改
+### PengPilot 的独立方向
 
-PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、Oh My Pi、Kiro CLI、
-Hermes Agent 集成、Grok Build 用量历史，以及 PengPilot 专属发布基础设施。
-所有具体修改均保留在本仓库的 Git 历史中。
+PengPilot 拥有自己的产品方向、视觉品牌、Bundle ID、本地数据路径、服务商集成与
+发布基础设施。目前的独立工作包括 Oh My Pi、Kiro CLI、Hermes Agent 集成及
+Grok Build 用量历史。所有具体修改均保留在本仓库的 Git 历史中。
 
-### 上游与署名
+### 致谢与署名
 
-PengPilot 基于 egoist 与 Waku 贡献者开发的
-[Waku](https://github.com/egoist/waku)。版权分别归 Waku 与 PengPilot 的相应
-贡献者所有。本仓库及其历史保留上游版权、许可证、署名与无担保声明。
-
-同步 Waku 后续改动时，`upstream` Git remote 应指向
-`https://github.com/egoist/waku.git`。
+PengPilot 衷心感谢 egoist 与所有 [Waku](https://github.com/egoist/waku)
+贡献者，为本项目的起步奠定基础。PengPilot 拥有独立名称，由自身团队独立开发、
+维护和发行；它不是 Waku 产品，也不是其官方继任者。版权分别归 Waku 与 PengPilot
+的相应贡献者所有。本仓库及其历史继续保留上游版权、许可证、署名与无担保声明。
 
 ### 许可证与再分发义务
 

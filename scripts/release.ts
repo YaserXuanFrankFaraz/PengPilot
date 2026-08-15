@@ -404,13 +404,17 @@ try {
       : "Building and assembling the app bundle",
   );
   await $`env PENGPILOT_CODESIGN_IDENTITY=${identity} PENGPILOT_ANALYTICS_ENDPOINT=${analyticsEndpoint ?? ""} PENGPILOT_ANALYTICS_WEBSITE_ID=${analyticsWebsiteId ?? ""} PENGPILOT_SKIP_CARGO_BUILD=${values["skip-build"] ? "1" : "0"} ${join(projectRoot, "scripts", "bundle.sh")} release`;
+  if (adhoc) {
+    // ponytail: Sparkle cannot provide signed updates in an ad-hoc release.
+    await rm(bundledSparkleFramework, { force: true, recursive: true });
+  }
   for (const artifact of [
     join(contentsDirectory, "MacOS", executableName),
     bundledJsReplExecutable,
     bundledComputerUseSkill,
     bundledPiComputerUseExtension,
     bundledComputerUseHelper,
-    join(bundledSparkleFramework, "Sparkle"),
+    ...(!adhoc ? [join(bundledSparkleFramework, "Sparkle")] : []),
   ]) {
     await access(artifact);
   }
@@ -496,7 +500,7 @@ try {
       "pi-extension.ts",
     ),
     mountedComputerUseHelper,
-    join(mountedSparkleFramework, "Sparkle"),
+    ...(!adhoc ? [join(mountedSparkleFramework, "Sparkle")] : []),
   ]) {
     await access(artifact);
   }
@@ -511,7 +515,9 @@ try {
   }
   await $`codesign --verify --strict --verbose=2 ${mountedJsRepl}`;
   await $`codesign --verify --deep --strict --verbose=2 ${mountedComputerUseHelper}`;
-  await $`codesign --verify --strict --verbose=2 ${mountedSparkleFramework}`;
+  if (!adhoc) {
+    await $`codesign --verify --strict --verbose=2 ${mountedSparkleFramework}`;
+  }
   await $`codesign --verify --deep --strict --verbose=2 ${mountedApp}`;
   await verifyJavaScriptRepl(mountedJsRepl);
   await $`diskutil eject ${mountDirectory}`;
@@ -546,7 +552,7 @@ try {
     await $`xcrun stapler staple -v ${appBundle}`;
   } else if (adhoc) {
     console.warn(
-      "\nCreated an ad-hoc signed DMG. It is suitable for local testing only.",
+      "\nCreated an ad-hoc signed, unnotarized DMG. Manual Gatekeeper approval may be required.",
     );
   } else {
     console.warn(
