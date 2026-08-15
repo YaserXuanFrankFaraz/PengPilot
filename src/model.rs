@@ -35,10 +35,9 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
-    /// Visible catalog and PATH probes. Other enum variants remain so older
-    /// sessions still deserialize.
-    pub const FEATURED: [Self; 15] = [
-        Self::Prime,
+    /// Public catalog for new work. Other enum variants remain so older
+    /// sessions still deserialize and continue running.
+    pub const FEATURED: [Self; 14] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -54,17 +53,27 @@ impl ProviderKind {
         Self::Pi,
         Self::Omp,
     ];
-    pub const ALL: [Self; 15] = Self::FEATURED;
+    /// Runtime integrations retained for current and legacy sessions.
+    pub const ALL: [Self; 15] = [
+        Self::Claude,
+        Self::Codex,
+        Self::Cursor,
+        Self::OpenCode,
+        Self::Grok,
+        Self::Kiro,
+        Self::Trae,
+        Self::DeepSeek,
+        Self::Hermes,
+        Self::OpenClaw,
+        Self::Copilot,
+        Self::Kimi,
+        Self::Pi,
+        Self::Omp,
+        Self::Prime,
+    ];
 
     pub fn is_featured(self) -> bool {
         Self::FEATURED.contains(&self)
-    }
-
-    pub(crate) fn featured_rank(self) -> usize {
-        Self::FEATURED
-            .iter()
-            .position(|kind| *kind == self)
-            .unwrap_or(usize::MAX)
     }
 
     pub fn for_new_work(self) -> Self {
@@ -2998,6 +3007,12 @@ mod tests {
         assert_eq!(ProviderKind::Copilot.command(), "copilot");
         assert_eq!(ProviderKind::QoderCn.command(), "qoderclicn");
         assert_eq!(ProviderKind::Trae.command(), "traecli");
+    }
+
+    #[test]
+    fn prime_is_runtime_only_until_verified() {
+        assert!(!ProviderKind::Prime.is_featured());
+        assert!(ProviderKind::ALL.contains(&ProviderKind::Prime));
     }
 
     #[test]

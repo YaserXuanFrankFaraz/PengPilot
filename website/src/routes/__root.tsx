@@ -14,7 +14,7 @@ const SOCIAL_IMAGE =
   'https://raw.githubusercontent.com/YaserXuanFrankFaraz/PengPilot/main/website/public/og-icon.png'
 const TITLE = 'PengPilot — one native app for all your coding agents'
 const DESCRIPTION =
-  'A fast, native app for local coding agents. Prime Agent, Claude Code, Codex, Cursor, OpenCode, Grok, Kiro, Trae, DeepSeek, Hermes, OpenClaw, Copilot, Kimi, Pi, and Oh My Pi — one timeline, entirely on your machine.'
+  'A fast, native app for local coding agents. Claude Code, Codex, Cursor, OpenCode, Grok, Kiro, Trae, DeepSeek, Hermes, OpenClaw, Copilot, Kimi, Pi, and Oh My Pi — one timeline, entirely on your machine.'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient

@@ -35,7 +35,6 @@ export const Route = createFileRoute('/')({
 })
 
 const PROVIDERS = [
-  { slug: 'prime', label: 'Prime Agent (CLI)' },
   { slug: 'claude', label: 'Claude Code (CLI)' },
   { slug: 'openai', label: 'Codex (CLI)' },
   { slug: 'cursor', label: 'Cursor (CLI)' },

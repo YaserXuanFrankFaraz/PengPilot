@@ -1835,7 +1835,7 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
         probe(ProviderKind::Hermes, true),
     ];
 
-    // Catalog is featured-only, detected first, FEATURED order (Prime first).
+    // Catalog is featured-only, detected first, alphabetical inside each group.
     let provider_order = provider_picker_order(&probes, None);
     assert_eq!(
         &provider_order[..5],
@@ -1843,23 +1843,22 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ProviderKind::Claude,
             ProviderKind::Codex,
             ProviderKind::Cursor,
-            ProviderKind::Hermes,
             ProviderKind::Copilot,
+            ProviderKind::Hermes,
         ]
     );
     assert_eq!(
         &provider_order[5..],
         &[
-            ProviderKind::Prime,
-            ProviderKind::OpenCode,
-            ProviderKind::Grok,
-            ProviderKind::Kiro,
-            ProviderKind::Trae,
             ProviderKind::DeepSeek,
-            ProviderKind::OpenClaw,
+            ProviderKind::Grok,
             ProviderKind::Kimi,
-            ProviderKind::Pi,
+            ProviderKind::Kiro,
             ProviderKind::Omp,
+            ProviderKind::OpenClaw,
+            ProviderKind::OpenCode,
+            ProviderKind::Pi,
+            ProviderKind::Trae,
         ]
     );
 
@@ -1871,8 +1870,8 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ModelPickerTab::Provider(ProviderKind::Claude),
             ModelPickerTab::Provider(ProviderKind::Codex),
             ModelPickerTab::Provider(ProviderKind::Cursor),
-            ModelPickerTab::Provider(ProviderKind::Hermes),
             ModelPickerTab::Provider(ProviderKind::Copilot),
+            ModelPickerTab::Provider(ProviderKind::Hermes),
         ]
     );
 
@@ -1883,8 +1882,8 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ModelPickerTab::Favorites,
             ModelPickerTab::Provider(ProviderKind::Codex),
             ModelPickerTab::Provider(ProviderKind::Cursor),
-            ModelPickerTab::Provider(ProviderKind::Hermes),
             ModelPickerTab::Provider(ProviderKind::Copilot),
+            ModelPickerTab::Provider(ProviderKind::Hermes),
         ]
     );
 

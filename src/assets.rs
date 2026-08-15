@@ -196,10 +196,16 @@ const ICONS: &[(&str, &[u8])] = icons![
     "zap",
 ];
 
-const IMAGES: &[(&str, &[u8])] = &[(
-    "icons/provider-hermes.png",
-    include_bytes!("../assets/icons/provider-hermes.png"),
-)];
+const IMAGES: &[(&str, &[u8])] = &[
+    (
+        "icons/pengpilot.png",
+        include_bytes!("../website/public/app-icon.png"),
+    ),
+    (
+        "icons/provider-hermes.png",
+        include_bytes!("../assets/icons/provider-hermes.png"),
+    ),
+];
 
 const TEXT_FONTS: &[&[u8]] = &[
     include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf"),

@@ -102,17 +102,100 @@ Cloudflare, `no_check_bucket = true`) is shared with kero and needs no change.
 
 ---
 
+## Release gates — blocking
+
+These gates apply to every public build, including ad-hoc dogfooding releases.
+Do not create a tag, upload artifacts, or publish a release while any gate is
+open.
+
+### 1. Every featured provider passes a real CLI test
+
+`ProviderKind::FEATURED` is the release support boundary. On the exact commit
+being packaged, install and authenticate every featured CLI, then explicitly
+run its real integration test. A normal `cargo test` run that reports an
+`#[ignore]`d provider test does **not** satisfy this gate.
+
+Each provider must demonstrate:
+
+1. detection from the same environment used by the packaged app;
+2. model or agent discovery;
+3. session start and streamed response completion;
+4. tool activity and permission behavior when the CLI supports them;
+5. a second turn or native resume;
+6. stop/cancel and visible error recovery; and
+7. every provider-specific capability advertised by PengPilot.
+
+Record one row per provider in the release notes before packaging:
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Every `ProviderKind::FEATURED` entry | exact version | explicit real test | pass | YYYY-MM-DD |
+
+Missing credentials, unavailable services, absent dedicated tests, or a failed
+check block the release. The only acceptable alternative is to remove that
+provider from `ProviderKind::FEATURED`, Settings, the model picker, README, and
+release claims before proceeding. This is deliberate product restraint: a
+provider is a maintained commitment, not a catalog-count feature.
+
+### 2. Clean and audit the package footprint
+
+Perform this audit before implementing each new feature and again immediately
+before its release build. Delete obsolete functionality and bundled material
+first. New dependencies, frameworks, helpers, runtimes, models, duplicate
+artwork, fallback catalogs, and assets need a current shipped use; speculative
+or development-only files do not belong in the app.
+
+Before packaging, remove only stale assembled outputs for the target version:
+
+```sh
+version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+rm -f "dist/PengPilot-${version}.dmg" "dist/PengPilot-${version}.zip"
+```
+
+`scripts/bundle.sh` recreates the `.app` directory, while `release.ts` recreates
+the DMG and update staging directory. Do not use `cargo clean` as package
+hygiene: it deletes compiler caches but does not remove shipped bytes. Do not
+use `--skip-build` for a public release unless both release executables were
+freshly built from the exact commit and no source or bundled resource is newer.
+
+After packaging, inspect the actual App and mounted DMG, not only build output:
+
+```sh
+du -sk target/release/PengPilot.app
+find target/release/PengPilot.app -type f -exec du -h {} + | sort -h | tail -30
+stat -f '%z %N' dist/PengPilot-*.dmg dist/PengPilot-*.zip
+```
+
+Record App, DMG, and ZIP sizes beside the previous release. Remove unused
+architectures, debug symbols, development headers/modules, caches, logs,
+temporary data, stale resources, empty embedded products, and frameworks not
+used by that release mode. Any unexplained size increase blocks release;
+necessary growth must be identified in the release notes.
+
+### 3. Final artifact verification
+
+The full test suite, provider matrix, formatting checks, mounted-DMG contents,
+bundle metadata, Apple-silicon architecture, signatures, notarization state,
+and SHA-256 checksums must all match the release notes. Generated `target/` and
+`dist/` outputs stay out of Git. Current product support is Apple-silicon
+macOS only; retained Intel, Windows, or Linux code and CI do not imply support
+and their artifacts must not be attached to a public PengPilot release.
+
+---
+
 ## Cutting a release
 
-1. **Bump `version` in `Cargo.toml`** — the single source of truth.
+1. **Close every release gate above.** Provider evidence and package-size
+   comparison are mandatory, not follow-up work.
+2. **Bump `version` in `Cargo.toml`** — the single source of truth.
    `CFBundleShortVersionString` is the version, and `CFBundleVersion` is
    derived from it (`major*1e6 + minor*1e3 + patch`, so `0.2.0` → `2000`),
    which keeps Sparkle's build-number comparison monotonic without a manual
    counter. Prerelease versions (`-beta.1`) are refused for publishing — the
    appcast serves one stable channel.
-2. **Write the release notes** — add a `## [<version>]` section at the top of
+3. **Write the release notes** — add a `## [<version>]` section at the top of
    [`CHANGELOG.md`](CHANGELOG.md).
-3. **Run it:**
+4. **Run it:**
    ```sh
    bun run release
    ```

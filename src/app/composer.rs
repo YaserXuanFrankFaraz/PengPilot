@@ -2985,7 +2985,7 @@ pub(super) fn visible_picker_tabs(
     tabs
 }
 
-/// Featured catalog only: detected first, then FEATURED order (Prime first).
+/// Featured catalog only: detected first, alphabetical inside each group.
 /// `extra` keeps a live non-featured session visible.
 pub(super) fn provider_picker_order(
     probes: &[ProviderProbe],
@@ -3002,7 +3002,7 @@ pub(super) fn provider_picker_order(
             !probes
                 .iter()
                 .any(|probe| probe.provider == *kind && probe.installed),
-            kind.featured_rank(),
+            kind.display_name(),
         )
     });
     providers

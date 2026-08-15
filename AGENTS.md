@@ -13,6 +13,38 @@
   manually when it is confirmed unavailable.
 - No visual test unless requested.
 
+## Product restraint
+
+- Treat every feature and featured provider as a permanent maintenance cost.
+  Before implementation, confirm that the user value is not already covered by
+  an existing flow, provider, platform feature, or installed dependency.
+- Before adding any feature, audit its release footprint. Remove obsolete code,
+  assets, bundled tools, frameworks, and dependencies first; do not retain
+  speculative fallbacks or resources that the shipped feature does not need.
+- A provider belongs in `ProviderKind::FEATURED`, Settings, the model picker,
+  and the README only after a real authenticated CLI test passes on the target
+  Apple-silicon release commit. Detection on `PATH`, a mock, or a unit test is
+  not sufficient.
+- Provider lists group detected before undetected CLIs and sort alphabetically
+  inside each group. Never give one provider special rank or default priority.
+- Provider verification must cover CLI detection, model discovery, starting a
+  turn, streamed output, tool or permission handling, a second turn or resume,
+  stopping, and error recovery. Every advertised special capability needs its
+  own live check.
+- Before every release, rerun the live test for every featured provider on the
+  exact commit being packaged. An `#[ignore]`d test counts only when explicitly
+  run and passed. If one provider cannot be verified, the release is blocked
+  until that provider passes or is removed from the featured catalog and
+  public support claims.
+- Before every release build, discard stale assembled App/DMG/ZIP outputs and
+  rebuild them from the exact commit. Audit the final bundle and remove
+  non-runtime files, unused architectures, debug symbols, development assets,
+  unnecessary frameworks, and stale resources. Do not use `cargo clean` as a
+  substitute: compiler-cache deletion does not make the shipped app smaller.
+- Record App, DMG, and ZIP sizes and compare them with the previous release.
+  Any unexplained growth blocks release; necessary growth must be called out in
+  the release notes.
+
 ## Performance
 
 - Treat performance as a product requirement, not a follow-up. PengPilot is a native

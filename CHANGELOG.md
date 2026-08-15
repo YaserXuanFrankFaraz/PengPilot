@@ -16,6 +16,14 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.9]
+
+- Replace the new-task empty-state sparkle with the PengPilot app icon.
+- Hide Prime Agent from the featured catalog and public provider lists until it
+  passes real end-to-end validation and demonstrates user demand. Existing
+  Prime Agent sessions remain compatible; any future restoration uses the same
+  detected/undetected alphabetical ordering without default priority.
+
 ## [0.1.8]
 
 - Focus the provider catalog on 15 CLIs, labeled with `(CLI)` in menus.

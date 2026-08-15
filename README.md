@@ -31,30 +31,37 @@ structured event stream.
 
 [Download PengPilot](https://github.com/YaserXuanFrankFaraz/PengPilot/releases)
 
-### Supported agents
+### Agent catalog and verification
 
 Install and authenticate at least one CLI before starting PengPilot. The app
 detects CLIs on `PATH`; Settings → Providers also accepts an explicit binary
 path. Detected providers appear first, followed by providers not found on
-`PATH`. Prime Agent is listed first.
+`PATH`.
 
-| Agent | Command |
-| --- | --- |
-| [Prime Agent (CLI)](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
-| Claude Code (CLI) | `claude` |
-| Codex (CLI) | `codex` |
-| Cursor (CLI) | `cursor-agent` |
-| OpenCode (CLI) | `opencode` |
-| Grok Build (CLI) | `grok` |
-| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` |
-| Trae (CLI) | `traecli` |
-| DeepSeek Harness (CLI) | `dsh` |
-| [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` |
-| OpenClaw (CLI) | `openclaw` |
-| GitHub Copilot (CLI) | `copilot` |
-| Kimi Code (CLI) | `kimi` |
-| Pi (CLI) | `pi` |
-| [Oh My Pi (CLI)](https://omp.sh/) | `omp` |
+Catalog presence means PengPilot can detect and route the CLI; it is not by
+itself a compatibility guarantee. A provider is release-supported only after
+an authenticated, real-CLI end-to-end test passes on that exact release
+commit. v0.1.8 predates this gate, so every row remains experimental until
+release-specific evidence is recorded. The next release is blocked unless
+every row passes or the unverified provider is removed from the featured
+catalog and public support claims.
+
+| Agent | Command | v0.1.8 verification |
+| --- | --- | --- |
+| Claude Code (CLI) | `claude` | Not recorded; real E2E required |
+| Codex (CLI) | `codex` | Not recorded; real E2E required |
+| Cursor (CLI) | `cursor-agent` | Not recorded; real E2E required |
+| OpenCode (CLI) | `opencode` | Not recorded; real E2E required |
+| Grok Build (CLI) | `grok` | Not recorded; real E2E required |
+| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` | Not recorded; real E2E required |
+| Trae (CLI) | `traecli` | Not recorded; real E2E required |
+| DeepSeek Harness (CLI) | `dsh` | Not recorded; real E2E required |
+| [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` | Not recorded; real E2E required |
+| OpenClaw (CLI) | `openclaw` | Not recorded; real E2E required |
+| GitHub Copilot (CLI) | `copilot` | Not recorded; real E2E required |
+| Kimi Code (CLI) | `kimi` | Not recorded; real E2E required |
+| Pi (CLI) | `pi` | Not recorded; real E2E required |
+| [Oh My Pi (CLI)](https://omp.sh/) | `omp` | Not recorded; real E2E required |
 
 Capabilities vary with each CLI and protocol. PengPilot exposes model
 discovery, permissions, steering, rollback, forking, and Computer Use only
@@ -145,7 +152,7 @@ and [RELEASING.md](RELEASING.md) for signed release packaging.
 ### PengPilot direction
 
 PengPilot currently adds independent branding, bundle identifiers, local data
-paths, All Tasks and Four-Quadrant workflows, a focused fifteen-provider CLI
+paths, All Tasks and Four-Quadrant workflows, a focused fourteen-provider CLI
 catalog, PATH-aware provider grouping, Grok Build usage history, and
 PengPilot-specific release infrastructure. The exact changes are preserved in
 this repository's Git history.
@@ -212,29 +219,33 @@ PengPilot 是一款使用 Rust 和
 
 [下载 PengPilot](https://github.com/YaserXuanFrankFaraz/PengPilot/releases)
 
-### 支持的智能体
+### 智能体目录与验证
 
 启动 PengPilot 前，请至少安装并登录一个 CLI。PengPilot 会从 `PATH`
 自动检测，也可以在「设置 → 服务商」中指定可执行文件路径。
-已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方。Prime Agent 排在最前。
+已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方。
 
-| 智能体 | 命令 |
-| --- | --- |
-| [Prime Agent（CLI）](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
-| Claude Code（CLI） | `claude` |
-| Codex（CLI） | `codex` |
-| Cursor（CLI） | `cursor-agent` |
-| OpenCode（CLI） | `opencode` |
-| Grok Build（CLI） | `grok` |
-| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` |
-| Trae（CLI） | `traecli` |
-| DeepSeek Harness（CLI） | `dsh` |
-| [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` |
-| OpenClaw（CLI） | `openclaw` |
-| GitHub Copilot（CLI） | `copilot` |
-| Kimi Code（CLI） | `kimi` |
-| Pi（CLI） | `pi` |
-| [Oh My Pi（CLI）](https://omp.sh/) | `omp` |
+进入目录只表示 PengPilot 能检测并路由该 CLI，本身不等于兼容性承诺。只有在目标
+发布提交上通过已登录真实 CLI 的端到端测试，才可称为该版本正式支持。v0.1.8
+早于这项门禁，因此下列服务商在记录对应版本的测试证据前均视为实验性支持。
+下一版本发布前，每一项必须通过；否则应从精选目录与公开支持声明中移除。
+
+| 智能体 | 命令 | v0.1.8 验证状态 |
+| --- | --- | --- |
+| Claude Code（CLI） | `claude` | 未记录；必须完成真实 E2E |
+| Codex（CLI） | `codex` | 未记录；必须完成真实 E2E |
+| Cursor（CLI） | `cursor-agent` | 未记录；必须完成真实 E2E |
+| OpenCode（CLI） | `opencode` | 未记录；必须完成真实 E2E |
+| Grok Build（CLI） | `grok` | 未记录；必须完成真实 E2E |
+| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` | 未记录；必须完成真实 E2E |
+| Trae（CLI） | `traecli` | 未记录；必须完成真实 E2E |
+| DeepSeek Harness（CLI） | `dsh` | 未记录；必须完成真实 E2E |
+| [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` | 未记录；必须完成真实 E2E |
+| OpenClaw（CLI） | `openclaw` | 未记录；必须完成真实 E2E |
+| GitHub Copilot（CLI） | `copilot` | 未记录；必须完成真实 E2E |
+| Kimi Code（CLI） | `kimi` | 未记录；必须完成真实 E2E |
+| Pi（CLI） | `pi` | 未记录；必须完成真实 E2E |
+| [Oh My Pi（CLI）](https://omp.sh/) | `omp` | 未记录；必须完成真实 E2E |
 
 不同 CLI 和协议支持的能力并不完全相同。模型发现、权限交互、运行中追加指令、
 回退、派生会话及 Computer Use 仅在对应服务商支持时显示。已经用其他 CLI
@@ -311,7 +322,7 @@ bun run dev
 ### PengPilot 的独立方向
 
 PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、全任务与四象限工作流、
-15 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
+14 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
 以及 PengPilot 专属发布基础设施。所有具体修改均保留在本仓库的 Git 历史中。
 
 ### 致谢与署名

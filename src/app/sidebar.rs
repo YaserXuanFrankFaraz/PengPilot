@@ -1740,7 +1740,7 @@ impl Waku {
             .justify_center()
             .px_8()
             .pb(px(52.0))
-            .child(icon("icons/sparkle.svg", 20.0, theme.accent))
+            .child(file_icon("icons/pengpilot.png", 44.0))
             .child(
                 div()
                     .mt(px(14.0))

@@ -435,6 +435,7 @@ mod tests {
             "icons/bot.svg",
             "icons/rotate-cw.svg",
             "icons/package.svg",
+            "icons/pengpilot.png",
             "icons/trash.svg",
         ];
         for provider in ProviderKind::ALL {
