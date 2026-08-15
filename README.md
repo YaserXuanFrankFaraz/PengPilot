@@ -39,14 +39,13 @@ path. Detected providers appear first, followed by providers not found on
 `PATH`.
 
 Catalog presence means PengPilot can detect and route the CLI; it is not by
-itself a compatibility guarantee. A provider is release-supported only after
-an authenticated, real-CLI end-to-end test passes on that exact release
-commit. v0.1.8 predates this gate, so every row remains experimental until
-release-specific evidence is recorded. The next release is blocked unless
-every row passes or the unverified provider is removed from the featured
-catalog and public support claims.
+itself a compatibility guarantee. A provider becomes verified only after an
+authenticated, real-CLI end-to-end test passes on that exact release commit.
+PengPilot is currently a personal dogfooding build, so missing evidence does
+not block an ad-hoc release; unverified entries remain experimental and are not
+claimed as release-verified support.
 
-| Agent | Command | v0.1.8 verification |
+| Agent | Command | v0.1.10 verification |
 | --- | --- | --- |
 | Claude Code (CLI) | `claude` | Not recorded; real E2E required |
 | Codex (CLI) | `codex` | Not recorded; real E2E required |
@@ -224,11 +223,11 @@ PengPilot 是一款使用 Rust 和
 已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方。
 
 进入目录只表示 PengPilot 能检测并路由该 CLI，本身不等于兼容性承诺。只有在目标
-发布提交上通过已登录真实 CLI 的端到端测试，才可称为该版本正式支持。v0.1.8
-早于这项门禁，因此下列服务商在记录对应版本的测试证据前均视为实验性支持。
-下一版本发布前，每一项必须通过；否则应从精选目录与公开支持声明中移除。
+发布提交上通过已登录真实 CLI 的端到端测试，才可称为该版本已验证。PengPilot
+目前属于个人 dogfooding 版本，因此缺少证据不会阻止 ad-hoc 发布；未验证项目继续
+标记为实验性支持，不宣称已经通过该版本验证。
 
-| 智能体 | 命令 | v0.1.8 验证状态 |
+| 智能体 | 命令 | v0.1.10 验证状态 |
 | --- | --- | --- |
 | Claude Code（CLI） | `claude` | 未记录；必须完成真实 E2E |
 | Codex（CLI） | `codex` | 未记录；必须完成真实 E2E |

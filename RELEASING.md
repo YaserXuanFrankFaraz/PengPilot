@@ -108,12 +108,13 @@ These gates apply to every public build, including ad-hoc dogfooding releases.
 Do not create a tag, upload artifacts, or publish a release while any gate is
 open.
 
-### 1. Every featured provider passes a real CLI test
+### 1. Record real CLI evidence
 
-`ProviderKind::FEATURED` is the release support boundary. On the exact commit
-being packaged, install and authenticate every featured CLI, then explicitly
-run its real integration test. A normal `cargo test` run that reports an
-`#[ignore]`d provider test does **not** satisfy this gate.
+`ProviderKind::FEATURED` is the visible dogfooding catalog, not proof that every
+entry passed a real CLI test. On the exact commit being packaged, record any
+authenticated real integration tests that were actually run. A normal
+`cargo test` run that reports an `#[ignore]`d provider test is not real-CLI
+evidence.
 
 Each provider must demonstrate:
 
@@ -131,11 +132,11 @@ Record one row per provider in the release notes before packaging:
 | --- | --- | --- | --- | --- |
 | Every `ProviderKind::FEATURED` entry | exact version | explicit real test | pass | YYYY-MM-DD |
 
-Missing credentials, unavailable services, absent dedicated tests, or a failed
-check block the release. The only acceptable alternative is to remove that
-provider from `ProviderKind::FEATURED`, Settings, the model picker, README, and
-release claims before proceeding. This is deliberate product restraint: a
-provider is a maintained commitment, not a catalog-count feature.
+Missing credentials, unavailable services, or absent dedicated tests do not
+block an ad-hoc personal dogfooding release. They must remain disclosed as
+unverified, and the release must not claim verified support. A failed real test
+does block that provider claim: fix it or hide the provider from new work while
+retaining old-session compatibility.
 
 ### 2. Clean and audit the package footprint
 
@@ -185,8 +186,9 @@ and their artifacts must not be attached to a public PengPilot release.
 
 ## Cutting a release
 
-1. **Close every release gate above.** Provider evidence and package-size
-   comparison are mandatory, not follow-up work.
+1. **Close every release gate above.** Package-size comparison is mandatory;
+   provider evidence must be honest but may remain incomplete for an ad-hoc
+   personal dogfooding release.
 2. **Bump `version` in `Cargo.toml`** — the single source of truth.
    `CFBundleShortVersionString` is the version, and `CFBundleVersion` is
    derived from it (`major*1e6 + minor*1e3 + patch`, so `0.2.0` → `2000`),
@@ -217,26 +219,22 @@ Test by keeping an older build around, launching it, and choosing
 
 ### GitHub draft release + R2 sync
 
-Pushing a `v*` tag (matching the `version` in `Cargo.toml`) runs the Release
-workflow. macOS CI runs `bun run release --local`, which signs, notarizes, and
-writes the same artifacts as a local release:
+The Release workflow is manual until PengPilot has Developer ID, notarization,
+and Sparkle signing credentials. Its macOS job runs `bun run release --local`
+and writes the same artifacts as a local release:
 
 - `PengPilot-<version>.dmg`
 - `PengPilot-<version>.zip`
 - `appcast.xml` (Sparkle-signed)
 
-Linux CI adds:
-
-- `pengpilot-<version>-x86_64-unknown-linux-gnu.tar.gz`
-- `pengpilot-<version>-aarch64-unknown-linux-gnu.tar.gz`
-
 The workflow opens (or updates) a **draft** GitHub release with those files and
-the matching `CHANGELOG.md` section. Publishing the GitHub release syncs the
-assets — including the signed `appcast.xml` — to R2.
+the matching `CHANGELOG.md` section. Intel macOS, Windows, and Linux source may
+remain in the repository, but current releases do not build, test, or publish
+their artifacts.
 
-Publishing that GitHub release (or running **Sync release** from Actions)
-uploads the assets to the `pengpilot-releases` R2 bucket. Configure these repository
-secrets first:
+After the paid release infrastructure is configured, manually running
+**Sync release** from Actions uploads the selected release assets to the
+`pengpilot-releases` R2 bucket. Configure these repository secrets first:
 
 | Secret | Purpose |
 | --- | --- |
@@ -304,10 +302,5 @@ secrets first:
 - **Platform artifacts:** keep the bucket layout flat and platform-tagged by
   artifact name/extension — today's macOS names
   (`PengPilot-<v>.dmg`, `PengPilot-<v>.zip`, `appcast.xml`) must keep their URLs.
-  Linux CI releases produce `pengpilot-<v>-<target>.tar.gz` with
-  `scripts/bundle-linux.sh` and land in GitHub Releases, then R2 via the
-  sync workflow. Automatic Linux updates are not yet wired. Windows can later join with
-  `PengPilot-<v>-Setup.exe` + `appcast-windows.xml` (WinSparkle reads the same
-  appcast format). `src/updater.rs` is the per-platform seam, and everything
-  mac-specific in the existing release pipeline lives behind the Darwin guard
-  in `scripts/release.ts` plus `scripts/bundle.sh`.
+  Intel macOS, Windows, and Linux code stays dormant: do not build or publish
+  those artifacts until their support phase is explicitly reopened.

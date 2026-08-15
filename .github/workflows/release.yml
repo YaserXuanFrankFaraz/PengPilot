@@ -1,9 +1,7 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,116 +14,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linux-x86_64:
-    name: Linux x86_64
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Check tag matches Cargo.toml
-        run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "$tag" != "$version" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${version}"
-            exit 1
-          fi
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install 1.96.0 --profile minimal
-          rustup default 1.96.0
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            clang \
-            cmake \
-            libfontconfig-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-xcb-dev \
-            libxkbcommon-x11-dev \
-            pkg-config \
-            xdg-desktop-portal
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-rust-1.96.0-release-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-rust-1.96.0-release-
-
-      - name: Bundle
-        run: ./scripts/bundle-linux.sh
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-x86_64
-          path: target/release/pengpilot-*-x86_64-unknown-linux-gnu.tar.gz
-          if-no-files-found: error
-
-  linux-arm64:
-    name: Linux arm64
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Check tag matches Cargo.toml
-        run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "$tag" != "$version" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${version}"
-            exit 1
-          fi
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install 1.96.0 --profile minimal
-          rustup default 1.96.0
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            clang \
-            cmake \
-            libfontconfig-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-xcb-dev \
-            libxkbcommon-x11-dev \
-            pkg-config \
-            xdg-desktop-portal
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ runner.arch }}-rust-1.96.0-release-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-rust-1.96.0-release-
-
-      - name: Bundle
-        run: ./scripts/bundle-linux.sh
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-arm64
-          path: target/release/pengpilot-*-aarch64-unknown-linux-gnu.tar.gz
-          if-no-files-found: error
-
   macos:
-    name: macOS
+    name: macOS Apple silicon
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
@@ -166,7 +56,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -204,7 +94,7 @@ jobs:
 
   draft-release:
     name: Draft GitHub release
-    needs: [linux-x86_64, linux-arm64, macos]
+    needs: [macos]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -241,7 +131,6 @@ jobs:
           body_path: release-notes.md
           fail_on_unmatched_files: true
           files: |
-            artifacts/*.tar.gz
             artifacts/*.dmg
             artifacts/*.zip
             artifacts/appcast.xml

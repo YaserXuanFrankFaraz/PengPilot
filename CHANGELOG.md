@@ -16,15 +16,12 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
-- Enlarge the transparent PengPilot mark in the new-task empty state.
+## [0.1.10]
+
+- Replace the new-task empty-state sparkle with a larger transparent PengPilot
+  mark aligned with its heading.
 - Use each provider site's browser favicon with one shared visual footprint in
   Settings and the Chat Box picker.
-- Hide Kimi Code from the featured and public catalogs while keeping existing
-  sessions compatible.
-
-## [0.1.9]
-
-- Replace the new-task empty-state sparkle with the PengPilot app icon.
 - Remove the unsupported OpenClaw integration.
 - Remove `(CLI)` from Chat Box provider short names and label DeepSeek Harness
   without that suffix in Settings.
@@ -32,6 +29,11 @@ the original feature bullet instead of adding separate entries for them.
   passes real end-to-end validation and demonstrates user demand. Existing
   Prime Agent sessions remain compatible; any future restoration uses the same
   detected/undetected alphabetical ordering without default priority.
+- Hide Kimi Code from the featured and public catalogs while keeping its
+  runtime, `Kimi Code (CLI)` Settings label, `Kimi Code` picker label, and
+  existing sessions compatible.
+- Publish this Apple-silicon dogfooding build without treating missing real-CLI
+  evidence as a blocker; unverified catalog entries remain experimental.
 
 ## [0.1.8]
 
