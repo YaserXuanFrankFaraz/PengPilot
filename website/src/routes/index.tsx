@@ -92,7 +92,7 @@ const FAQ = [
   },
   {
     q: 'What about Windows and Linux?',
-    a: "PengPilot runs natively on macOS and Linux. Prebuilt downloads currently target Apple Silicon; Linux can be built from source, and Windows remains planned.",
+    a: 'Current dogfooding releases support Apple silicon Macs only. Intel Macs, Windows, and Linux are not tested or supported yet; they may be considered after the macOS experience stabilizes.',
   },
   {
     q: 'What is the future plan?',
@@ -146,10 +146,10 @@ function DownloadMenu({
               macOS (Apple Silicon)
             </Menu.LinkItem>
             <Menu.Item disabled className={itemClassName}>
-              Windows (soon)
+              Intel Mac (later)
             </Menu.Item>
             <Menu.Item disabled className={itemClassName}>
-              Linux (soon)
+              Windows / Linux (later)
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>

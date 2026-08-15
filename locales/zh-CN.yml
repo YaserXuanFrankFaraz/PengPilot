@@ -93,6 +93,8 @@ settings.share_anonymous_usage_data: 分享匿名使用数据
 settings.share_anonymous_usage_data_description: 分享功能使用情况和可靠性数据，帮助改进 PengPilot。不会包含提示词、回复、项目名称、文件路径等个人信息
 providers.coding_agents: 编程智能体
 providers.description: PengPilot 调用安装在这台 Mac 上的智能体命令行工具。请先安装相应工具或完成登录，然后刷新
+providers.detected_group: 已在 PATH 中检测到
+providers.not_detected_group: 未在 PATH 中检测到
 providers.disabled_for_new_tasks: 新建任务时不可用
 providers.model_count_one: "%{count} 个模型"
 providers.model_count_many: "%{count} 个模型"

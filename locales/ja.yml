@@ -101,6 +101,8 @@ settings.share_anonymous_usage_data_description: 機能の利用状況と信頼�
 
 providers.coding_agents: コーディングエージェント
 providers.description: PengPilot はこの Mac にインストールされたエージェントの CLI を使用します。各エージェントの CLI をインストールするかログインしてから、更新してください
+providers.detected_group: PATH で検出済み
+providers.not_detected_group: PATH で未検出
 providers.disabled_for_new_tasks: 新規タスクでは無効
 providers.model_count_one: "%{count} 個のモデル"
 providers.model_count_many: "%{count} 個のモデル"

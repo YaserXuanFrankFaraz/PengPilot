@@ -795,9 +795,35 @@ impl Waku {
 
         let mut rows = div().mt(px(4.0)).flex().flex_col();
         let provider_count = ProviderKind::ALL.len();
-        for (index, kind) in ProviderKind::ALL.into_iter().enumerate() {
+        let mut providers = ProviderKind::ALL.to_vec();
+        providers.sort_by_key(|kind| {
+            (
+                !self
+                    .provider_probe(*kind)
+                    .is_some_and(|probe| probe.installed),
+                kind.display_name().to_ascii_lowercase(),
+            )
+        });
+        let mut current_group = None;
+        for (index, kind) in providers.into_iter().enumerate() {
             let probe = self.provider_probe(kind);
             let installed = probe.is_some_and(|probe| probe.installed);
+            if current_group != Some(installed) {
+                current_group = Some(installed);
+                rows = rows.child(
+                    div()
+                        .pt(if index == 0 { px(8.0) } else { px(18.0) })
+                        .pb(px(5.0))
+                        .text_size(px(10.5))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(theme.text_tertiary)
+                        .child(if installed {
+                            tr!("providers.detected_group")
+                        } else {
+                            tr!("providers.not_detected_group")
+                        }),
+                );
+            }
             let binary_path = probe
                 .filter(|probe| probe.installed)
                 .and_then(|probe| probe.path.as_deref())

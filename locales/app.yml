@@ -194,6 +194,10 @@ providers.coding_agents:
   en: Coding agents
 providers.description:
   en: PengPilot drives agent CLIs installed on this Mac. Install or sign in with each agent's own CLI, then refresh
+providers.detected_group:
+  en: Detected on PATH
+providers.not_detected_group:
+  en: Not detected on PATH
 providers.disabled_for_new_tasks:
   en: Disabled for new tasks
 providers.model_count_one:

@@ -16,6 +16,12 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+- Focus current releases on Apple silicon macOS; Intel Macs, Windows, and Linux
+  remain untested and unsupported
+- Add Prime Agent and the remaining current Multica CLI providers through their
+  native ACP, RPC, JSON, or JSONL transports
+- Group providers by PATH detection status and sort each group alphabetically
+
 ## [0.1.3]
 
 - Refine the PengPilot app icon with the latest eagle-and-P artwork

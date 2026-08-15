@@ -63,12 +63,44 @@ struct AcpLaunch {
 
 fn launch_for(provider: ProviderKind) -> anyhow::Result<AcpLaunch> {
     match provider {
-        ProviderKind::Cursor | ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => {
-            Ok(AcpLaunch {
-                args: vec!["acp".into()],
-                env: Vec::new(),
-            })
-        }
+        ProviderKind::Cursor
+        | ProviderKind::Omp
+        | ProviderKind::Kiro
+        | ProviderKind::Hermes
+        | ProviderKind::Kimi
+        | ProviderKind::QwenPaw => Ok(AcpLaunch {
+            args: vec!["acp".into()],
+            env: Vec::new(),
+        }),
+        ProviderKind::Qoder | ProviderKind::QoderCn => Ok(AcpLaunch {
+            args: vec!["--yolo".into(), "--acp".into()],
+            env: Vec::new(),
+        }),
+        ProviderKind::Reasonix => Ok(AcpLaunch {
+            args: [
+                "acp",
+                "--profile",
+                "balanced",
+                "--planner",
+                "auto",
+                "--sandbox-network",
+                "auto",
+                "--sandbox-bash",
+                "auto",
+                "--workspace-only",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            env: Vec::new(),
+        }),
+        ProviderKind::Trae => Ok(AcpLaunch {
+            args: ["acp", "serve", "--yolo"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            env: Vec::new(),
+        }),
         ProviderKind::Grok => Ok(AcpLaunch {
             args: vec!["agent".into(), "stdio".into()],
             env: vec![("GROK_OAUTH2_REFERRER".into(), "waku".into())],
@@ -1132,11 +1164,44 @@ mod tests {
 
     #[test]
     fn providers_launch_their_acp_subcommand() {
-        for provider in [ProviderKind::Omp, ProviderKind::Kiro, ProviderKind::Hermes] {
+        for provider in [
+            ProviderKind::Omp,
+            ProviderKind::Kiro,
+            ProviderKind::Hermes,
+            ProviderKind::Kimi,
+            ProviderKind::QwenPaw,
+        ] {
             let launch = launch_for(provider).unwrap();
             assert_eq!(launch.args, ["acp"], "{provider:?}");
             assert!(launch.env.is_empty(), "{provider:?}");
         }
+        assert_eq!(
+            launch_for(ProviderKind::Qoder).unwrap().args,
+            ["--yolo", "--acp"]
+        );
+        assert_eq!(
+            launch_for(ProviderKind::QoderCn).unwrap().args,
+            ["--yolo", "--acp"]
+        );
+        assert_eq!(
+            launch_for(ProviderKind::Trae).unwrap().args,
+            ["acp", "serve", "--yolo"]
+        );
+        assert_eq!(
+            launch_for(ProviderKind::Reasonix).unwrap().args,
+            [
+                "acp",
+                "--profile",
+                "balanced",
+                "--planner",
+                "auto",
+                "--sandbox-network",
+                "auto",
+                "--sandbox-bash",
+                "auto",
+                "--workspace-only",
+            ]
+        );
     }
 
     #[test]

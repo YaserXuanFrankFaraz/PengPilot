@@ -33,25 +33,42 @@ structured event stream.
 
 Install and authenticate at least one CLI before starting PengPilot. The app
 detects CLIs on `PATH`; Settings → Providers also accepts an explicit binary
-path.
+path. Detected providers appear first, followed by providers not found on
+`PATH`; each group is sorted alphabetically.
 
 | Agent | Command |
 | --- | --- |
 | [Amp](https://ampcode.com/) | `amp` |
+| Antigravity | `agy` |
 | Claude Code | `claude` |
+| CodeBuddy | `codebuddy` |
 | Codex CLI | `codex` |
+| GitHub Copilot CLI | `copilot` |
 | Cursor CLI | `cursor-agent` |
 | DeepSeek Harness | `dsh` |
-| OpenCode | `opencode` |
+| DevEco Code | `deveco` |
 | Grok Build | `grok` |
-| Pi | `pi` |
-| [Oh My Pi](https://omp.sh/) | `omp` |
-| [Kiro CLI](https://kiro.dev/cli/) | `kiro-cli` |
 | [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `hermes` |
+| Kimi CLI | `kimi` |
+| [Kiro CLI](https://kiro.dev/cli/) | `kiro-cli` |
+| [Oh My Pi](https://omp.sh/) | `omp` |
+| OpenClaw | `openclaw` |
+| OpenCode | `opencode` |
+| Pi | `pi` |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
+| Qoder CLI | `qodercli` |
+| Qoder CLI CN | `qoderclicn` |
+| Qwen Code | `qwen` |
+| QwenPaw | `qwenpaw` |
+| Reasonix | `reasonix` |
+| Trae CLI | `traecli` |
 
 Capabilities vary with each CLI and protocol. PengPilot exposes model
 discovery, permissions, steering, rollback, forking, and Computer Use only
 where the selected provider supports them.
+Antigravity, CodeBuddy, Copilot, DevEco, OpenClaw, and Qwen currently use their
+native one-shot headless transports and therefore run only in Build + Full
+Access mode. ACP and RPC providers retain long-lived sessions.
 
 ### Highlights
 
@@ -78,9 +95,10 @@ where the selected provider supports them.
 - Bundle Sparkle update support in macOS release builds; public distribution
   requires a configured feed and signing key.
 
-The embedded browser and Computer Use are currently macOS-only. Core agent
-sessions, projects, transcripts, skills, usage, diffs, file editing, and the
-terminal run natively on Linux.
+Current releases target Apple silicon Macs running macOS 13 or newer. They are
+personal dogfooding builds: Intel Macs, Windows, and Linux are not currently
+tested or supported. Support for those platforms may be considered after the
+Apple silicon macOS experience stabilizes.
 
 ### Privacy and local data
 
@@ -96,7 +114,7 @@ names, file paths, and other personal content are excluded from those events.
 
 #### macOS
 
-PengPilot requires macOS 13 or newer.
+PengPilot currently requires an Apple silicon Mac running macOS 13 or newer.
 
 1. Download the latest `.dmg` from
    [GitHub Releases](https://github.com/YaserXuanFrankFaraz/PengPilot/releases).
@@ -106,12 +124,6 @@ PengPilot requires macOS 13 or newer.
 
 Computer Use requires separate macOS Screen Recording and Accessibility
 permission for PengPilot's isolated helper.
-
-#### Linux
-
-Linux supports Wayland and X11 and requires a working Vulkan driver. Use a
-release archive when available, or build from source after installing the
-native packages listed in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Development
 
@@ -133,9 +145,9 @@ and [RELEASING.md](RELEASING.md) for signed release packaging.
 ### Changes from Waku
 
 PengPilot currently adds independent branding, bundle identifiers, local data
-paths, Oh My Pi, Kiro CLI, and Hermes Agent integrations, Grok Build usage
-history, and PengPilot-specific release infrastructure. The exact changes are
-preserved in this repository's Git history.
+paths, an expanded 24-provider CLI catalog, PATH-aware provider grouping, Grok
+Build usage history, and PengPilot-specific release infrastructure. The exact
+changes are preserved in this repository's Git history.
 
 ### Upstream and attribution
 
@@ -202,23 +214,39 @@ PengPilot 是一款使用 Rust 和
 
 启动 PengPilot 前，请至少安装并登录一个 CLI。PengPilot 会从 `PATH`
 自动检测，也可以在「设置 → 服务商」中指定可执行文件路径。
+已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方；两组均按名称排序。
 
 | 智能体 | 命令 |
 | --- | --- |
 | [Amp](https://ampcode.com/) | `amp` |
+| Antigravity | `agy` |
 | Claude Code | `claude` |
+| CodeBuddy | `codebuddy` |
 | Codex CLI | `codex` |
+| GitHub Copilot CLI | `copilot` |
 | Cursor CLI | `cursor-agent` |
 | DeepSeek Harness | `dsh` |
-| OpenCode | `opencode` |
+| DevEco Code | `deveco` |
 | Grok Build | `grok` |
-| Pi | `pi` |
-| [Oh My Pi](https://omp.sh/) | `omp` |
-| [Kiro CLI](https://kiro.dev/cli/) | `kiro-cli` |
 | [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `hermes` |
+| Kimi CLI | `kimi` |
+| [Kiro CLI](https://kiro.dev/cli/) | `kiro-cli` |
+| [Oh My Pi](https://omp.sh/) | `omp` |
+| OpenClaw | `openclaw` |
+| OpenCode | `opencode` |
+| Pi | `pi` |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
+| Qoder CLI | `qodercli` |
+| Qoder CLI CN | `qoderclicn` |
+| Qwen Code | `qwen` |
+| QwenPaw | `qwenpaw` |
+| Reasonix | `reasonix` |
+| Trae CLI | `traecli` |
 
 不同 CLI 和协议支持的能力并不完全相同。模型发现、权限交互、运行中追加指令、
 回退、派生会话及 Computer Use 仅在对应服务商支持时显示。
+Antigravity、CodeBuddy、Copilot、DevEco、OpenClaw 和 Qwen 当前使用各自原生的
+单次无头传输，因此仅支持「构建 + 完全访问」；ACP 与 RPC 服务商保留长生命周期会话。
 
 ### 主要功能
 
@@ -237,8 +265,9 @@ PengPilot 是一款使用 Rust 和
   应用白名单、屏幕录制和辅助功能权限控制访问。
 - macOS Release 构建包含 Sparkle 更新能力；公开分发前必须配置更新源和签名密钥。
 
-内嵌浏览器与 Computer Use 目前仅支持 macOS。Linux 原生支持智能体会话、项目、
-对话记录、Skills、用量、差异审查、文件编辑和终端。
+当前版本仅面向运行 macOS 13 或更高版本的 Apple 芯片 Mac，定位为个人
+dogfooding 版本。Intel Mac、Windows 和 Linux 目前均不测试、不承诺支持；待
+Apple 芯片 macOS 体验稳定后，再考虑扩展到这些平台。
 
 ### 隐私与本地数据
 
@@ -252,7 +281,7 @@ PengPilot 是一款使用 Rust 和
 
 #### macOS
 
-PengPilot 要求 macOS 13 或更高版本。
+PengPilot 当前要求 Apple 芯片 Mac，并运行 macOS 13 或更高版本。
 
 1. 从 [GitHub Releases](https://github.com/YaserXuanFrankFaraz/PengPilot/releases)
    下载最新 `.dmg`。
@@ -262,11 +291,6 @@ PengPilot 要求 macOS 13 或更高版本。
 
 Computer Use 需要为 PengPilot 的隔离辅助程序单独授予 macOS「屏幕录制」和
 「辅助功能」权限。
-
-#### Linux
-
-Linux 支持 Wayland 和 X11，并需要可用的 Vulkan 驱动。可以使用已发布的归档包，
-或先安装 [CONTRIBUTING.md](CONTRIBUTING.md) 列出的系统依赖，再从源码构建。
 
 ### 开发
 
@@ -286,8 +310,8 @@ bun run dev
 
 ### 相比 Waku 的修改
 
-PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、Oh My Pi、Kiro CLI、
-Hermes Agent 集成、Grok Build 用量历史，以及 PengPilot 专属发布基础设施。
+PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、24 个 CLI 服务商目录、
+基于 PATH 检测结果的服务商分组、Grok Build 用量历史，以及 PengPilot 专属发布基础设施。
 所有具体修改均保留在本仓库的 Git 历史中。
 
 ### 上游与署名

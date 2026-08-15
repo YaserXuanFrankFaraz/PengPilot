@@ -15,7 +15,9 @@ use super::{activity, computer_use as computer_use_runtime};
 use crate::driver::{
     DriverControl, DriverEventSender, DriverEventSink, DriverStartOptions, SessionOptions,
 };
-use crate::model::{ActivityKind, DriverEvent, InteractionMode, ProviderResumeCursor, RuntimeMode};
+use crate::model::{
+    ActivityKind, DriverEvent, InteractionMode, ProviderKind, ProviderResumeCursor, RuntimeMode,
+};
 
 const RPC_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -63,7 +65,11 @@ fn configure_pi_computer_use_command(
 }
 
 impl PiDriver {
-    pub fn start(options: DriverStartOptions, events: DriverEventSender) -> anyhow::Result<Self> {
+    pub fn start(
+        provider: ProviderKind,
+        options: DriverStartOptions,
+        events: DriverEventSender,
+    ) -> anyhow::Result<Self> {
         let DriverStartOptions {
             binary,
             cwd,
@@ -77,16 +83,25 @@ impl PiDriver {
             provider_cursor,
         } = options;
         if mode != RuntimeMode::FullAccess || interaction_mode != InteractionMode::Build {
-            return Err(anyhow!("Pi currently supports Build with Full access only"));
+            return Err(anyhow!(
+                "{} currently supports Build with Full access only",
+                provider.display_name()
+            ));
         }
         let resume_session_file = match provider_cursor {
             Some(ProviderResumeCursor::Pi {
                 session_file: Some(session_file),
                 ..
-            }) => Some(session_file),
-            Some(ProviderResumeCursor::Pi { .. }) => {
+            }) if provider == ProviderKind::Pi => Some(session_file),
+            Some(ProviderResumeCursor::External {
+                kind,
+                session_file: Some(session_file),
+                ..
+            }) if kind == provider => Some(session_file),
+            Some(cursor) if cursor.provider() == provider => {
                 return Err(anyhow!(
-                    "cannot resume Pi because its native session file is missing"
+                    "cannot resume {} because its native session file is missing",
+                    provider.display_name()
                 ));
             }
             Some(cursor) => {
@@ -109,9 +124,10 @@ impl PiDriver {
             .map(|_| crate::computer_use::pi_extension_path())
             .transpose()?;
         let mut command = crate::command_env::command(binary);
-        command
-            .args(["--mode", "rpc", "--approve"])
-            .env("PI_SKIP_VERSION_CHECK", "1");
+        command.args(["--mode", "rpc"]);
+        if provider == ProviderKind::Pi {
+            command.arg("--approve").env("PI_SKIP_VERSION_CHECK", "1");
+        }
         configure_pi_computer_use_command(
             &mut command,
             computer_use
@@ -264,7 +280,7 @@ impl PiDriver {
                         return;
                     }
                 };
-                let Some(mut cursor) = cursor_from_state(&state) else {
+                let Some(mut cursor) = cursor_from_state(provider, &state) else {
                     let _ = writer_events.send(DriverEvent::Error(tr!(
                         "errors.provider_no_session_id",
                         provider = "Pi"
@@ -444,6 +460,7 @@ impl PiDriver {
                         }
                         CommandMessage::Rollback { turns, response } => {
                             let result = fork_pi_session(
+                                provider,
                                 &mut stdin,
                                 &writer_pending,
                                 &mut next_request_id,
@@ -461,6 +478,7 @@ impl PiDriver {
                             response,
                         } => {
                             let result = fork_pi_session(
+                                provider,
                                 &mut stdin,
                                 &writer_pending,
                                 &mut next_request_id,
@@ -658,7 +676,7 @@ fn parse_model_slug(model: &str) -> anyhow::Result<(&str, &str)> {
     Ok((provider, model_id))
 }
 
-fn cursor_from_state(response: &Value) -> Option<ProviderResumeCursor> {
+fn cursor_from_state(provider: ProviderKind, response: &Value) -> Option<ProviderResumeCursor> {
     let session_id = response
         .pointer("/data/sessionId")
         .and_then(Value::as_str)?;
@@ -666,9 +684,17 @@ fn cursor_from_state(response: &Value) -> Option<ProviderResumeCursor> {
         .pointer("/data/sessionFile")
         .and_then(Value::as_str)
         .map(PathBuf::from);
-    Some(ProviderResumeCursor::Pi {
-        session_id: session_id.to_owned(),
-        session_file,
+    Some(if provider == ProviderKind::Pi {
+        ProviderResumeCursor::Pi {
+            session_id: session_id.to_owned(),
+            session_file,
+        }
+    } else {
+        ProviderResumeCursor::External {
+            kind: provider,
+            session_id: session_id.to_owned(),
+            session_file,
+        }
     })
 }
 
@@ -711,6 +737,7 @@ fn pi_message_context_tokens(message: &Value) -> Option<u64> {
 }
 
 fn fork_pi_session(
+    provider: ProviderKind,
     stdin: &mut impl Write,
     pending: &PendingResponses,
     next_request_id: &mut u64,
@@ -739,16 +766,23 @@ fn fork_pi_session(
         next_request_id,
         json!({"type": "get_state"}),
     )?;
-    let fork_cursor = cursor_from_state(&fork_state)
+    let fork_cursor = cursor_from_state(provider, &fork_state)
         .ok_or_else(|| "Pi did not report the forked session cursor".to_owned())?;
 
     if restore_original {
-        let ProviderResumeCursor::Pi {
-            session_file: Some(session_file),
-            ..
-        } = original_cursor
-        else {
-            return Err("Pi's original session file is unavailable".into());
+        let session_file = match original_cursor {
+            ProviderResumeCursor::Pi {
+                session_file: Some(session_file),
+                ..
+            } if provider == ProviderKind::Pi => session_file,
+            ProviderResumeCursor::External {
+                kind,
+                session_file: Some(session_file),
+                ..
+            } if *kind == provider => session_file,
+            _ => {
+                return Err("Pi's original session file is unavailable".into());
+            }
         };
         let switched = send_request(
             stdin,
@@ -768,7 +802,7 @@ fn fork_pi_session(
             next_request_id,
             json!({"type": "get_state"}),
         )?;
-        let restored_cursor = cursor_from_state(&restored_state)
+        let restored_cursor = cursor_from_state(provider, &restored_state)
             .ok_or_else(|| "Pi did not report the restored source session".to_owned())?;
         if restored_cursor.native_id() != original_cursor.native_id() {
             return Err("Pi returned to the wrong source session after forking".into());
@@ -1086,6 +1120,7 @@ mod tests {
         let binary = crate::command_env::find_executable("pi").expect("pi is not installed");
         let (events, event_rx) = crate::driver::test_event_channel();
         let driver = PiDriver::start(
+            ProviderKind::Pi,
             DriverStartOptions {
                 binary,
                 cwd: std::env::temp_dir(),
