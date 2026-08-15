@@ -1,22 +1,25 @@
 # Provider integrations
 
-How Waku talks to each coding agent: the process it launches, the wire protocol
+How PengPilot talks to each coding agent: the process it launches, the wire protocol
 it speaks, how long that process lives, and what has to be emulated because the
 CLI does not offer it.
 
 Every provider is reached through the same driver abstraction in
-[src/driver/mod.rs](../src/driver/mod.rs). There are six transport
-implementations behind seven providers, and **every one of them holds a session
-that spans the whole conversation**:
+[src/driver/mod.rs](../src/driver/mod.rs). Eight transport implementations cover
+24 providers. ACP, RPC, server, and streaming-input drivers keep a resident
+conversation; native print-mode JSON/JSONL CLIs start one process per turn and
+resume when their protocol returns a session id:
 
 | Transport | File | Providers |
 | --- | --- | --- |
 | Codex app-server (JSON-RPC over stdio) | [src/driver/codex.rs](../src/driver/codex.rs) | Codex CLI |
-| Agent Client Protocol (JSON-RPC over stdio) | [src/driver/acp.rs](../src/driver/acp.rs) | Cursor CLI, Grok Build |
+| Agent Client Protocol (JSON-RPC over stdio) | [src/driver/acp.rs](../src/driver/acp.rs) | Cursor CLI, Grok Build, Oh My Pi, Kiro CLI, Hermes Agent, Kimi CLI, Qoder CLI, Qoder CLI CN, QwenPaw, Reasonix, Trae CLI |
 | OpenCode server (HTTP + server-sent events) | [src/driver/opencode.rs](../src/driver/opencode.rs) | OpenCode |
-| Pi RPC mode (NDJSON request/response over stdio) | [src/driver/pi.rs](../src/driver/pi.rs) | Pi |
+| Pi-compatible RPC mode (NDJSON request/response over stdio) | [src/driver/pi.rs](../src/driver/pi.rs) | Pi, Prime Agent |
 | Claude streaming-input session (NDJSON over stdio) | [src/driver/claude.rs](../src/driver/claude.rs) | Claude Code |
 | Amp streaming-JSON session (NDJSON over stdio) | [src/driver/amp.rs](../src/driver/amp.rs) | Amp |
+| DeepSeek Harness Host (JSON-RPC over stdio) | [src/driver/deepseek.rs](../src/driver/deepseek.rs) | DeepSeek Harness |
+| Native one-shot JSON/JSONL | [src/driver/json_cli.rs](../src/driver/json_cli.rs) | Antigravity, CodeBuddy, GitHub Copilot CLI, DevEco Code, OpenClaw, Qwen Code |
 
 ## The driver contract
 

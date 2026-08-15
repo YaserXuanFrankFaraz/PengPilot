@@ -1,0 +1,41 @@
+schema: spec-driven
+
+context: |
+  PengPilot is a Rust + GPUI native desktop control plane for local coding-agent
+  CLIs (Codex, Claude Code, Grok, OpenCode, Pi, and others). It is local-first:
+  projects, sessions, and settings live on disk; there is no PengPilot account
+  or hosted service.
+
+  Session history listing must stay a scan of narrow SQLite rows. Transcripts
+  live in session_details / messages and must not be loaded to render a list.
+  Render must not do I/O. Long collections use list() virtualization.
+
+  Native macOS conventions win over cloning Electron/web chrome. T3 Code is a
+  product-behavior reference for coding-agent clients; Zed is the GPUI
+  implementation reference. Craft Agents and Multica are product references
+  only for this change — do not copy their web widgets, servers, or team cloud.
+
+  i18n lives in locales/app.yml, zh-CN.yml, ja.yml. Accessibility: every mouse
+  control must be keyboard-operable. No visual tests unless requested.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

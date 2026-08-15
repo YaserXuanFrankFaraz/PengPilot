@@ -358,6 +358,22 @@ impl Waku {
         self.save();
     }
 
+    pub(super) fn sync_sidebar_material(&self, window: &Window) {
+        let list_width = if self.sidebar_visible && self.list_pane_visible() {
+            self.effective_panel_widths(window).0
+        } else {
+            0.0
+        };
+        crate::platform::set_sidebar_material_width(
+            window,
+            sidebar_material_width(
+                self.sidebar_visible,
+                self.list_pane_visible(),
+                list_width,
+            ),
+        );
+    }
+
     pub(super) fn effective_panel_widths(&self, window: &Window) -> (f32, f32) {
         fitted_panel_widths(
             f32::from(window.viewport_size().width),
@@ -379,7 +395,10 @@ impl Waku {
         let start_width = match target {
             PanelResizeTarget::Sidebar => {
                 self.sidebar_width = sidebar_width;
-                crate::platform::set_sidebar_material_width(window, sidebar_width);
+                crate::platform::set_sidebar_material_width(
+                    window,
+                    sidebar_material_width(true, self.list_pane_visible(), sidebar_width),
+                );
                 sidebar_width
             }
             PanelResizeTarget::RightPanel => {
@@ -424,7 +443,10 @@ impl Waku {
                     return;
                 }
                 self.sidebar_width = width;
-                crate::platform::set_sidebar_material_width(window, width);
+                crate::platform::set_sidebar_material_width(
+                    window,
+                    sidebar_material_width(true, self.list_pane_visible(), width),
+                );
             }
             PanelResizeTarget::RightPanel => {
                 let maximum = RIGHT_PANEL_MAX_WIDTH

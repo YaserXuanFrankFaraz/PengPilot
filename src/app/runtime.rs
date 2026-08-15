@@ -314,7 +314,7 @@ fn perform_provider_rewind(
             )?;
             Ok((Some(cursor), None, None))
         }
-        ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi => {
+        ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi | ProviderKind::Prime => {
             let mut prepared_driver = None;
             let driver = if let Some(driver) = request.driver.as_ref() {
                 driver.clone()
@@ -333,7 +333,21 @@ fn perform_provider_rewind(
             let cursor = driver.rollback(request.rollback_turns)?;
             Ok((cursor, None, prepared_driver))
         }
-        ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => anyhow::bail!(
+        ProviderKind::Omp
+        | ProviderKind::Kiro
+        | ProviderKind::Hermes
+        | ProviderKind::Antigravity
+        | ProviderKind::CodeBuddy
+        | ProviderKind::Copilot
+        | ProviderKind::DevEco
+        | ProviderKind::Kimi
+        | ProviderKind::OpenClaw
+        | ProviderKind::Qoder
+        | ProviderKind::QoderCn
+        | ProviderKind::Qwen
+        | ProviderKind::QwenPaw
+        | ProviderKind::Reasonix
+        | ProviderKind::Trae => anyhow::bail!(
             "{} does not support conversation rollback in PengPilot yet",
             provider.display_name()
         ),
@@ -594,7 +608,35 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
                 let (cursor, prepared_driver) = fork_response_with_driver(&mut request)?;
                 Ok((cursor, None, prepared_driver))
             }
-            ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => anyhow::bail!(
+            ProviderKind::Prime => {
+                if !matches!(
+                    request.source.provider_cursor.as_ref(),
+                    Some(ProviderResumeCursor::External {
+                        kind: ProviderKind::Prime,
+                        session_file: Some(_),
+                        ..
+                    })
+                ) {
+                    anyhow::bail!("Prime Agent's native session file is unavailable");
+                }
+                let (cursor, prepared_driver) = fork_response_with_driver(&mut request)?;
+                Ok((cursor, None, prepared_driver))
+            }
+            ProviderKind::Omp
+            | ProviderKind::Kiro
+            | ProviderKind::Hermes
+            | ProviderKind::Antigravity
+            | ProviderKind::CodeBuddy
+            | ProviderKind::Copilot
+            | ProviderKind::DevEco
+            | ProviderKind::Kimi
+            | ProviderKind::OpenClaw
+            | ProviderKind::Qoder
+            | ProviderKind::QoderCn
+            | ProviderKind::Qwen
+            | ProviderKind::QwenPaw
+            | ProviderKind::Reasonix
+            | ProviderKind::Trae => anyhow::bail!(
                 "{} does not support conversation forks in PengPilot yet",
                 provider.display_name()
             ),
@@ -1227,7 +1269,7 @@ impl Waku {
         }
         let driver_start = if matches!(
             provider,
-            ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi
+            ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi | ProviderKind::Prime
         ) && driver.is_none()
         {
             match self.driver_start_request_for_session(&source, source_workspace_path.clone()) {
@@ -1290,7 +1332,7 @@ impl Waku {
         } = match result {
             Ok(prepared) => prepared,
             Err(error) => {
-                if provider == ProviderKind::Pi {
+                if matches!(provider, ProviderKind::Pi | ProviderKind::Prime) {
                     // A failed restore after Pi creates a fork can leave the
                     // resident RPC process on that fork. Recreate it lazily
                     // from the source cursor on its next prompt.
@@ -1593,7 +1635,10 @@ impl Waku {
         let driver_start = if rollback_turns > 0
             && matches!(
                 source.provider,
-                ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi
+                ProviderKind::Codex
+                    | ProviderKind::DeepSeek
+                    | ProviderKind::Pi
+                    | ProviderKind::Prime
             )
             && driver.is_none()
         {

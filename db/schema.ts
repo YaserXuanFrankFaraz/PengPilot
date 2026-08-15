@@ -36,6 +36,14 @@ export const sessions = sqliteTable(
     provider: text("provider").notNull(),
     model: text("model"),
     status: text("status").notNull(),
+    /** Kanban progress: todo, inProgress, inReview, done. */
+    workflowStatus: text("workflow_status").notNull().default("todo"),
+    /** Eisenhower: default important and not urgent. */
+    important: integer("important", { mode: "boolean" }).notNull().default(true),
+    urgent: integer("urgent", { mode: "boolean" }).notNull().default(false),
+    flagged: integer("flagged", { mode: "boolean" }).notNull().default(false),
+    workItemId: text("work_item_id"),
+    agentProfileId: text("agent_profile_id"),
     /** Session creation time, unix seconds. */
     createdAt: integer("created_at").notNull(),
     /** Any mutation, unix seconds — including title edits and truncation. */
@@ -89,3 +97,73 @@ export const sessionDetails = sqliteTable("session_details", {
   sessionId: text("session_id").primaryKey(),
   data: text("data").notNull(),
 });
+
+export const workItems = sqliteTable(
+  "work_items",
+  {
+    id: text("id").primaryKey(),
+    keyNumber: integer("key_number").notNull(),
+    title: text("title").notNull(),
+    workflowStatus: text("workflow_status").notNull(),
+    important: integer("important", { mode: "boolean" }).notNull().default(true),
+    urgent: integer("urgent", { mode: "boolean" }).notNull().default(false),
+    flagged: integer("flagged", { mode: "boolean" }).notNull().default(false),
+    assigneeKind: text("assignee_kind"),
+    assigneeId: text("assignee_id"),
+    projectId: text("project_id"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [index("work_items_by_updated_at").on(table.updatedAt)],
+);
+
+export const workItemDetails = sqliteTable("work_item_details", {
+  workItemId: text("work_item_id").primaryKey(),
+  data: text("data").notNull(),
+});
+
+export const workItemComments = sqliteTable(
+  "work_item_comments",
+  {
+    id: text("id").primaryKey(),
+    workItemId: text("work_item_id").notNull(),
+    authorKind: text("author_kind").notNull(),
+    authorId: text("author_id"),
+    content: text("content").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("work_item_comments_by_item").on(table.workItemId, table.createdAt)],
+);
+
+export const agentProfiles = sqliteTable("agent_profiles", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  provider: text("provider").notNull(),
+  model: text("model"),
+  instructions: text("instructions"),
+  archivedAt: integer("archived_at"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const squads = sqliteTable("squads", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  leaderProfileId: text("leader_profile_id").notNull(),
+  instructions: text("instructions"),
+  archivedAt: integer("archived_at"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const squadMembers = sqliteTable(
+  "squad_members",
+  {
+    squadId: text("squad_id").notNull(),
+    memberKind: text("member_kind").notNull(),
+    memberId: text("member_id").notNull(),
+    roleNote: text("role_note"),
+    position: integer("position").notNull(),
+  },
+  (table) => [index("squad_members_by_squad").on(table.squadId, table.position)],
+);

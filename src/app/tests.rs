@@ -9,7 +9,9 @@ use super::{
     TranscriptRowKind::*, active_navigation_turn_index, append_text_delta_to_session,
     assistant_response_footer, assistant_response_footer_index, assistant_response_footer_time,
     changed_files_inline_message_index, compact_driver_error, disclosure_leading_space,
-    fenced_code, fitted_file_tree_width, fitted_panel_widths, folded_transcript_row_kinds,
+    INBOX_NAV_RAIL_WIDTH, TRAFFIC_LIGHT_CLEARANCE, fenced_code, fitted_file_tree_width,
+    fitted_panel_widths, folded_transcript_row_kinds, leftover_traffic_light_clearance,
+    sidebar_material_width,
     format_worked_duration, format_working_elapsed, maintain_transcript_anchor,
     message_starts_followup_turn, navigation_preview_snippet, navigation_rail_height,
     navigation_rail_scale, navigation_rail_tick_count, navigation_rail_tick_turn,
@@ -425,9 +427,37 @@ fn conversation_navigation_preview_does_not_change_during_a_running_turn() {
 fn panel_widths_preserve_main_content_when_the_window_narrows() {
     let (sidebar, right_panel) = fitted_panel_widths(980.0, true, true, 420.0, 720.0);
 
-    assert_eq!(sidebar, 340.0);
+    assert_eq!(sidebar, 288.0);
     assert_eq!(right_panel, 280.0);
-    assert_eq!(980.0 - sidebar - right_panel, 360.0);
+    assert_eq!(
+        980.0 - INBOX_NAV_RAIL_WIDTH - sidebar - right_panel,
+        360.0
+    );
+}
+
+#[test]
+fn sidebar_material_covers_nav_and_list() {
+    assert_eq!(sidebar_material_width(false, true, 252.0), 0.0);
+    assert_eq!(
+        sidebar_material_width(true, true, 252.0),
+        INBOX_NAV_RAIL_WIDTH + 252.0
+    );
+    assert_eq!(
+        sidebar_material_width(true, false, 252.0),
+        INBOX_NAV_RAIL_WIDTH
+    );
+}
+
+#[test]
+fn board_header_clears_the_uncovered_traffic_lights() {
+    assert_eq!(
+        leftover_traffic_light_clearance(true),
+        (TRAFFIC_LIGHT_CLEARANCE - INBOX_NAV_RAIL_WIDTH).max(0.0)
+    );
+    assert_eq!(
+        leftover_traffic_light_clearance(false),
+        TRAFFIC_LIGHT_CLEARANCE
+    );
 }
 
 #[test]

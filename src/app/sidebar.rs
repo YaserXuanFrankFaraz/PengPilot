@@ -362,7 +362,7 @@ impl Waku {
                 self.window_drag_region(
                     div()
                         .id("sidebar-traffic-light-drag-region")
-                        .w(px(TRAFFIC_LIGHT_CLEARANCE))
+                        .w(px(leftover_traffic_light_clearance(true)))
                         .h_full()
                         .flex_none(),
                     cx,
@@ -638,39 +638,18 @@ impl Waku {
         )
     }
 
-    fn render_sidebar_footer(&self, cx: &mut Context<Self>) -> Div {
-        let theme = Theme::current(cx);
-        div()
-            .flex_none()
-            .h(px(40.0))
-            .px(px(10.0))
-            .flex()
-            .items_center()
-            .child(
-                div()
-                    .id("open-settings")
-                    .tab_index(0)
-                    .focus_visible(|style| style.border_1().border_color(theme.accent))
-                    .w(px(26.0))
-                    .h(px(26.0))
-                    .flex_none()
-                    .rounded(px(6.0))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .cursor_default()
-                    .hover(|element| element.bg(theme.overlay))
-                    .active(|element| element.bg(theme.overlay_strong))
-                    .tooltip(Tooltip::text(tr_cow!("common.settings")))
-                    .child(icon("icons/settings.svg", 14.0, theme.text_tertiary))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.open_settings_action(&OpenSettings, window, cx);
-                    })),
-            )
-            .child(div().flex_1())
-            .when_some(self.render_updater_button(cx), |footer, button| {
-                footer.child(button)
-            })
+    fn render_sidebar_footer(&self, cx: &mut Context<Self>) -> Option<Div> {
+        let button = self.render_updater_button(cx)?;
+        Some(
+            div()
+                .flex_none()
+                .h(px(40.0))
+                .px(px(10.0))
+                .flex()
+                .items_center()
+                .child(div().flex_1())
+                .child(button),
+        )
     }
 
     pub(super) fn render_sidebar(
@@ -750,7 +729,7 @@ impl Waku {
                         )
                     }),
             )
-            .child(self.render_sidebar_footer(cx))
+            .children(self.render_sidebar_footer(cx))
     }
 
     /// Snapshot the session history as a flat list of lightweight rows, newest
@@ -762,6 +741,7 @@ impl Waku {
             .sessions
             .iter()
             .filter(|session| session.has_started())
+            .filter(|session| self.session_matches_collection(session))
             .collect::<Vec<_>>();
         sorted_sessions
             .sort_by_key(|session| std::cmp::Reverse(sidebar_session_timestamp(session)));
@@ -1110,6 +1090,25 @@ impl Waku {
                     .gap(px(5.0))
                     .text_size(px(11.5))
                     .line_height(px(15.0))
+                    .child(workflow_status_chip(session.workflow_status, &theme))
+                    .when(
+                        self.inbox_collection == crate::work::InboxCollection::Archive,
+                        |meta| {
+                            meta.child(
+                                div()
+                                    .px(px(5.0))
+                                    .rounded(px(4.0))
+                                    .border_1()
+                                    .border_color(theme.border_strong)
+                                    .text_color(theme.text_tertiary)
+                                    .child(SharedString::from(tr!(session_quadrant(session)
+                                        .label_key()))),
+                            )
+                        },
+                    )
+                    .when(session.flagged, |meta| {
+                        meta.child(div().text_color(theme.favorite).child("★"))
+                    })
                     .child(icon("icons/folder.svg", 11.0, theme.text_tertiary))
                     .child(
                         div()
@@ -1172,11 +1171,116 @@ impl Waku {
                 move |_| {
                     let rename_waku = waku.clone();
                     let remove_waku = waku.clone();
+                    let workflow_waku = waku.clone();
+                    let flag_waku = waku.clone();
+                    let quadrant_waku = waku.clone();
                     vec![
                         MenuItem::new(tr!("common.rename"), move |window, cx| {
                             let _ = rename_waku.update(cx, |waku, cx| {
                                 waku.begin_session_rename(session_id, window, cx);
                             });
+                        }),
+                        MenuItem::Separator,
+                        MenuItem::new(tr!("workflow.todo"), {
+                            let waku = workflow_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_workflow(
+                                        session_id,
+                                        crate::work::WorkflowStatus::Todo,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("workflow.in_progress"), {
+                            let waku = workflow_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_workflow(
+                                        session_id,
+                                        crate::work::WorkflowStatus::InProgress,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("workflow.in_review"), {
+                            let waku = workflow_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_workflow(
+                                        session_id,
+                                        crate::work::WorkflowStatus::InReview,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("inbox.complete"), {
+                            let waku = workflow_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_workflow(
+                                        session_id,
+                                        crate::work::WorkflowStatus::Done,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("inbox.flag"), move |_, cx| {
+                            let _ = flag_waku
+                                .update(cx, |waku, cx| waku.toggle_session_flag(session_id, cx));
+                        }),
+                        MenuItem::Separator,
+                        MenuItem::new(tr!("quadrant.do_now"), {
+                            let waku = quadrant_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_quadrant(
+                                        session_id,
+                                        crate::work::Quadrant::DO_NOW,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("quadrant.schedule"), {
+                            let waku = quadrant_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_quadrant(
+                                        session_id,
+                                        crate::work::Quadrant::SCHEDULE,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("quadrant.delegate"), {
+                            let waku = quadrant_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_quadrant(
+                                        session_id,
+                                        crate::work::Quadrant::DELEGATE,
+                                        cx,
+                                    );
+                                });
+                            }
+                        }),
+                        MenuItem::new(tr!("quadrant.later"), {
+                            let waku = quadrant_waku.clone();
+                            move |_, cx| {
+                                let _ = waku.update(cx, |waku, cx| {
+                                    waku.set_session_quadrant(
+                                        session_id,
+                                        crate::work::Quadrant::LATER,
+                                        cx,
+                                    );
+                                });
+                            }
                         }),
                         MenuItem::Separator,
                         MenuItem::new(tr!("common.remove"), move |_, cx| {
@@ -1550,6 +1654,29 @@ fn localized_session_title(session: &AgentSession) -> String {
     } else {
         title.to_owned()
     }
+}
+
+fn session_quadrant(session: &AgentSession) -> crate::work::Quadrant {
+    crate::work::Quadrant {
+        important: session.important,
+        urgent: session.urgent,
+    }
+}
+
+fn workflow_status_chip(status: crate::work::WorkflowStatus, theme: &Theme) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .gap(px(4.0))
+        .text_color(super::inbox::workflow_label_color(status, theme))
+        .child(
+            div()
+                .w(px(6.0))
+                .h(px(6.0))
+                .rounded_full()
+                .bg(super::inbox::workflow_label_color(status, theme)),
+        )
+        .child(tr!(status.label_key()))
 }
 
 #[cfg(test)]

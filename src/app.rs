@@ -68,7 +68,8 @@ use crate::{
     NavigateBack, NavigateForward, NewProject, NewSession, OpenFind, OpenFindReplace, OpenSettings,
     ReplaceAllMatches, SaveFile, ToggleCommandPalette, ToggleFindCaseSensitive, ToggleFindRegex,
     ToggleFindWholeWord, ToggleFpsCounter, ToggleModelPicker, ToggleRightPanel, ToggleSidebar,
-    ToggleUsagePanel,
+    ToggleUsagePanel, FocusNavZone, FocusListZone, FocusDetailZone, ShowUnfinished, ShowFlagged,
+    ShowArchive, ShowBoard,
 };
 
 #[cfg(target_os = "macos")]
@@ -95,6 +96,8 @@ const FILE_EDITOR_INITIAL_WIDTH: f32 = 500.0;
 const REVIEW_INITIAL_WIDTH: f32 = 820.0;
 const MAIN_PANEL_MIN_WIDTH: f32 = 360.0;
 const FOLLOWUP_TURN_TOP_GAP: f32 = 48.0;
+const INBOX_NAV_RAIL_WIDTH: f32 = 52.0;
+const TITLEBAR_HEIGHT: f32 = 48.0;
 const NAVIGATION_RAIL_WIDTH: f32 = 44.0;
 const NAVIGATION_RAIL_LEFT: f32 = 16.0;
 const NAVIGATION_RAIL_CONTENT_GAP: f32 = 16.0;
@@ -445,7 +448,12 @@ fn fitted_panel_widths(
         0.0
     };
 
-    let available = (viewport_width - MAIN_PANEL_MIN_WIDTH).max(0.0);
+    let nav = if sidebar_visible {
+        INBOX_NAV_RAIL_WIDTH
+    } else {
+        0.0
+    };
+    let available = (viewport_width - MAIN_PANEL_MIN_WIDTH - nav).max(0.0);
     let mut overflow = (sidebar + right_panel - available).max(0.0);
     let right_reduction = overflow.min((right_panel - right_panel_min).max(0.0));
     right_panel -= right_reduction;
@@ -465,6 +473,30 @@ fn fitted_panel_widths(
     }
 
     (sidebar, right_panel)
+}
+
+/// How much of the native traffic-light row is still uncovered after the nav.
+fn leftover_traffic_light_clearance(sidebar_visible: bool) -> f32 {
+    if sidebar_visible {
+        (TRAFFIC_LIGHT_CLEARANCE - INBOX_NAV_RAIL_WIDTH).max(0.0)
+    } else {
+        TRAFFIC_LIGHT_CLEARANCE
+    }
+}
+
+/// Full left chrome, not the session-list width.
+///
+/// `sidebar_width` is only the list. The inbox nav sits to its left, and on
+/// macOS `theme.sidebar` is clear so the native tint must cover nav + list
+/// or the gap shows the desktop through the window blur.
+fn sidebar_material_width(sidebar_visible: bool, list_visible: bool, list_width: f32) -> f32 {
+    if !sidebar_visible {
+        0.0
+    } else if list_visible {
+        INBOX_NAV_RAIL_WIDTH + list_width
+    } else {
+        INBOX_NAV_RAIL_WIDTH
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1154,6 +1186,9 @@ pub struct Waku {
     /// Active turns use top alignment so row remeasurement cannot invoke the
     /// bottom-aligned list's implicit pin and displace the sent-message anchor.
     anchored_transcript_rows: ListState,
+    inbox_collection: crate::work::InboxCollection,
+    board_visible: bool,
+    focus_zone: crate::work::FocusZone,
     /// Virtualized list backing the sidebar session history, so only visible
     /// rows are built and laid out regardless of how many sessions exist.
     sidebar_list_state: ListState,
@@ -1248,6 +1283,7 @@ mod runtime;
 mod sessions;
 mod settings;
 mod sidebar;
+mod inbox;
 mod skills_page;
 mod streaming;
 mod transcript;
@@ -1628,7 +1664,10 @@ impl Waku {
         state.sidebar_width = sidebar_width;
         state.right_panel_width = right_panel_width;
         crate::theme::apply_theme_preference(state.theme, window, cx);
-        crate::platform::set_sidebar_material_width(window, sidebar_width);
+        crate::platform::set_sidebar_material_width(
+            window,
+            sidebar_material_width(sidebar_visible, true, sidebar_width),
+        );
         let project_paths = state
             .projects
             .iter()
@@ -2353,6 +2392,9 @@ impl Waku {
                 message_edit: None,
                 transcript_rows,
                 anchored_transcript_rows,
+                inbox_collection: crate::work::InboxCollection::Unfinished,
+                board_visible: false,
+                focus_zone: crate::work::FocusZone::Detail,
                 sidebar_list_state,
                 sidebar_scrollbar: ScrollbarState::new(),
                 sidebar_row_cache: RefCell::new(Vec::new()),

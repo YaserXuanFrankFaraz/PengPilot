@@ -8,97 +8,175 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub enum ProviderKind {
     Amp,
+    Antigravity,
     Claude,
+    CodeBuddy,
     #[default]
     Codex,
+    Copilot,
     Cursor,
     DeepSeek,
+    DevEco,
     OpenCode,
     Grok,
+    Kimi,
     Pi,
+    Prime,
     Omp,
     Kiro,
     Hermes,
+    OpenClaw,
+    Qoder,
+    QoderCn,
+    Qwen,
+    QwenPaw,
+    Reasonix,
+    Trae,
 }
 
 impl ProviderKind {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 24] = [
         Self::Amp,
+        Self::Antigravity,
         Self::Claude,
+        Self::CodeBuddy,
         Self::Codex,
+        Self::Copilot,
         Self::Cursor,
         Self::DeepSeek,
-        Self::OpenCode,
+        Self::DevEco,
         Self::Grok,
-        Self::Pi,
-        Self::Omp,
-        Self::Kiro,
         Self::Hermes,
+        Self::Kimi,
+        Self::Kiro,
+        Self::Omp,
+        Self::OpenClaw,
+        Self::OpenCode,
+        Self::Pi,
+        Self::Prime,
+        Self::Qoder,
+        Self::QoderCn,
+        Self::Qwen,
+        Self::QwenPaw,
+        Self::Reasonix,
+        Self::Trae,
     ];
 
     pub fn id(self) -> &'static str {
         match self {
             Self::Amp => "amp",
+            Self::Antigravity => "antigravity",
             Self::Claude => "claude",
+            Self::CodeBuddy => "codebuddy",
             Self::Codex => "codex",
+            Self::Copilot => "copilot",
             Self::Cursor => "cursor",
             Self::DeepSeek => "deepseek",
+            Self::DevEco => "deveco",
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
+            Self::Kimi => "kimi",
             Self::Pi => "pi",
+            Self::Prime => "prime",
             Self::Omp => "omp",
             Self::Kiro => "kiro",
             Self::Hermes => "hermes",
+            Self::OpenClaw => "openclaw",
+            Self::Qoder => "qoder",
+            Self::QoderCn => "qoder-cn",
+            Self::Qwen => "qwen",
+            Self::QwenPaw => "qwenpaw",
+            Self::Reasonix => "reasonix",
+            Self::Trae => "trae",
         }
     }
 
     pub fn display_name(self) -> &'static str {
         match self {
             Self::Amp => "Amp",
+            Self::Antigravity => "Antigravity",
             Self::Claude => "Claude Code",
+            Self::CodeBuddy => "CodeBuddy",
             Self::Codex => "Codex CLI",
+            Self::Copilot => "GitHub Copilot CLI",
             Self::Cursor => "Cursor CLI",
             Self::DeepSeek => "DeepSeek Harness",
+            Self::DevEco => "DevEco Code",
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok Build",
+            Self::Kimi => "Kimi CLI",
             Self::Pi => "Pi",
+            Self::Prime => "Prime Agent",
             Self::Omp => "Oh My Pi",
             Self::Kiro => "Kiro CLI",
             Self::Hermes => "Hermes Agent",
+            Self::OpenClaw => "OpenClaw",
+            Self::Qoder => "Qoder CLI",
+            Self::QoderCn => "Qoder CLI CN",
+            Self::Qwen => "Qwen Code",
+            Self::QwenPaw => "QwenPaw",
+            Self::Reasonix => "Reasonix",
+            Self::Trae => "Trae CLI",
         }
     }
 
     pub fn short_name(self) -> &'static str {
         match self {
             Self::Amp => "Amp",
+            Self::Antigravity => "Antigravity",
             Self::Claude => "Claude",
+            Self::CodeBuddy => "CodeBuddy",
             Self::Codex => "Codex",
+            Self::Copilot => "Copilot",
             Self::Cursor => "Cursor",
             Self::DeepSeek => "DeepSeek",
+            Self::DevEco => "DevEco",
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok",
+            Self::Kimi => "Kimi",
             Self::Pi => "Pi",
+            Self::Prime => "Prime",
             Self::Omp => "OMP",
             Self::Kiro => "Kiro",
             Self::Hermes => "Hermes",
+            Self::OpenClaw => "OpenClaw",
+            Self::Qoder => "Qoder",
+            Self::QoderCn => "Qoder CN",
+            Self::Qwen => "Qwen",
+            Self::QwenPaw => "QwenPaw",
+            Self::Reasonix => "Reasonix",
+            Self::Trae => "Trae",
         }
     }
 
     pub fn command(self) -> &'static str {
         match self {
             Self::Amp => "amp",
+            Self::Antigravity => "agy",
             Self::Claude => "claude",
+            Self::CodeBuddy => "codebuddy",
             Self::Codex => "codex",
+            Self::Copilot => "copilot",
             // Cursor documents `agent` as its primary command, but that name is
             // shared by other CLIs. The backward-compatible alias is unambiguous.
             Self::Cursor => "cursor-agent",
             Self::DeepSeek => "dsh",
+            Self::DevEco => "deveco",
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
+            Self::Kimi => "kimi",
             Self::Pi => "pi",
+            Self::Prime => "prime-agent",
             Self::Omp => "omp",
             Self::Kiro => "kiro-cli",
             Self::Hermes => "hermes",
+            Self::OpenClaw => "openclaw",
+            Self::Qoder => "qodercli",
+            Self::QoderCn => "qoderclicn",
+            Self::Qwen => "qwen",
+            Self::QwenPaw => "qwenpaw",
+            Self::Reasonix => "reasonix",
+            Self::Trae => "traecli",
         }
     }
 
@@ -113,6 +191,7 @@ impl ProviderKind {
                 | Self::OpenCode
                 | Self::Grok
                 | Self::Pi
+                | Self::Prime
         )
     }
 
@@ -127,6 +206,7 @@ impl ProviderKind {
                 | Self::OpenCode
                 | Self::Grok
                 | Self::Pi
+                | Self::Prime
         )
     }
 
@@ -142,6 +222,7 @@ impl ProviderKind {
                 | Self::Omp
                 | Self::Kiro
                 | Self::Hermes
+                | Self::Prime
         )
     }
 }
@@ -194,6 +275,13 @@ pub enum ProviderResumeCursor {
     Hermes {
         session_id: String,
     },
+    /// Session identity for providers that share one transport implementation.
+    External {
+        kind: ProviderKind,
+        session_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_file: Option<PathBuf>,
+    },
 }
 
 impl ProviderResumeCursor {
@@ -222,6 +310,11 @@ impl ProviderResumeCursor {
             ProviderKind::Omp => Self::Omp { session_id: id },
             ProviderKind::Kiro => Self::Kiro { session_id: id },
             ProviderKind::Hermes => Self::Hermes { session_id: id },
+            kind => Self::External {
+                kind,
+                session_id: id,
+                session_file: None,
+            },
         }
     }
 
@@ -238,6 +331,7 @@ impl ProviderResumeCursor {
             Self::Omp { .. } => ProviderKind::Omp,
             Self::Kiro { .. } => ProviderKind::Kiro,
             Self::Hermes { .. } => ProviderKind::Hermes,
+            Self::External { kind, .. } => *kind,
         }
     }
 
@@ -252,6 +346,7 @@ impl ProviderResumeCursor {
             | Self::Pi { session_id, .. }
             | Self::Omp { session_id } => session_id,
             Self::Kiro { session_id } | Self::Hermes { session_id } => session_id,
+            Self::External { session_id, .. } => session_id,
             Self::Codex { thread_id } => thread_id,
         }
     }
@@ -812,6 +907,20 @@ pub struct AgentSession {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_preset: Option<String>,
     pub status: SessionStatus,
+    /// Kanban progress. Independent of [`Self::status`].
+    #[serde(default)]
+    pub workflow_status: crate::work::WorkflowStatus,
+    /// Eisenhower: default is important and not urgent.
+    #[serde(default = "default_session_important")]
+    pub important: bool,
+    #[serde(default)]
+    pub urgent: bool,
+    #[serde(default)]
+    pub flagged: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_item_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_profile_id: Option<Uuid>,
     pub created_at: u64,
     /// Any mutation, including title edits and truncation. Use
     /// [`Self::last_reply_at`] for conversation recency.
@@ -860,6 +969,10 @@ fn detail_loaded_default() -> bool {
     true
 }
 
+fn default_session_important() -> bool {
+    true
+}
+
 impl AgentSession {
     pub const DEFAULT_TITLE: &'static str = "New task";
 
@@ -879,6 +992,12 @@ impl AgentSession {
             service_tier: None,
             agent_preset: None,
             status: SessionStatus::Idle,
+            workflow_status: crate::work::WorkflowStatus::Todo,
+            important: true,
+            urgent: false,
+            flagged: false,
+            work_item_id: None,
+            agent_profile_id: None,
             created_at: now,
             updated_at: now,
             last_reply_at: None,
@@ -2862,6 +2981,10 @@ mod tests {
         assert_eq!(ProviderKind::Omp.command(), "omp");
         assert_eq!(ProviderKind::Kiro.command(), "kiro-cli");
         assert_eq!(ProviderKind::Hermes.command(), "hermes");
+        assert_eq!(ProviderKind::Prime.command(), "prime-agent");
+        assert_eq!(ProviderKind::Copilot.command(), "copilot");
+        assert_eq!(ProviderKind::QoderCn.command(), "qoderclicn");
+        assert_eq!(ProviderKind::Trae.command(), "traecli");
     }
 
     #[test]
@@ -2875,6 +2998,7 @@ mod tests {
             ProviderKind::OpenCode,
             ProviderKind::Grok,
             ProviderKind::Pi,
+            ProviderKind::Prime,
         ] {
             assert!(provider.supports_conversation_fork());
             assert!(provider.supports_conversation_rollback());
@@ -2900,6 +3024,7 @@ mod tests {
         assert!(ProviderKind::Omp.supports_model_discovery());
         assert!(ProviderKind::Kiro.supports_model_discovery());
         assert!(ProviderKind::Hermes.supports_model_discovery());
+        assert!(ProviderKind::Prime.supports_model_discovery());
     }
 
     #[test]

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-15
+goal: Keep PengPilot a small GPUI app, and add Craft inbox interaction plus
+  Multica board and multi-CLI squads.

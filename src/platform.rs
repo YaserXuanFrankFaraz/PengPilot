@@ -314,7 +314,7 @@ thread_local! {
 }
 
 #[cfg(target_os = "macos")]
-const SIDEBAR_WIDTH: f64 = 252.0;
+const SIDEBAR_WIDTH: f64 = 304.0;
 
 pub fn start_window_move(window: &Window) {
     window.start_window_move();

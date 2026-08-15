@@ -101,6 +101,8 @@ settings.share_anonymous_usage_data_description: 機能の利用状況と信頼�
 
 providers.coding_agents: コーディングエージェント
 providers.description: PengPilot はこの Mac にインストールされたエージェントの CLI を使用します。各エージェントの CLI をインストールするかログインしてから、更新してください
+providers.detected_group: PATH で検出済み
+providers.not_detected_group: PATH で未検出
 providers.disabled_for_new_tasks: 新規タスクでは無効
 providers.model_count_one: "%{count} 個のモデル"
 providers.model_count_many: "%{count} 個のモデル"
@@ -149,6 +151,29 @@ sidebar.minutes_ago: "%{count} 分前"
 sidebar.hours_ago: "%{count} 時間前"
 sidebar.days_ago: "%{count} 日前"
 sidebar.unknown_project: 不明なプロジェクト
+inbox.unfinished: 未完了
+inbox.flagged: フラグ
+inbox.archive: アーカイブ
+inbox.board: 四象限
+inbox.archive_done: アーカイブ · 完了
+inbox.unfinished_group: 未完了
+inbox.complete: 完了してアーカイブ
+inbox.flag: フラグを付ける
+inbox.unflag: フラグを外す
+inbox.move_to: 移動
+workflow.todo: 未着手
+workflow.in_progress: 進行中
+workflow.in_review: レビュー待ち
+workflow.done: 完了してアーカイブ
+quadrant.do_now: 重要かつ緊急
+quadrant.schedule: 重要・緊急でない
+quadrant.delegate: 緊急・重要でない
+quadrant.later: どちらでもない
+quadrant.do_now_hint: 今やる
+quadrant.schedule_hint: 計画する
+quadrant.delegate_hint: 小隊へ
+quadrant.later_hint: 後回し
+quadrant.label: 象限
 
 project.new_project: 新規プロジェクト…
 project.no_project: プロジェクトを使用しない
