@@ -16,6 +16,13 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.7]
+
+- Fix Computer Use startup failures caused by macOS Unix socket path limits
+- Make each Board workflow lane independently scrollable
+- Keep Board card titles to one truncated line and support persistent drag-and-drop
+  across quadrants and workflow lanes
+
 ## [0.1.6]
 
 - Add session Inbox views for unfinished, flagged, archived, and board work

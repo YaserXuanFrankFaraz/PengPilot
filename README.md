@@ -76,8 +76,9 @@ Access mode. ACP and RPC providers retain long-lived sessions.
 
 - Manage multiple local projects and independent, concurrently running agent
   tasks in one native app.
-- Triage sessions through Unfinished, Flagged, Archive, and Board views, with
-  workflow status and work-item metadata kept locally.
+- Triage sessions through Unfinished, Flagged, Archive, and Board views. Board
+  lanes scroll independently, and cards can move across quadrants and workflow
+  statuses by drag-and-drop; placement and work-item metadata stay local.
 - Keep long-lived provider sessions across turns, with streamed responses,
   reasoning, tool activity, approvals, and provider-native continuity.
 - Select models, reasoning effort, service tier, build/plan interaction, and
@@ -262,8 +263,8 @@ Antigravity、CodeBuddy、Copilot、DevEco、OpenClaw 和 Qwen 当前使用各�
 ### 主要功能
 
 - 在一个原生应用中管理多个本地项目和彼此独立、可并行运行的智能体任务。
-- 通过「未完成」、「已标记」、「归档」和「看板」视图整理会话，工作流状态与
-  工作项元数据均保存在本机。
+- 通过「未完成」、「已标记」、「归档」和「看板」视图整理会话；各看板状态栏可
+  独立滚动，会话卡片可拖拽到其他象限和工作流状态，位置与工作项元数据均保存在本机。
 - 跨轮次保持长生命周期服务商会话，流式呈现回答、推理、工具活动和权限请求。
 - 在服务商支持时选择模型、推理强度、服务等级、构建/规划交互方式，以及监督或
   自动化访问模式。

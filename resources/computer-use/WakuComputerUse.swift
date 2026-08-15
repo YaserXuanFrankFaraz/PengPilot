@@ -1445,10 +1445,11 @@ private final class UnixListener {
     private var descriptor: Int32
 
     init() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pengpilot-computer-use", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        path = directory.appendingPathComponent(UUID().uuidString).path
+        // Unix-domain socket paths are capped at 104 bytes on macOS. The
+        // per-user temporary directory is already private, so keep only a
+        // short random filename below it.
+        let name = "pcu-\(UUID().uuidString.prefix(16))"
+        path = FileManager.default.temporaryDirectory.appendingPathComponent(name).path
         descriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else {
             throw HelperError.ipc(String(cString: strerror(errno)))

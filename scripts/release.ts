@@ -104,6 +104,20 @@ function logStep(message: string): void {
   console.log(`\n==> ${message}`);
 }
 
+async function ejectDmg(mountDirectory: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const result = await $`diskutil eject ${mountDirectory}`.quiet().nothrow();
+    if (result.exitCode === 0) return true;
+    await Bun.sleep(500);
+    try {
+      await access(join(mountDirectory, `${appName}.app`));
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
 type CargoMetadata = {
   packages: Array<{
     name: string;
@@ -506,7 +520,9 @@ try {
   }
   await $`codesign --verify --deep --strict --verbose=2 ${mountedApp}`;
   await verifyJavaScriptRepl(mountedJsRepl);
-  await $`diskutil eject ${mountDirectory}`;
+  if (!(await ejectDmg(mountDirectory))) {
+    throw new Error(`Unable to detach temporary mount at ${mountDirectory}.`);
+  }
   mountedDmg = false;
 
   if (!adhoc && !skipNotarize) {
@@ -656,8 +672,7 @@ try {
   console.log(`ZIP ready: ${zipPath}`);
 } finally {
   if (mountedDmg && mountDirectory) {
-    const result = await $`diskutil eject ${mountDirectory}`.quiet().nothrow();
-    if (result.exitCode === 0) {
+    if (await ejectDmg(mountDirectory)) {
       mountedDmg = false;
     } else {
       console.warn(`Unable to detach temporary mount at ${mountDirectory}.`);

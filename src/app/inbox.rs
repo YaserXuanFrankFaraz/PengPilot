@@ -1,6 +1,53 @@
 use super::*;
 use crate::work::{FocusZone, InboxCollection, Quadrant, WorkflowStatus};
 
+#[derive(Clone)]
+struct BoardCardDrag {
+    session_id: Uuid,
+    title: SharedString,
+    position: gpui::Point<Pixels>,
+}
+
+impl BoardCardDrag {
+    fn new(session_id: Uuid, title: SharedString) -> Self {
+        Self {
+            session_id,
+            title,
+            position: point(px(0.0), px(0.0)),
+        }
+    }
+
+    fn at(mut self, position: gpui::Point<Pixels>) -> Self {
+        self.position = position;
+        self
+    }
+}
+
+impl Render for BoardCardDrag {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = Theme::current(cx);
+        div()
+            .pl(self.position.x - px(130.0))
+            .pt(self.position.y - px(20.0))
+            .child(
+                div()
+                    .w(px(260.0))
+                    .px(px(10.0))
+                    .py(px(8.0))
+                    .rounded(px(8.0))
+                    .border_1()
+                    .border_color(theme.accent)
+                    .bg(theme.surface)
+                    .shadow_md()
+                    .text_size(px(12.0))
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis()
+                    .child(self.title.clone()),
+            )
+    }
+}
+
 impl Waku {
     pub(super) fn list_pane_visible(&self) -> bool {
         !self.board_visible
@@ -94,17 +141,26 @@ impl Waku {
         next: WorkflowStatus,
         cx: &mut Context<Self>,
     ) {
-        if let Some(session) = self.state.session_mut(session_id) {
+        let changed = self.state.session_mut(session_id).is_some_and(|session| {
+            let changed = session.workflow_status != next;
             session.workflow_status = next;
+            changed
+        });
+        if changed {
+            self.save();
+            cx.notify();
         }
-        cx.notify();
     }
 
     pub(super) fn toggle_session_flag(&mut self, session_id: Uuid, cx: &mut Context<Self>) {
-        if let Some(session) = self.state.session_mut(session_id) {
+        let changed = self.state.session_mut(session_id).is_some_and(|session| {
             session.flagged = !session.flagged;
+            true
+        });
+        if changed {
+            self.save();
+            cx.notify();
         }
-        cx.notify();
     }
 
     pub(super) fn set_session_quadrant(
@@ -113,11 +169,39 @@ impl Waku {
         quadrant: Quadrant,
         cx: &mut Context<Self>,
     ) {
-        if let Some(session) = self.state.session_mut(session_id) {
+        let changed = self.state.session_mut(session_id).is_some_and(|session| {
+            let changed =
+                session.important != quadrant.important || session.urgent != quadrant.urgent;
             session.important = quadrant.important;
             session.urgent = quadrant.urgent;
+            changed
+        });
+        if changed {
+            self.save();
+            cx.notify();
         }
-        cx.notify();
+    }
+
+    fn move_session_to_board_lane(
+        &mut self,
+        session_id: Uuid,
+        quadrant: Quadrant,
+        status: WorkflowStatus,
+        cx: &mut Context<Self>,
+    ) {
+        let changed = self.state.session_mut(session_id).is_some_and(|session| {
+            let changed = session.workflow_status != status
+                || session.important != quadrant.important
+                || session.urgent != quadrant.urgent;
+            session.workflow_status = status;
+            session.important = quadrant.important;
+            session.urgent = quadrant.urgent;
+            changed
+        });
+        if changed {
+            self.save();
+            cx.notify();
+        }
     }
 
     pub(super) fn render_nav_rail(&self, window: &Window, cx: &mut Context<Self>) -> Div {
@@ -397,7 +481,7 @@ impl Waku {
         status: WorkflowStatus,
         with_border: bool,
         cx: &mut Context<Self>,
-    ) -> Div {
+    ) -> AnyElement {
         let theme = Theme::current(cx);
         let cards: Vec<Uuid> = self
             .state
@@ -412,11 +496,23 @@ impl Waku {
             .map(|session| session.id)
             .collect();
         let count = cards.len();
+        let lane_id = SharedString::from(format!(
+            "board-lane-{}-{}",
+            quadrant.label_key(),
+            status.label_key()
+        ));
+        let drop_background = theme.overlay;
         div()
+            .id(lane_id.clone())
             .flex_1()
             .min_w_0()
+            .min_h_0()
             .flex()
             .flex_col()
+            .drag_over::<BoardCardDrag>(move |lane, _, _, _| lane.bg(drop_background))
+            .on_drop(cx.listener(move |this, card: &BoardCardDrag, _, cx| {
+                this.move_session_to_board_lane(card.session_id, quadrant, status, cx);
+            }))
             .when(with_border, |lane| {
                 lane.border_r_1().border_color(theme.border)
             })
@@ -440,8 +536,10 @@ impl Waku {
             )
             .child(
                 div()
+                    .id(SharedString::from(format!("{lane_id}-scroll")))
                     .flex_1()
                     .min_h_0()
+                    .overflow_y_scroll()
                     .px(px(6.0))
                     .pb(px(6.0))
                     .flex()
@@ -449,6 +547,7 @@ impl Waku {
                     .gap(px(6.0))
                     .children(cards.into_iter().map(|id| self.render_board_card(id, cx))),
             )
+            .into_any_element()
     }
 
     fn render_board_card(&self, session_id: Uuid, cx: &mut Context<Self>) -> AnyElement {
@@ -462,7 +561,8 @@ impl Waku {
             return div().into_any_element();
         };
         let selected = self.state.selected_session == Some(session_id);
-        let title = session.display_title().to_string();
+        let title = SharedString::from(session.display_title().to_string());
+        let drag = BoardCardDrag::new(session_id, title.clone());
         div()
             .id(SharedString::from(format!("board-card-{session_id}")))
             .w_full()
@@ -472,17 +572,33 @@ impl Waku {
             .border_1()
             .border_color(if selected { theme.accent } else { theme.border })
             .bg(theme.surface)
-            .cursor_default()
+            .cursor_move()
             .hover(|card| card.bg(theme.overlay))
+            .tab_index(0)
+            .focus_visible(|card| card.border_color(theme.accent))
+            .on_drag(drag, |card, position, _, cx| {
+                cx.new(|_| card.clone().at(position))
+            })
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.board_visible = false;
                 this.select_session(session_id, cx);
             }))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+                if !event.keystroke.modifiers.modified()
+                    && matches!(event.keystroke.key.as_str(), "enter" | "space")
+                {
+                    this.board_visible = false;
+                    this.select_session(session_id, cx);
+                    cx.stop_propagation();
+                }
+            }))
             .child(
                 div()
                     .text_size(px(12.0))
-                    .line_clamp(2)
-                    .child(SharedString::from(title)),
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis()
+                    .child(title),
             )
             .child(
                 div()
