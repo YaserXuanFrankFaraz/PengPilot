@@ -17,8 +17,8 @@ the original feature bullet instead of adding separate entries for them.
 ## [unreleased]
 
 - Enlarge the transparent PengPilot mark in the new-task empty state.
-- Use official provider marks with one shared visual footprint in Settings and
-  the Chat Box picker.
+- Use each provider site's browser favicon with one shared visual footprint in
+  Settings and the Chat Box picker.
 - Hide Kimi Code from the featured and public catalogs while keeping existing
   sessions compatible.
 

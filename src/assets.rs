@@ -161,15 +161,9 @@ const ICONS: &[(&str, &[u8])] = icons![
     "pencil",
     "plus",
     "provider-amp",
-    "provider-claude",
     "provider-copilot",
     "provider-cursor",
-    "provider-deepseek",
-    "provider-grok",
-    "provider-openai",
-    "provider-opencode",
     "provider-omp-color",
-    "provider-kiro",
     "provider-pi",
     "quadrants",
     "regex",
@@ -207,8 +201,32 @@ const IMAGES: &[(&str, &[u8])] = &[
         include_bytes!("../assets/icons/pengpilot-mark.png"),
     ),
     (
+        "icons/provider-claude.png",
+        include_bytes!("../assets/icons/provider-claude.png"),
+    ),
+    (
+        "icons/provider-deepseek.png",
+        include_bytes!("../assets/icons/provider-deepseek.png"),
+    ),
+    (
+        "icons/provider-grok.png",
+        include_bytes!("../assets/icons/provider-grok.png"),
+    ),
+    (
         "icons/provider-hermes.png",
         include_bytes!("../assets/icons/provider-hermes.png"),
+    ),
+    (
+        "icons/provider-kiro.png",
+        include_bytes!("../assets/icons/provider-kiro.png"),
+    ),
+    (
+        "icons/provider-openai.png",
+        include_bytes!("../assets/icons/provider-openai.png"),
+    ),
+    (
+        "icons/provider-opencode.png",
+        include_bytes!("../assets/icons/provider-opencode.png"),
     ),
     (
         "icons/provider-trae.png",

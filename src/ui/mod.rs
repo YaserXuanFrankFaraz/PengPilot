@@ -29,15 +29,16 @@ pub fn file_icon(path: &'static str, size: f32) -> Img {
     img(path).w(px(size)).h(px(size)).flex_none()
 }
 
-/// Render monochrome and full-color provider marks through one fixed footprint.
+/// Render monochrome icons and authored-color favicons through one fixed footprint.
 pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> Div {
-    let is_full_color = matches!(
-        path,
-        "icons/provider-hermes.png"
-            | "icons/provider-kiro.svg"
-            | "icons/provider-omp-color.svg"
-            | "icons/provider-trae.png"
-    );
+    let is_full_color = path.ends_with(".png")
+        || matches!(
+            path,
+            "icons/provider-copilot.svg"
+                | "icons/provider-cursor.svg"
+                | "icons/provider-omp-color.svg"
+                | "icons/provider-pi.svg"
+        );
     let mark = if is_full_color {
         file_icon(path, size).into_any_element()
     } else {
@@ -109,16 +110,16 @@ pub fn provider_color(theme: &Theme, provider: ProviderKind) -> Hsla {
 pub fn provider_icon(provider: ProviderKind) -> &'static str {
     match provider {
         ProviderKind::Amp => "icons/provider-amp.svg",
-        ProviderKind::Claude => "icons/provider-claude.svg",
-        ProviderKind::Codex => "icons/provider-openai.svg",
+        ProviderKind::Claude => "icons/provider-claude.png",
+        ProviderKind::Codex => "icons/provider-openai.png",
         ProviderKind::Copilot => "icons/provider-copilot.svg",
         ProviderKind::Cursor => "icons/provider-cursor.svg",
-        ProviderKind::DeepSeek => "icons/provider-deepseek.svg",
-        ProviderKind::OpenCode => "icons/provider-opencode.svg",
-        ProviderKind::Grok => "icons/provider-grok.svg",
+        ProviderKind::DeepSeek => "icons/provider-deepseek.png",
+        ProviderKind::OpenCode => "icons/provider-opencode.png",
+        ProviderKind::Grok => "icons/provider-grok.png",
         ProviderKind::Pi => "icons/provider-pi.svg",
         ProviderKind::Omp => "icons/provider-omp-color.svg",
-        ProviderKind::Kiro => "icons/provider-kiro.svg",
+        ProviderKind::Kiro => "icons/provider-kiro.png",
         ProviderKind::Hermes => "icons/provider-hermes.png",
         ProviderKind::Trae => "icons/provider-trae.png",
         ProviderKind::Antigravity

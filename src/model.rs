@@ -149,7 +149,7 @@ impl ProviderKind {
             Self::DevEco => "DevEco",
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok",
-            Self::Kimi => "Kimi",
+            Self::Kimi => "Kimi Code",
             Self::Pi => "Pi",
             Self::Prime => "Prime",
             Self::Omp => "OMP",
@@ -3012,6 +3012,8 @@ mod tests {
     #[test]
     fn provider_labels_fit_their_surfaces() {
         assert_eq!(ProviderKind::DeepSeek.display_name(), "DeepSeek Harness");
+        assert_eq!(ProviderKind::Kimi.display_name(), "Kimi Code (CLI)");
+        assert_eq!(ProviderKind::Kimi.short_name(), "Kimi Code");
         for provider in ProviderKind::ALL {
             assert!(!provider.short_name().contains("(CLI)"));
         }
