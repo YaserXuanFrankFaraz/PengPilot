@@ -71,8 +71,6 @@ impl Quadrant {
         urgent: false,
     };
 
-    pub const ALL: [Self; 4] = [Self::DO_NOW, Self::SCHEDULE, Self::DELEGATE, Self::LATER];
-
     pub fn label_key(self) -> &'static str {
         match (self.important, self.urgent) {
             (true, true) => "quadrant.do_now",
@@ -120,16 +118,6 @@ impl InboxCollection {
     }
 }
 
-/// Changing progress must not move a card to another quadrant, and the other
-/// way around.
-pub fn move_progress(_workflow: WorkflowStatus, next: WorkflowStatus) -> WorkflowStatus {
-    next
-}
-
-pub fn move_quadrant(_current: Quadrant, next: Quadrant) -> Quadrant {
-    next
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,20 +158,5 @@ mod tests {
         assert!(q.important);
         assert!(!q.urgent);
         assert_eq!(q, Quadrant::SCHEDULE);
-    }
-
-    #[test]
-    fn progress_move_does_not_need_a_quadrant() {
-        assert_eq!(
-            move_progress(WorkflowStatus::Todo, WorkflowStatus::InReview),
-            WorkflowStatus::InReview
-        );
-    }
-
-    #[test]
-    fn quadrant_move_does_not_touch_progress() {
-        let workflow = WorkflowStatus::InProgress;
-        let _ = move_quadrant(Quadrant::DO_NOW, Quadrant::SCHEDULE);
-        assert_eq!(workflow, WorkflowStatus::InProgress);
     }
 }

@@ -51,10 +51,6 @@ fn default_computer_use_enabled() -> bool {
     false
 }
 
-fn default_analytics_enabled() -> bool {
-    true
-}
-
 fn default_provider() -> ProviderKind {
     ProviderKind::Codex
 }
@@ -258,7 +254,6 @@ impl ComposerDraftStore {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct AppSettings {
-    pub analytics_enabled: bool,
     pub favorite_models: Vec<FavoriteModel>,
     pub theme: ThemePreference,
     pub language: AppLanguage,
@@ -275,7 +270,6 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            analytics_enabled: default_analytics_enabled(),
             favorite_models: Vec::new(),
             theme: ThemePreference::System,
             language: AppLanguage::default(),
@@ -291,10 +285,6 @@ impl Default for AppSettings {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct AppState {
     app_state_version: u32,
-    /// Random installation-scoped analytics identity. It is deliberately
-    /// unrelated to provider accounts, projects, or session content.
-    #[serde(default = "Uuid::new_v4")]
-    analytics_id: Uuid,
     #[serde(default)]
     selected_project: Option<Uuid>,
     #[serde(default)]
@@ -323,11 +313,6 @@ struct AppState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PersistedState {
     pub version: u32,
-    /// Random installation-scoped analytics identity. See [`AppState`].
-    #[serde(default = "Uuid::new_v4")]
-    pub analytics_id: Uuid,
-    #[serde(default = "default_analytics_enabled")]
-    pub analytics_enabled: bool,
     pub projects: Vec<Project>,
     pub sessions: Vec<AgentSession>,
     pub selected_project: Option<Uuid>,
@@ -399,8 +384,6 @@ impl PersistedState {
     pub fn empty() -> Self {
         Self {
             version: STATE_VERSION,
-            analytics_id: Uuid::new_v4(),
-            analytics_enabled: true,
             projects: Vec::new(),
             sessions: Vec::new(),
             selected_project: None,
@@ -494,7 +477,6 @@ impl PersistedState {
 
     fn settings(&self) -> AppSettings {
         AppSettings {
-            analytics_enabled: self.analytics_enabled,
             favorite_models: self.favorite_models.clone(),
             theme: self.theme,
             language: self.language,
@@ -508,7 +490,6 @@ impl PersistedState {
     fn app_state(&self) -> AppState {
         AppState {
             app_state_version: APP_STATE_VERSION,
-            analytics_id: self.analytics_id,
             selected_project: self.selected_project,
             selected_session: self.persistable_selected_session(),
             last_provider: self.last_provider,
@@ -524,7 +505,6 @@ impl PersistedState {
     }
 
     fn apply_settings(&mut self, settings: AppSettings) {
-        self.analytics_enabled = settings.analytics_enabled;
         self.favorite_models = settings.favorite_models;
         self.theme = settings.theme;
         self.language = settings.language;
@@ -535,7 +515,6 @@ impl PersistedState {
     }
 
     fn apply_app_state(&mut self, app_state: AppState) {
-        self.analytics_id = app_state.analytics_id;
         self.selected_project = app_state.selected_project;
         self.selected_session = app_state.selected_session;
         self.last_provider = app_state.last_provider;
@@ -995,29 +974,34 @@ impl StateStore {
         state
     }
 
-    fn read_settings(&self) -> io::Result<Option<AppSettings>> {
+    fn read_settings(&self) -> io::Result<(Option<AppSettings>, bool)> {
         let Ok(bytes) = fs::read(&self.settings_path) else {
-            return Ok(None);
+            return Ok((None, false));
         };
-        serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(to_io_error)
+        let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(to_io_error)?;
+        let had_legacy_analytics = value.get("analytics_enabled").is_some();
+        let settings = serde_json::from_value(value).map_err(to_io_error)?;
+        Ok((Some(settings), had_legacy_analytics))
     }
 
-    fn read_app_state(&self) -> io::Result<Option<AppState>> {
+    fn read_app_state(&self) -> io::Result<(Option<AppState>, bool)> {
         let Ok(bytes) = fs::read(&self.app_state_path) else {
-            return Ok(None);
+            return Ok((None, false));
         };
         // `state.json` used to be the pre-SQLite all-in-one store. Requiring a
         // format-specific version key makes that document (and malformed
         // app-managed state) safely reset instead of being migrated.
-        let Ok(app_state) = serde_json::from_slice::<AppState>(&bytes) else {
-            return Ok(None);
+        let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+            return Ok((None, false));
+        };
+        let had_legacy_analytics = value.get("analytics_id").is_some();
+        let Ok(app_state) = serde_json::from_value::<AppState>(value) else {
+            return Ok((None, had_legacy_analytics));
         };
         if app_state.app_state_version != APP_STATE_VERSION {
-            return Ok(None);
+            return Ok((None, had_legacy_analytics));
         }
-        Ok(Some(app_state))
+        Ok((Some(app_state), had_legacy_analytics))
     }
 
     fn write_settings(&self, settings: &AppSettings) -> io::Result<()> {
@@ -1046,12 +1030,12 @@ impl StateStore {
 
         // Missing JSON files mean defaults; the database remains the source of
         // truth for projects and sessions.
-        let settings = self.read_settings()?;
+        let (settings, settings_had_legacy_analytics) = self.read_settings()?;
         let settings_missing = settings.is_none();
         if let Some(settings) = settings {
             state.apply_settings(settings);
         }
-        let app_state = self.read_app_state()?;
+        let (app_state, app_state_had_legacy_analytics) = self.read_app_state()?;
         let app_state_missing = app_state.is_none();
         if let Some(app_state) = app_state {
             state.apply_app_state(app_state);
@@ -1127,11 +1111,13 @@ impl StateStore {
 
         state.migrate_loaded();
         let settings = state.settings();
-        let settings_are_saved = !settings_missing || self.write_settings(&settings).is_ok();
+        let settings_are_saved = if settings_missing || settings_had_legacy_analytics {
+            self.write_settings(&settings).is_ok()
+        } else {
+            true
+        };
         let app_state = state.app_state();
-        let app_state_is_saved = if app_state_missing {
-            // Persist the random installation ID before the first analytics
-            // event is sent. Failure must not discard valid database state.
+        let app_state_is_saved = if app_state_missing || app_state_had_legacy_analytics {
             self.write_app_state(&app_state).is_ok()
         } else {
             true
@@ -1826,43 +1812,51 @@ mod tests {
     }
 
     #[test]
-    fn analytics_preference_and_identity_use_their_respective_files() {
-        let mut state = PersistedState::empty();
-        state.analytics_enabled = false;
-        let analytics_id = state.analytics_id;
-        let mut settings = serde_json::to_value(state.settings()).unwrap();
+    fn legacy_analytics_fields_are_removed_during_load() {
+        let directory = temporary_directory();
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("settings.json"),
+            r#"{"theme":"dark","analytics_enabled":true}"#,
+        )
+        .unwrap();
+        fs::write(
+            directory.join("state.json"),
+            format!(
+                r#"{{"app_state_version":{APP_STATE_VERSION},"analytics_id":"{}"}}"#,
+                Uuid::new_v4()
+            ),
+        )
+        .unwrap();
 
-        let restored: AppSettings = serde_json::from_value(settings.clone()).unwrap();
-        assert!(!restored.analytics_enabled);
-        assert!(settings.get("analytics_id").is_none());
+        let restored = store_in(&directory).load().unwrap();
+        assert_eq!(restored.theme, ThemePreference::Dark);
 
-        let app_state: AppState =
-            serde_json::from_value(serde_json::to_value(state.app_state()).unwrap()).unwrap();
-        assert_eq!(app_state.analytics_id, analytics_id);
+        let settings: serde_json::Value =
+            serde_json::from_slice(&fs::read(directory.join("settings.json")).unwrap()).unwrap();
+        let app_state: serde_json::Value =
+            serde_json::from_slice(&fs::read(directory.join("state.json")).unwrap()).unwrap();
+        assert!(settings.get("analytics_enabled").is_none());
+        assert!(app_state.get("analytics_id").is_none());
 
-        settings
-            .as_object_mut()
-            .unwrap()
-            .remove("analytics_enabled");
-        let backfilled: AppSettings = serde_json::from_value(settings).unwrap();
-        assert!(backfilled.analytics_enabled);
+        fs::remove_dir_all(directory).ok();
     }
 
     #[test]
     fn missing_settings_and_app_state_are_created_during_load() {
         let directory = temporary_directory();
         let store = store_in(&directory);
-        let restored = store.load().unwrap();
+        store.load().unwrap();
         let settings_path = directory.join("settings.json");
         let settings: serde_json::Value =
             serde_json::from_slice(&fs::read(&settings_path).unwrap()).unwrap();
         let app_state: serde_json::Value =
             serde_json::from_slice(&fs::read(directory.join("state.json")).unwrap()).unwrap();
 
-        assert_eq!(settings["analytics_enabled"], true);
-        assert!(settings.get("analytics_id").is_none());
-        assert_eq!(app_state["analytics_id"], restored.analytics_id.to_string());
-        assert!(app_state.get("analytics_enabled").is_none());
+        assert_eq!(settings["favorite_models"], serde_json::json!([]));
+        assert_eq!(app_state["app_state_version"], APP_STATE_VERSION);
+        assert!(settings.get("analytics_enabled").is_none());
+        assert!(app_state.get("analytics_id").is_none());
 
         fs::remove_dir_all(directory).ok();
     }
@@ -1888,7 +1882,6 @@ mod tests {
 
         assert_eq!(settings.theme, ThemePreference::Dark);
         assert_eq!(settings.language, AppLanguage::System);
-        assert!(settings.analytics_enabled);
         assert!(!settings.computer_use_enabled);
     }
 

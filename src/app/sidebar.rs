@@ -1101,8 +1101,9 @@ impl Waku {
                                     .border_1()
                                     .border_color(theme.border_strong)
                                     .text_color(theme.text_tertiary)
-                                    .child(SharedString::from(tr!(session_quadrant(session)
-                                        .label_key()))),
+                                    .child(SharedString::from(tr!(
+                                        session_quadrant(session).label_key()
+                                    ))),
                             )
                         },
                     )

@@ -12,7 +12,7 @@ const RELEASES_BASE = 'https://github.com/YaserXuanFrankFaraz/PengPilot/releases
 // Versioned artifact names are a stable contract and old archives stay in R2
 // (see RELEASING.md), so a known-published version is a safe fallback while
 // the appcast query is pending or unreachable.
-export const FALLBACK_DOWNLOAD_URL = `${RELEASES_BASE}/PengPilot-0.1.5.dmg`
+export const FALLBACK_DOWNLOAD_URL = `${RELEASES_BASE}/PengPilot-0.1.6.dmg`
 
 // The Sparkle appcast has no CORS headers, so resolve it on the server.
 const fetchLatestRelease = createServerFn({ method: 'GET' }).handler(

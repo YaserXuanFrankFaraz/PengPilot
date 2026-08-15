@@ -52,8 +52,6 @@ Options:
 
 Environment:
   PENGPILOT_SIGNING_IDENTITY    Developer ID Application identity selector
-  PENGPILOT_ANALYTICS_ENDPOINT  analytics endpoint embedded at build time
-  PENGPILOT_ANALYTICS_WEBSITE_ID analytics website ID embedded at build time
   PENGPILOT_R2_REMOTE           rclone remote name (default: r2)
   PENGPILOT_R2_BUCKET           rclone bucket name (default: pengpilot-releases)
   PENGPILOT_DOWNLOAD_URL_PREFIX base URL used in the appcast
@@ -142,8 +140,6 @@ const notaryProfile =
   defaultNotaryProfile;
 const explicitBuildNumber =
   values["build-number"] ?? process.env.PENGPILOT_BUILD_NUMBER;
-const analyticsEndpoint = process.env.PENGPILOT_ANALYTICS_ENDPOINT?.trim();
-const analyticsWebsiteId = process.env.PENGPILOT_ANALYTICS_WEBSITE_ID?.trim();
 const localOnly = values.local ?? false;
 const force = values.force ?? false;
 // Publishing requires a Developer ID-signed, notarized DMG, so the flags that
@@ -177,16 +173,6 @@ if (explicitBuildNumber && !/^\d+(?:\.\d+){0,2}$/.test(explicitBuildNumber)) {
 if (!Number.isSafeInteger(historyCount) || historyCount < 0) {
   throw new Error("PENGPILOT_HISTORY_COUNT must be a non-negative integer.");
 }
-if (
-  !values["skip-build"] &&
-  !adhoc &&
-  (!analyticsEndpoint || !analyticsWebsiteId)
-) {
-  throw new Error(
-    "Set PENGPILOT_ANALYTICS_ENDPOINT and PENGPILOT_ANALYTICS_WEBSITE_ID before building a release.",
-  );
-}
-
 for (const tool of [
   "cargo",
   "codesign",
@@ -403,7 +389,7 @@ try {
       ? "Assembling the app bundle"
       : "Building and assembling the app bundle",
   );
-  await $`env PENGPILOT_CODESIGN_IDENTITY=${identity} PENGPILOT_ANALYTICS_ENDPOINT=${analyticsEndpoint ?? ""} PENGPILOT_ANALYTICS_WEBSITE_ID=${analyticsWebsiteId ?? ""} PENGPILOT_SKIP_CARGO_BUILD=${values["skip-build"] ? "1" : "0"} ${join(projectRoot, "scripts", "bundle.sh")} release`;
+  await $`env PENGPILOT_CODESIGN_IDENTITY=${identity} PENGPILOT_SKIP_CARGO_BUILD=${values["skip-build"] ? "1" : "0"} ${join(projectRoot, "scripts", "bundle.sh")} release`;
   if (adhoc) {
     // ponytail: Sparkle cannot provide signed updates in an ad-hoc release.
     await rm(bundledSparkleFramework, { force: true, recursive: true });

@@ -431,53 +431,6 @@ impl Waku {
         let updater_available = cx
             .try_global::<crate::updater::UpdaterState>()
             .is_some_and(|updater| updater.0.is_some());
-        let analytics_enabled = self.state.analytics_enabled;
-        let analytics_toggle = div()
-            .id("anonymous-analytics-toggle")
-            .tab_index(0)
-            .focus_visible(|style| style.border_color(theme.accent))
-            .w(px(36.0))
-            .h(px(20.0))
-            .p(px(2.0))
-            .flex_none()
-            .rounded_full()
-            .cursor_default()
-            .bg(if analytics_enabled {
-                theme.inverse
-            } else {
-                theme.inset
-            })
-            .border_1()
-            .border_color(if analytics_enabled {
-                theme.inverse
-            } else {
-                theme.border_strong
-            })
-            .flex()
-            .items_center()
-            .when(analytics_enabled, |element| element.justify_end())
-            .child(
-                div()
-                    .w(px(14.0))
-                    .h(px(14.0))
-                    .rounded_full()
-                    .bg(if analytics_enabled {
-                        theme.on_inverse
-                    } else {
-                        theme.text_tertiary
-                    }),
-            )
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.set_analytics_enabled(!analytics_enabled, cx);
-            }))
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
-                if !event.keystroke.modifiers.modified()
-                    && matches!(event.keystroke.key.as_str(), "enter" | "space")
-                {
-                    this.set_analytics_enabled(!analytics_enabled, cx);
-                    cx.stop_propagation();
-                }
-            }));
         div()
             .child(
                 div()
@@ -502,40 +455,6 @@ impl Waku {
                             .text_color(theme.text_secondary)
                             .child(tr!("settings.local_by_default_description")),
                     ),
-            )
-            .child(
-                div()
-                    .mt(px(15.0))
-                    .w_full()
-                    .min_h(px(60.0))
-                    .px(px(20.0))
-                    .py(px(12.0))
-                    .rounded(px(13.0))
-                    .bg(theme.raised)
-                    .flex()
-                    .items_center()
-                    .gap(px(24.0))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_size(px(13.5))
-                                    .font_weight(FontWeight::MEDIUM)
-                                    .text_color(theme.text)
-                                    .child(tr!("settings.share_anonymous_usage_data")),
-                            )
-                            .child(
-                                div()
-                                    .mt(px(5.0))
-                                    .text_size(px(12.5))
-                                    .line_height(px(18.0))
-                                    .text_color(theme.text_secondary)
-                                    .child(tr!("settings.share_anonymous_usage_data_description")),
-                            ),
-                    )
-                    .child(analytics_toggle),
             )
             .when(updater_available, |column| {
                 let enabled = self.automatic_updates_enabled;
@@ -603,13 +522,6 @@ impl Waku {
                 )
             })
             .into_any_element()
-    }
-
-    fn set_analytics_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
-        self.state.analytics_enabled = enabled;
-        self.analytics.set_enabled(enabled);
-        self.save();
-        cx.notify();
     }
 
     fn set_automatic_updates_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {

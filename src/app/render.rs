@@ -171,10 +171,10 @@ impl Render for Waku {
             .text_color(theme.text)
             .font_family(".SystemUIFont")
             .when(self.sidebar_visible, |root| {
-                root.child(self.render_nav_rail(window, cx)).when(
-                    self.list_pane_visible(),
-                    |root| root.child(self.render_sidebar(sidebar_width, window, cx)),
-                )
+                root.child(self.render_nav_rail(window, cx))
+                    .when(self.list_pane_visible(), |root| {
+                        root.child(self.render_sidebar(sidebar_width, window, cx))
+                    })
             })
             .child(if self.board_visible {
                 self.render_quadrant_board(window, cx).into_any_element()

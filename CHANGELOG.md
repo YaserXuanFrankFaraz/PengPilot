@@ -16,6 +16,17 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.6]
+
+- Add session Inbox views for unfinished, flagged, archived, and board work
+- Expand the CLI catalog to 24 providers, including Prime Agent, with PATH-aware
+  grouping and alphabetical sorting
+- Remove anonymous product analytics, its setting, installation identifier,
+  network sender, dependency, and release configuration
+- Keep local Usage history while collecting no PengPilot telemetry
+- Focus current releases on Apple silicon macOS; Intel Macs, Windows, and Linux
+  remain untested and unsupported
+
 ## [0.1.5]
 
 - Reduce the macOS ad-hoc release size while preserving runtime features
@@ -24,12 +35,6 @@ the original feature bullet instead of adding separate entries for them.
 ## [0.1.4]
 
 - Replace the PengPilot app icon with the latest eagle-and-P artwork
-
-- Focus current releases on Apple silicon macOS; Intel Macs, Windows, and Linux
-  remain untested and unsupported
-- Add Prime Agent and the remaining current Multica CLI providers through their
-  native ACP, RPC, JSON, or JSONL transports
-- Group providers by PATH detection status and sort each group alphabetically
 
 ## [0.1.3]
 

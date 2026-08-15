@@ -190,8 +190,6 @@ jobs:
       - name: Release
         env:
           PENGPILOT_SIGNING_IDENTITY: ${{ secrets.PENGPILOT_SIGNING_IDENTITY }}
-          PENGPILOT_ANALYTICS_ENDPOINT: ${{ secrets.PENGPILOT_ANALYTICS_ENDPOINT }}
-          PENGPILOT_ANALYTICS_WEBSITE_ID: ${{ secrets.PENGPILOT_ANALYTICS_WEBSITE_ID }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: bun run release --local
 

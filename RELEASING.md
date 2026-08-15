@@ -72,9 +72,7 @@ their build, so key rotation requires an intentionally staged migration.
 
 ### 2. Developer ID signing + notarization
 
-Copy `.env.example` to `.env` and replace the signing and analytics
-placeholders. Bun loads these values before Cargo compiles the release, so the
-analytics endpoint and website ID are embedded in the executable. The script
+Copy `.env.example` to `.env` and replace the signing placeholder. The script
 notarizes with the `NOTARY` keychain profile by default. On a fresh machine:
 
 ```sh
@@ -159,8 +157,6 @@ secrets first:
 
 | Secret | Purpose |
 | --- | --- |
-| `PENGPILOT_ANALYTICS_ENDPOINT` | embedded in the macOS CI build |
-| `PENGPILOT_ANALYTICS_WEBSITE_ID` | embedded in the macOS CI build |
 | `PENGPILOT_SIGNING_IDENTITY` | Developer ID identity selector |
 | `APPLE_CERTIFICATE` | base64-encoded Developer ID Application `.p12` |
 | `APPLE_CERTIFICATE_PASSWORD` | password for that `.p12` |

@@ -1,6 +1,6 @@
 [package]
 name = "pengpilot"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
 description = "PengPilot, a fast native control plane for local coding agents"
 license = "GPL-3.0-only"
@@ -35,7 +35,6 @@ uuid = { version = "1.18", features = ["v4", "serde"] }
 pulldown-cmark = "0.13"
 regex = "1"
 rust-i18n = "4"
-rust-umami = "0.1.1"
 smol = "2"
 ropey = "=2.0.0-beta.1"
 futures-lite = "2"

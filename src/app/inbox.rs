@@ -88,7 +88,12 @@ impl Waku {
         cx.notify();
     }
 
-    pub(super) fn set_session_workflow(&mut self, session_id: Uuid, next: WorkflowStatus, cx: &mut Context<Self>) {
+    pub(super) fn set_session_workflow(
+        &mut self,
+        session_id: Uuid,
+        next: WorkflowStatus,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(session) = self.state.session_mut(session_id) {
             session.workflow_status = next;
         }
@@ -257,14 +262,16 @@ impl Waku {
                             cx,
                         ))
                     })
-                    .child(self.window_drag_region(
-                        div()
-                            .id("board-traffic-light-drag-region")
-                            .w(px(leftover_traffic_light_clearance(self.sidebar_visible)))
-                            .h_full()
-                            .flex_none(),
-                        cx,
-                    ))
+                    .child(
+                        self.window_drag_region(
+                            div()
+                                .id("board-traffic-light-drag-region")
+                                .w(px(leftover_traffic_light_clearance(self.sidebar_visible)))
+                                .h_full()
+                                .flex_none(),
+                            cx,
+                        ),
+                    )
                     .child(
                         div()
                             .pl(px(16.0))
@@ -301,35 +308,31 @@ impl Waku {
                     )),
             )
             .child(
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .p(px(10.0))
-                    .child(
-                        div()
-                            .size_full()
-                            .flex()
-                            .flex_col()
-                            .gap(px(8.0))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_h_0()
-                                    .flex()
-                                    .gap(px(8.0))
-                                    .child(self.render_quadrant(Quadrant::DO_NOW, cx))
-                                    .child(self.render_quadrant(Quadrant::SCHEDULE, cx)),
-                            )
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_h_0()
-                                    .flex()
-                                    .gap(px(8.0))
-                                    .child(self.render_quadrant(Quadrant::DELEGATE, cx))
-                                    .child(self.render_quadrant(Quadrant::LATER, cx)),
-                            ),
-                    ),
+                div().flex_1().min_h_0().p(px(10.0)).child(
+                    div()
+                        .size_full()
+                        .flex()
+                        .flex_col()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_h_0()
+                                .flex()
+                                .gap(px(8.0))
+                                .child(self.render_quadrant(Quadrant::DO_NOW, cx))
+                                .child(self.render_quadrant(Quadrant::SCHEDULE, cx)),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_h_0()
+                                .flex()
+                                .gap(px(8.0))
+                                .child(self.render_quadrant(Quadrant::DELEGATE, cx))
+                                .child(self.render_quadrant(Quadrant::LATER, cx)),
+                        ),
+                ),
             )
     }
 
@@ -492,7 +495,9 @@ impl Waku {
                     .when(session.flagged, |meta| {
                         meta.child(div().text_color(theme.favorite).child("★"))
                     })
-                    .child(SharedString::from(session.provider.short_name().to_string())),
+                    .child(SharedString::from(
+                        session.provider.short_name().to_string(),
+                    )),
             )
             .into_any_element()
     }

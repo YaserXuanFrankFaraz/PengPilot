@@ -61,7 +61,7 @@ settings.appearance: 外観
 settings.providers: プロバイダー
 settings.usage: 使用状況
 settings.computer_use: コンピュータ操作
-settings.general_keywords: 一般 ローカル プロジェクト 会話 プライバシー 分析 テレメトリ 匿名 共有 アップデート 自動 バージョン
+settings.general_keywords: 一般 ローカル プロジェクト 会話 プライバシー アップデート 自動 バージョン
 settings.appearance_keywords: 外観 テーマ システム ライト ダーク 言語 英語 中国語 簡体字 日本語
 settings.providers_keywords: プロバイダー エージェント モデル CLI バージョン インストール 検出 claude codex cursor opencode amp grok pi omp oh my pi kiro hermes
 settings.skills: スキル
@@ -96,8 +96,6 @@ settings.local_by_default: デフォルトでローカルに保存
 settings.local_by_default_description: プロジェクト、会話、設定はこの Mac に保存されます
 settings.automatic_updates: 自動アップデート
 settings.automatic_updates_description: バックグラウンドで新しいバージョンを確認し、インストールを案内します
-settings.share_anonymous_usage_data: 匿名の使用状況データを共有
-settings.share_anonymous_usage_data_description: 機能の利用状況と信頼性に関するデータを共有して、PengPilot の改善にご協力ください。プロンプト、回答、プロジェクト名、ファイルパスなどの個人データは一切含まれません
 
 providers.coding_agents: コーディングエージェント
 providers.description: PengPilot はこの Mac にインストールされたエージェントの CLI を使用します。各エージェントの CLI をインストールするかログインしてから、更新してください

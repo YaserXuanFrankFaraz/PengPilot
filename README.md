@@ -76,6 +76,8 @@ Access mode. ACP and RPC providers retain long-lived sessions.
 
 - Manage multiple local projects and independent, concurrently running agent
   tasks in one native app.
+- Triage sessions through Unfinished, Flagged, Archive, and Board views, with
+  workflow status and work-item metadata kept locally.
 - Keep long-lived provider sessions across turns, with streamed responses,
   reasoning, tool activity, approvals, and provider-native continuity.
 - Select models, reasoning effort, service tier, build/plan interaction, and
@@ -108,9 +110,9 @@ Projects, conversations, and settings are stored locally. PengPilot needs no
 PengPilot account or hosted PengPilot service; each agent remains responsible
 for its own authentication and network use.
 
-Production builds may include optional anonymous product analytics. The
-setting can be disabled under Settings → General. Prompts, responses, project
-names, file paths, and other personal content are excluded from those events.
+PengPilot does not collect or send product analytics or telemetry. The Usage
+page remains local: it reads supported CLI history and available provider quota
+data on this Mac and does not report that information to PengPilot.
 
 ### Install
 
@@ -152,9 +154,10 @@ and [RELEASING.md](RELEASING.md) for signed release packaging.
 ### PengPilot direction
 
 PengPilot currently adds independent branding, bundle identifiers, local data
-paths, an expanded 24-provider CLI catalog, PATH-aware provider grouping, Grok
-Build usage history, and PengPilot-specific release infrastructure. The exact
-changes are preserved in this repository's Git history.
+paths, session Inbox and Board workflows, an expanded 24-provider CLI catalog,
+PATH-aware provider grouping, Grok Build usage history, and PengPilot-specific
+release infrastructure. The exact changes are preserved in this repository's
+Git history.
 
 ### Thanks and attribution
 
@@ -259,6 +262,8 @@ Antigravity、CodeBuddy、Copilot、DevEco、OpenClaw 和 Qwen 当前使用各�
 ### 主要功能
 
 - 在一个原生应用中管理多个本地项目和彼此独立、可并行运行的智能体任务。
+- 通过「未完成」、「已标记」、「归档」和「看板」视图整理会话，工作流状态与
+  工作项元数据均保存在本机。
 - 跨轮次保持长生命周期服务商会话，流式呈现回答、推理、工具活动和权限请求。
 - 在服务商支持时选择模型、推理强度、服务等级、构建/规划交互方式，以及监督或
   自动化访问模式。
@@ -283,8 +288,8 @@ Apple 芯片 macOS 体验稳定后，再考虑扩展到这些平台。
 项目、对话和设置默认保存在本机。PengPilot 不要求 PengPilot 账号或托管服务；
 各智能体仍使用各自的身份认证和网络服务。
 
-正式版本可能包含可选的匿名产品统计，可在「设置 → 通用」中关闭。统计事件不包含
-提示词、回答、项目名称、文件路径或其他个人内容。
+PengPilot 不采集、不发送产品分析或遥测数据。「用量」页面仍保留为本机功能：
+它仅读取本机上受支持的 CLI 历史和服务商可用额度信息，不会向 PengPilot 上报。
 
 ### 安装
 
@@ -323,9 +328,9 @@ bun run dev
 
 ### PengPilot 的独立方向
 
-PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、24 个 CLI 服务商目录、
-基于 PATH 检测结果的服务商分组、Grok Build 用量历史，以及 PengPilot 专属发布基础设施。
-所有具体修改均保留在本仓库的 Git 历史中。
+PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、会话 Inbox 与看板工作流、
+24 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
+以及 PengPilot 专属发布基础设施。所有具体修改均保留在本仓库的 Git 历史中。
 
 ### 致谢与署名
 

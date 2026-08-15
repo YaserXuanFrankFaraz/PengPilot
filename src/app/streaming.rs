@@ -519,17 +519,12 @@ impl Waku {
                         );
                     }
                 }
-                self.finish_active_turn_with_analytics(
+                self.finish_active_turn(
                     session_id,
                     if success {
                         TurnStatus::Completed
                     } else {
                         TurnStatus::Failed
-                    },
-                    if success {
-                        crate::analytics::TurnOutcome::Completed
-                    } else {
-                        crate::analytics::TurnOutcome::Failed
                     },
                 );
                 runtime.pending_permission = None;
@@ -624,11 +619,7 @@ impl Waku {
                 };
                 let finished_turn = should_finish_turn
                     && self
-                        .finish_active_turn_with_analytics(
-                            session_id,
-                            TurnStatus::Failed,
-                            crate::analytics::TurnOutcome::ProcessExited,
-                        )
+                        .finish_active_turn(session_id, TurnStatus::Failed)
                         .is_some();
                 if finished_turn {
                     self.capture_latest_turn_checkpoint_for(session_id);

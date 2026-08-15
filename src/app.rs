@@ -65,11 +65,11 @@ use crate::ui::{
 };
 use crate::{
     CancelTurn, CloseFind, CloseWindow, CopySelection, FindNext, FindPrevious, FocusComposer,
-    NavigateBack, NavigateForward, NewProject, NewSession, OpenFind, OpenFindReplace, OpenSettings,
-    ReplaceAllMatches, SaveFile, ToggleCommandPalette, ToggleFindCaseSensitive, ToggleFindRegex,
-    ToggleFindWholeWord, ToggleFpsCounter, ToggleModelPicker, ToggleRightPanel, ToggleSidebar,
-    ToggleUsagePanel, FocusNavZone, FocusListZone, FocusDetailZone, ShowUnfinished, ShowFlagged,
-    ShowArchive, ShowBoard,
+    FocusDetailZone, FocusListZone, FocusNavZone, NavigateBack, NavigateForward, NewProject,
+    NewSession, OpenFind, OpenFindReplace, OpenSettings, ReplaceAllMatches, SaveFile, ShowArchive,
+    ShowBoard, ShowFlagged, ShowUnfinished, ToggleCommandPalette, ToggleFindCaseSensitive,
+    ToggleFindRegex, ToggleFindWholeWord, ToggleFpsCounter, ToggleModelPicker, ToggleRightPanel,
+    ToggleSidebar, ToggleUsagePanel,
 };
 
 #[cfg(target_os = "macos")]
@@ -831,7 +831,6 @@ impl SessionNavigation {
 }
 
 pub struct Waku {
-    analytics: crate::analytics::Analytics,
     state: PersistedState,
     store: StateStore,
     /// Cached before rendering so path labels can abbreviate the home prefix
@@ -1277,13 +1276,13 @@ mod composer;
 mod drafts;
 mod file_search;
 mod image_preview;
+mod inbox;
 mod render;
 mod right_panel;
 mod runtime;
 mod sessions;
 mod settings;
 mod sidebar;
-mod inbox;
 mod skills_page;
 mod streaming;
 mod transcript;
@@ -1572,24 +1571,6 @@ impl Waku {
         let composer_drafts = composer_draft_store.load().unwrap_or_default();
         let mut state = store.load_or_fresh(cwd);
         crate::i18n::set_language(state.language);
-        let analytics = crate::analytics::Analytics::new(
-            state.language.locale(),
-            state.analytics_id,
-            state.analytics_enabled,
-        );
-        analytics.track(crate::analytics::Event::AppLaunched {
-            task_count: state
-                .sessions
-                .iter()
-                .filter(|session| session.has_started())
-                .count(),
-            project_count: state
-                .projects
-                .iter()
-                .filter(|project| !project.is_projectless())
-                .count(),
-        });
-
         let composer = cx.new(|cx| ComposerInput::new(window, cx));
         let command_palette_search = cx.new(|cx| {
             ComposerInput::new(window, cx)
@@ -2186,7 +2167,6 @@ impl Waku {
             };
 
             Self {
-                analytics,
                 state,
                 store,
                 home_directory,
