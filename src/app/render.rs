@@ -116,12 +116,13 @@ impl Render for Waku {
                 .into_any_element()
         });
         let (sidebar_width, right_panel_width) = self.effective_panel_widths(window);
+        self.sync_sidebar_material(window);
         let chat_viewport_width = f32::from(window.viewport_size().width)
-            - if self.sidebar_visible {
-                sidebar_width
-            } else {
-                0.0
-            }
+            - sidebar_material_width(
+                self.sidebar_visible,
+                self.list_pane_visible(),
+                sidebar_width,
+            )
             - if self.right_panel_visible {
                 right_panel_width
             } else {
@@ -134,6 +135,13 @@ impl Render for Waku {
             .on_action(cx.listener(Self::new_project_action))
             .on_action(cx.listener(Self::open_settings_action))
             .on_action(cx.listener(Self::toggle_sidebar_action))
+            .on_action(cx.listener(Self::focus_nav_zone_action))
+            .on_action(cx.listener(Self::focus_list_zone_action))
+            .on_action(cx.listener(Self::focus_detail_zone_action))
+            .on_action(cx.listener(Self::show_unfinished_action))
+            .on_action(cx.listener(Self::show_flagged_action))
+            .on_action(cx.listener(Self::show_archive_action))
+            .on_action(cx.listener(Self::show_board_action))
             .on_action(cx.listener(Self::toggle_right_panel_action))
             .on_action(cx.listener(Self::toggle_command_palette_action))
             .on_action(cx.listener(Self::toggle_fps_counter_action))
@@ -163,9 +171,14 @@ impl Render for Waku {
             .text_color(theme.text)
             .font_family(".SystemUIFont")
             .when(self.sidebar_visible, |root| {
-                root.child(self.render_sidebar(sidebar_width, window, cx))
+                root.child(self.render_nav_rail(window, cx)).when(
+                    self.list_pane_visible(),
+                    |root| root.child(self.render_sidebar(sidebar_width, window, cx)),
+                )
             })
-            .child(
+            .child(if self.board_visible {
+                self.render_quadrant_board(window, cx).into_any_element()
+            } else {
                 div()
                     .flex_1()
                     .h_full()
@@ -198,8 +211,9 @@ impl Render for Waku {
                             PanelResizeTarget::Sidebar,
                             cx,
                         ))
-                    }),
-            )
+                    })
+                    .into_any_element()
+            })
             .when(self.right_panel_visible, |root| {
                 root.child(self.render_right_panel(right_panel_width, window, cx))
             })

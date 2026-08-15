@@ -812,6 +812,20 @@ pub struct AgentSession {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_preset: Option<String>,
     pub status: SessionStatus,
+    /// Kanban progress. Independent of [`Self::status`].
+    #[serde(default)]
+    pub workflow_status: crate::work::WorkflowStatus,
+    /// Eisenhower: default is important and not urgent.
+    #[serde(default = "default_session_important")]
+    pub important: bool,
+    #[serde(default)]
+    pub urgent: bool,
+    #[serde(default)]
+    pub flagged: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_item_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_profile_id: Option<Uuid>,
     pub created_at: u64,
     /// Any mutation, including title edits and truncation. Use
     /// [`Self::last_reply_at`] for conversation recency.
@@ -860,6 +874,10 @@ fn detail_loaded_default() -> bool {
     true
 }
 
+fn default_session_important() -> bool {
+    true
+}
+
 impl AgentSession {
     pub const DEFAULT_TITLE: &'static str = "New task";
 
@@ -879,6 +897,12 @@ impl AgentSession {
             service_tier: None,
             agent_preset: None,
             status: SessionStatus::Idle,
+            workflow_status: crate::work::WorkflowStatus::Todo,
+            important: true,
+            urgent: false,
+            flagged: false,
+            work_item_id: None,
+            agent_profile_id: None,
             created_at: now,
             updated_at: now,
             last_reply_at: None,

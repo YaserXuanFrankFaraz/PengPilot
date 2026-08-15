@@ -137,6 +137,29 @@ sidebar.minutes_ago: "%{count} 分钟前"
 sidebar.hours_ago: "%{count} 小时前"
 sidebar.days_ago: "%{count} 天前"
 sidebar.unknown_project: 未知项目
+inbox.unfinished: 未完成
+inbox.flagged: 旗标
+inbox.archive: 归档
+inbox.board: 四象限
+inbox.archive_done: 归档 · 已完成
+inbox.unfinished_group: 未完成
+inbox.complete: 完成并归档
+inbox.flag: 加上旗标
+inbox.unflag: 取消旗标
+inbox.move_to: 移动到
+workflow.todo: 待开始
+workflow.in_progress: 进行中
+workflow.in_review: 待人审
+workflow.done: 完成并归档
+quadrant.do_now: 重要且紧急
+quadrant.schedule: 重要不紧急
+quadrant.delegate: 紧急不重要
+quadrant.later: 不紧急不重要
+quadrant.do_now_hint: 现在做
+quadrant.schedule_hint: 排进计划
+quadrant.delegate_hint: 可交给小队
+quadrant.later_hint: 少做或放下
+quadrant.label: 象限
 project.new_project: 新建项目…
 project.no_project: 不使用项目
 project.no_project_name: 无项目

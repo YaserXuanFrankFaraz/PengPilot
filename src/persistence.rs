@@ -1088,6 +1088,7 @@ impl StateStore {
         let mut sessions = connection
             .prepare(
                 "SELECT id, project_id, title, auto_title, provider, model, status,
+                        workflow_status, important, urgent, flagged, work_item_id, agent_profile_id,
                         created_at, updated_at, last_reply_at
                  FROM sessions ORDER BY updated_at",
             )
@@ -1103,9 +1104,15 @@ impl StateStore {
                     row.get::<_, String>(4)?,
                     row.get::<_, Option<String>>(5)?,
                     row.get::<_, String>(6)?,
-                    row.get::<_, i64>(7)?,
+                    row.get::<_, String>(7)?,
                     row.get::<_, i64>(8)?,
-                    row.get::<_, Option<i64>>(9)?,
+                    row.get::<_, i64>(9)?,
+                    row.get::<_, i64>(10)?,
+                    row.get::<_, Option<String>>(11)?,
+                    row.get::<_, Option<String>>(12)?,
+                    row.get::<_, i64>(13)?,
+                    row.get::<_, i64>(14)?,
+                    row.get::<_, Option<i64>>(15)?,
                 ))
             })
             .map_err(to_io_error)?
@@ -1422,6 +1429,12 @@ type SessionColumns = (
     String,
     Option<String>,
     String,
+    String,
+    i64,
+    i64,
+    i64,
+    Option<String>,
+    Option<String>,
     i64,
     i64,
     Option<i64>,
@@ -1441,6 +1454,12 @@ fn session_skeleton(row: SessionColumns) -> Option<AgentSession> {
         provider,
         model,
         status,
+        workflow_status,
+        important,
+        urgent,
+        flagged,
+        work_item_id,
+        agent_profile_id,
         created_at,
         updated_at,
         last_reply_at,
@@ -1460,6 +1479,17 @@ fn session_skeleton(row: SessionColumns) -> Option<AgentSession> {
         service_tier: None,
         agent_preset: None,
         status: serde_json::from_value(serde_json::Value::String(status)).ok()?,
+        workflow_status: serde_json::from_value(serde_json::Value::String(workflow_status))
+            .unwrap_or_default(),
+        important: important != 0,
+        urgent: urgent != 0,
+        flagged: flagged != 0,
+        work_item_id: work_item_id
+            .as_deref()
+            .and_then(|id| Uuid::parse_str(id).ok()),
+        agent_profile_id: agent_profile_id
+            .as_deref()
+            .and_then(|id| Uuid::parse_str(id).ok()),
         created_at: created_at as u64,
         updated_at: updated_at as u64,
         last_reply_at: last_reply_at.map(|at| at as u64),
@@ -1669,18 +1699,25 @@ fn message_fingerprint(message: &Message, position: usize) -> u64 {
 /// listing sessions never has to deserialize a transcript.
 const UPSERT_SESSION: &str = "INSERT INTO sessions(
          id, project_id, title, auto_title, provider, model, status,
+         workflow_status, important, urgent, flagged, work_item_id, agent_profile_id,
          created_at, updated_at, last_reply_at
-     ) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+     ) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
      ON CONFLICT(id) DO UPDATE SET
-         project_id    = excluded.project_id,
-         title         = excluded.title,
-         auto_title    = excluded.auto_title,
-         provider      = excluded.provider,
-         model         = excluded.model,
-         status        = excluded.status,
-         created_at    = excluded.created_at,
-         updated_at    = excluded.updated_at,
-         last_reply_at = excluded.last_reply_at";
+         project_id         = excluded.project_id,
+         title              = excluded.title,
+         auto_title         = excluded.auto_title,
+         provider           = excluded.provider,
+         model              = excluded.model,
+         status             = excluded.status,
+         workflow_status    = excluded.workflow_status,
+         important          = excluded.important,
+         urgent             = excluded.urgent,
+         flagged            = excluded.flagged,
+         work_item_id       = excluded.work_item_id,
+         agent_profile_id   = excluded.agent_profile_id,
+         created_at         = excluded.created_at,
+         updated_at         = excluded.updated_at,
+         last_reply_at      = excluded.last_reply_at";
 
 const INSERT_PROJECT: &str = "INSERT INTO projects(id, name, path, position, created_at)
      VALUES(?1, ?2, ?3, ?4, ?5)
@@ -1714,6 +1751,16 @@ fn session_params(session: &AgentSession) -> Vec<rusqlite::types::Value> {
         Value::Text(tag_of(session.provider)),
         session.model.clone().map_or(Value::Null, Value::Text),
         Value::Text(tag_of(session.status)),
+        Value::Text(tag_of(session.workflow_status)),
+        Value::Integer(i64::from(session.important)),
+        Value::Integer(i64::from(session.urgent)),
+        Value::Integer(i64::from(session.flagged)),
+        session
+            .work_item_id
+            .map_or(Value::Null, |id| Value::Text(id.to_string())),
+        session
+            .agent_profile_id
+            .map_or(Value::Null, |id| Value::Text(id.to_string())),
         Value::Integer(session.created_at as i64),
         Value::Integer(session.updated_at as i64),
         session
@@ -2998,6 +3045,23 @@ mod tests {
         assert_eq!(updated as u64, session.updated_at);
         assert_eq!(last_reply.map(|at| at as u64), session.last_reply_at);
         assert!(last_reply.is_some(), "a submitted turn sets last_reply_at");
+
+        let workflow: String = connection
+            .query_row(
+                "SELECT workflow_status FROM sessions WHERE id = ?1",
+                params![session.id.to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(workflow, tag_of(session.workflow_status));
+        let important: i64 = connection
+            .query_row(
+                "SELECT important FROM sessions WHERE id = ?1",
+                params![session.id.to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(important, 1, "new work defaults to important");
 
         fs::remove_dir_all(directory).ok();
     }

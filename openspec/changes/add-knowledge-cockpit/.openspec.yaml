@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-15
+goal: Add a compiled local Markdown wiki cockpit without growing PengPilot into
+  a second RAG/embedding product.

@@ -57,6 +57,7 @@ mod ui;
 mod updater;
 mod usage;
 mod usage_history;
+mod work;
 mod worktree;
 
 use gpui::{
@@ -78,6 +79,13 @@ actions!(
         CheckForUpdates,
         ToggleSidebar,
         ToggleRightPanel,
+        FocusNavZone,
+        FocusListZone,
+        FocusDetailZone,
+        ShowUnfinished,
+        ShowFlagged,
+        ShowArchive,
+        ShowBoard,
         ToggleCommandPalette,
         ToggleFpsCounter,
         NavigateBack,
@@ -172,6 +180,9 @@ fn main() {
                 KeyBinding::new("secondary-n", NewSession, None),
                 KeyBinding::new("secondary-o", NewProject, None),
                 KeyBinding::new("secondary-,", OpenSettings, None),
+                KeyBinding::new("secondary-1", FocusNavZone, Some("Waku")),
+                KeyBinding::new("secondary-2", FocusListZone, Some("Waku")),
+                KeyBinding::new("secondary-3", FocusDetailZone, Some("Waku")),
                 KeyBinding::new("secondary-b", ToggleSidebar, None),
                 KeyBinding::new("secondary-shift-b", ToggleRightPanel, None),
                 KeyBinding::new("secondary-k", ToggleCommandPalette, None),

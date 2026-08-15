@@ -286,6 +286,52 @@ sidebar.days_ago:
   en: "%{count}d"
 sidebar.unknown_project:
   en: Unknown project
+inbox.unfinished:
+  en: Open
+inbox.flagged:
+  en: Flagged
+inbox.archive:
+  en: Archive
+inbox.board:
+  en: Board
+inbox.archive_done:
+  en: Archive · Done
+inbox.unfinished_group:
+  en: Open
+inbox.complete:
+  en: Complete and archive
+inbox.flag:
+  en: Flag
+inbox.unflag:
+  en: Unflag
+inbox.move_to:
+  en: Move to
+workflow.todo:
+  en: Not started
+workflow.in_progress:
+  en: In progress
+workflow.in_review:
+  en: Awaiting review
+workflow.done:
+  en: Done and archived
+quadrant.do_now:
+  en: Important and urgent
+quadrant.schedule:
+  en: Important, not urgent
+quadrant.delegate:
+  en: Urgent, not important
+quadrant.later:
+  en: Neither
+quadrant.do_now_hint:
+  en: Do now
+quadrant.schedule_hint:
+  en: Schedule
+quadrant.delegate_hint:
+  en: Hand to a squad
+quadrant.later_hint:
+  en: Do less
+quadrant.label:
+  en: Quadrant
 
 project.new_project:
   en: New project…

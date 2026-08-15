@@ -283,10 +283,14 @@ impl Waku {
 
     pub(super) fn sync_transcript_layout_width(&self, window: &Window) -> bool {
         let (sidebar_width, right_panel_width) = self.effective_panel_widths(window);
-        let sidebar_width = px(sidebar_width);
+        let left_chrome = px(sidebar_material_width(
+            self.sidebar_visible,
+            self.list_pane_visible(),
+            sidebar_width,
+        ));
         let right_panel_width = px(right_panel_width);
         let content_width =
-            (window.viewport_size().width - sidebar_width - right_panel_width - px(40.0))
+            (window.viewport_size().width - left_chrome - right_panel_width - px(40.0))
                 .clamp(px(1.0), px(CONTENT_MAX_WIDTH));
         let previous = self.transcript_layout_width.replace(content_width);
         if previous > Pixels::ZERO && (previous - content_width).abs() < px(1.0) {
