@@ -8,7 +8,7 @@ Every provider is reached through the same driver abstraction in
 [src/driver/mod.rs](../src/driver/mod.rs). Settings and the model picker only
 offer the featured catalog (`ProviderKind::FEATURED`: Claude Code, Codex,
 Cursor, OpenCode, Grok Build, Kiro, Trae, DeepSeek Harness, Hermes Agent,
-OpenClaw, GitHub Copilot CLI, Kimi Code, Pi, Oh My Pi).
+GitHub Copilot CLI, Kimi Code, Pi, Oh My Pi).
 Eight transports still cover `ProviderKind::ALL` so existing sessions on other
 CLIs keep running. ACP, RPC, server, and streaming-input drivers keep a resident
 conversation; native print-mode JSON/JSONL CLIs start one process per turn and

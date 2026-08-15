@@ -1805,12 +1805,12 @@ fn model_picker_subtitle_deduplicates_the_provider_name() {
     use super::composer::model_picker_subtitle;
 
     assert_eq!(
-        model_picker_subtitle(ProviderKind::DeepSeek, Some("DeepSeek (CLI)")),
-        "DeepSeek (CLI)"
+        model_picker_subtitle(ProviderKind::DeepSeek, Some("DeepSeek")),
+        "DeepSeek"
     );
     assert_eq!(
         model_picker_subtitle(ProviderKind::DeepSeek, Some("OpenAI")),
-        "OpenAI · DeepSeek (CLI)"
+        "OpenAI · DeepSeek"
     );
 }
 
@@ -1855,7 +1855,6 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ProviderKind::Kimi,
             ProviderKind::Kiro,
             ProviderKind::Omp,
-            ProviderKind::OpenClaw,
             ProviderKind::OpenCode,
             ProviderKind::Pi,
             ProviderKind::Trae,

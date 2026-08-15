@@ -44,7 +44,6 @@ const PROVIDERS = [
   { slug: 'trae', label: 'Trae (CLI)' },
   { slug: 'deepseek', label: 'DeepSeek (CLI)' },
   { slug: 'hermes', label: 'Hermes (CLI)' },
-  { slug: 'openclaw', label: 'OpenClaw (CLI)' },
   { slug: 'copilot', label: 'Copilot (CLI)' },
   { slug: 'kimi', label: 'Kimi (CLI)' },
   { slug: 'pi', label: 'Pi (CLI)' },

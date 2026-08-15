@@ -57,7 +57,6 @@ catalog and public support claims.
 | Trae (CLI) | `traecli` | Not recorded; real E2E required |
 | DeepSeek Harness (CLI) | `dsh` | Not recorded; real E2E required |
 | [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` | Not recorded; real E2E required |
-| OpenClaw (CLI) | `openclaw` | Not recorded; real E2E required |
 | GitHub Copilot (CLI) | `copilot` | Not recorded; real E2E required |
 | Kimi Code (CLI) | `kimi` | Not recorded; real E2E required |
 | Pi (CLI) | `pi` | Not recorded; real E2E required |
@@ -152,7 +151,7 @@ and [RELEASING.md](RELEASING.md) for signed release packaging.
 ### PengPilot direction
 
 PengPilot currently adds independent branding, bundle identifiers, local data
-paths, All Tasks and Four-Quadrant workflows, a focused fourteen-provider CLI
+paths, All Tasks and Four-Quadrant workflows, a focused thirteen-provider CLI
 catalog, PATH-aware provider grouping, Grok Build usage history, and
 PengPilot-specific release infrastructure. The exact changes are preserved in
 this repository's Git history.
@@ -241,7 +240,6 @@ PengPilot 是一款使用 Rust 和
 | Trae（CLI） | `traecli` | 未记录；必须完成真实 E2E |
 | DeepSeek Harness（CLI） | `dsh` | 未记录；必须完成真实 E2E |
 | [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` | 未记录；必须完成真实 E2E |
-| OpenClaw（CLI） | `openclaw` | 未记录；必须完成真实 E2E |
 | GitHub Copilot（CLI） | `copilot` | 未记录；必须完成真实 E2E |
 | Kimi Code（CLI） | `kimi` | 未记录；必须完成真实 E2E |
 | Pi（CLI） | `pi` | 未记录；必须完成真实 E2E |
@@ -322,7 +320,7 @@ bun run dev
 ### PengPilot 的独立方向
 
 PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、全任务与四象限工作流、
-14 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
+13 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
 以及 PengPilot 专属发布基础设施。所有具体修改均保留在本仓库的 Git 历史中。
 
 ### 致谢与署名

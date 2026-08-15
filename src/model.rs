@@ -37,7 +37,7 @@ pub enum ProviderKind {
 impl ProviderKind {
     /// Public catalog for new work. Other enum variants remain so older
     /// sessions still deserialize and continue running.
-    pub const FEATURED: [Self; 14] = [
+    pub const FEATURED: [Self; 13] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -47,7 +47,6 @@ impl ProviderKind {
         Self::Trae,
         Self::DeepSeek,
         Self::Hermes,
-        Self::OpenClaw,
         Self::Copilot,
         Self::Kimi,
         Self::Pi,
@@ -122,7 +121,7 @@ impl ProviderKind {
             Self::Codex => "Codex (CLI)",
             Self::Copilot => "GitHub Copilot (CLI)",
             Self::Cursor => "Cursor (CLI)",
-            Self::DeepSeek => "DeepSeek Harness (CLI)",
+            Self::DeepSeek => "DeepSeek Harness",
             Self::DevEco => "DevEco Code",
             Self::OpenCode => "OpenCode (CLI)",
             Self::Grok => "Grok Build (CLI)",
@@ -146,28 +145,28 @@ impl ProviderKind {
         match self {
             Self::Amp => "Amp",
             Self::Antigravity => "Antigravity",
-            Self::Claude => "Claude (CLI)",
+            Self::Claude => "Claude",
             Self::CodeBuddy => "CodeBuddy",
-            Self::Codex => "Codex (CLI)",
-            Self::Copilot => "Copilot (CLI)",
-            Self::Cursor => "Cursor (CLI)",
-            Self::DeepSeek => "DeepSeek (CLI)",
+            Self::Codex => "Codex",
+            Self::Copilot => "Copilot",
+            Self::Cursor => "Cursor",
+            Self::DeepSeek => "DeepSeek",
             Self::DevEco => "DevEco",
-            Self::OpenCode => "OpenCode (CLI)",
-            Self::Grok => "Grok (CLI)",
-            Self::Kimi => "Kimi (CLI)",
-            Self::Pi => "Pi (CLI)",
-            Self::Prime => "Prime (CLI)",
-            Self::Omp => "OMP (CLI)",
-            Self::Kiro => "Kiro (CLI)",
-            Self::Hermes => "Hermes (CLI)",
-            Self::OpenClaw => "OpenClaw (CLI)",
+            Self::OpenCode => "OpenCode",
+            Self::Grok => "Grok",
+            Self::Kimi => "Kimi",
+            Self::Pi => "Pi",
+            Self::Prime => "Prime",
+            Self::Omp => "OMP",
+            Self::Kiro => "Kiro",
+            Self::Hermes => "Hermes",
+            Self::OpenClaw => "OpenClaw",
             Self::Qoder => "Qoder",
             Self::QoderCn => "Qoder CN",
             Self::Qwen => "Qwen",
             Self::QwenPaw => "QwenPaw",
             Self::Reasonix => "Reasonix",
-            Self::Trae => "Trae (CLI)",
+            Self::Trae => "Trae",
         }
     }
 
@@ -3010,9 +3009,19 @@ mod tests {
     }
 
     #[test]
-    fn prime_is_runtime_only_until_verified() {
+    fn hidden_providers_remain_runtime_compatible() {
         assert!(!ProviderKind::Prime.is_featured());
+        assert!(!ProviderKind::OpenClaw.is_featured());
         assert!(ProviderKind::ALL.contains(&ProviderKind::Prime));
+        assert!(ProviderKind::ALL.contains(&ProviderKind::OpenClaw));
+    }
+
+    #[test]
+    fn provider_labels_fit_their_surfaces() {
+        assert_eq!(ProviderKind::DeepSeek.display_name(), "DeepSeek Harness");
+        for provider in ProviderKind::ALL {
+            assert!(!provider.short_name().contains("(CLI)"));
+        }
     }
 
     #[test]
