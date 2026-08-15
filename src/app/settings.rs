@@ -1,6 +1,6 @@
 use gpui::actions;
 
-use super::composer::next_picker_highlight;
+use super::composer::{next_picker_highlight, provider_picker_order};
 use super::*;
 
 actions!(waku_settings, [ClearSearch]);
@@ -706,16 +706,8 @@ impl Waku {
             }));
 
         let mut rows = div().mt(px(4.0)).flex().flex_col();
-        let provider_count = ProviderKind::ALL.len();
-        let mut providers = ProviderKind::ALL.to_vec();
-        providers.sort_by_key(|kind| {
-            (
-                !self
-                    .provider_probe(*kind)
-                    .is_some_and(|probe| probe.installed),
-                kind.display_name().to_ascii_lowercase(),
-            )
-        });
+        let providers = provider_picker_order(&self.probes, None);
+        let provider_count = providers.len();
         let mut current_group = None;
         for (index, kind) in providers.into_iter().enumerate() {
             let probe = self.provider_probe(kind);
@@ -1156,7 +1148,7 @@ impl Waku {
             self.state.disabled_providers.push(provider);
         }
         if !enabled
-            && let Some(fallback) = ProviderKind::ALL
+            && let Some(fallback) = ProviderKind::FEATURED
                 .into_iter()
                 .find(|kind| self.provider_enabled(*kind))
         {

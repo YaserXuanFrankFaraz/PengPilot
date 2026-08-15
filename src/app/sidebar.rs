@@ -475,6 +475,108 @@ impl Waku {
         }))
     }
 
+    fn render_inbox_collection_filter(
+        &self,
+        id: &'static str,
+        label: String,
+        collection: crate::work::InboxCollection,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = Theme::current(cx);
+        let selected = self.inbox_collection == collection;
+        div()
+            .id(id)
+            .tab_index(0)
+            .flex_1()
+            .min_w_0()
+            .h(px(26.0))
+            .px(px(5.0))
+            .rounded(px(6.0))
+            .flex()
+            .items_center()
+            .justify_center()
+            .cursor_default()
+            .text_size(px(11.0))
+            .text_color(if selected {
+                theme.text
+            } else {
+                theme.text_tertiary
+            })
+            .when(selected, |button| button.bg(theme.sidebar_item_background))
+            .hover(|button| button.bg(theme.overlay))
+            .focus_visible(|style| style.border_1().border_color(theme.accent))
+            .child(div().min_w_0().truncate().child(label.clone()))
+            .tooltip(Tooltip::text(label))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.show_inbox_collection(collection, cx);
+            }))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+                if !event.keystroke.modifiers.modified()
+                    && matches!(event.keystroke.key.as_str(), "enter" | "space")
+                {
+                    this.show_inbox_collection(collection, cx);
+                    cx.stop_propagation();
+                }
+            }))
+    }
+
+    fn render_inbox_collection_filters(&self, cx: &mut Context<Self>) -> Div {
+        div()
+            .w_full()
+            .px(px(10.0))
+            .pt(px(6.0))
+            .pb(px(4.0))
+            .flex()
+            .gap(px(3.0))
+            .child(self.render_inbox_collection_filter(
+                "inbox-filter-unfinished",
+                tr!("inbox.unfinished"),
+                crate::work::InboxCollection::Unfinished,
+                cx,
+            ))
+            .child(self.render_inbox_collection_filter(
+                "inbox-filter-flagged",
+                tr!("inbox.flagged"),
+                crate::work::InboxCollection::Flagged,
+                cx,
+            ))
+            .child(self.render_inbox_collection_filter(
+                "inbox-filter-archive",
+                tr!("inbox.archive_done"),
+                crate::work::InboxCollection::Archive,
+                cx,
+            ))
+    }
+
+    fn render_sidebar_quadrant_board(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = Theme::current(cx);
+        div()
+            .id("sidebar-quadrant-board")
+            .tab_index(0)
+            .size(px(SIDEBAR_ACTION_ROW_HEIGHT))
+            .rounded(px(7.0))
+            .flex()
+            .items_center()
+            .justify_center()
+            .cursor_default()
+            .tooltip(Tooltip::text(tr!("inbox.quadrant_board")))
+            .hover(|button| button.bg(theme.overlay))
+            .active(|button| button.bg(theme.overlay_strong))
+            .focus_visible(|style| style.border_1().border_color(theme.accent))
+            .child(icon("icons/quadrants.svg", 16.0, theme.text_tertiary))
+            .on_click(cx.listener(|this, _, window, cx| {
+                this.show_board_action(&ShowBoard, window, cx);
+            }))
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if !event.keystroke.modifiers.modified()
+                    && matches!(event.keystroke.key.as_str(), "enter" | "space")
+                {
+                    this.show_board_action(&ShowBoard, window, cx);
+                    cx.stop_propagation();
+                }
+            }))
+    }
+
     fn render_sidebar_search(&self, cx: &mut Context<Self>) -> Div {
         let search = self
             .render_sidebar_action_row(
@@ -687,8 +789,18 @@ impl Waku {
                 div()
                     .flex_none()
                     .px(px(10.0))
-                    .child(self.render_sidebar_new_session(cx)),
+                    .flex()
+                    .items_center()
+                    .gap(px(4.0))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(self.render_sidebar_new_session(cx)),
+                    )
+                    .child(self.render_sidebar_quadrant_board(cx)),
             )
+            .child(self.render_inbox_collection_filters(cx))
             .child(
                 div()
                     .id("sidebar-scroll")
@@ -1182,6 +1294,7 @@ impl Waku {
                             });
                         }),
                         MenuItem::Separator,
+                        MenuItem::Header(tr!("workflow.progress_status").into()),
                         MenuItem::new(tr!("workflow.todo"), {
                             let waku = workflow_waku.clone();
                             move |_, cx| {
@@ -1218,7 +1331,7 @@ impl Waku {
                                 });
                             }
                         }),
-                        MenuItem::new(tr!("inbox.complete"), {
+                        MenuItem::new(tr!("inbox.archive_done"), {
                             let waku = workflow_waku.clone();
                             move |_, cx| {
                                 let _ = waku.update(cx, |waku, cx| {
@@ -1235,6 +1348,7 @@ impl Waku {
                                 .update(cx, |waku, cx| waku.toggle_session_flag(session_id, cx));
                         }),
                         MenuItem::Separator,
+                        MenuItem::Header(tr!("quadrant.status").into()),
                         MenuItem::new(tr!("quadrant.do_now"), {
                             let waku = quadrant_waku.clone();
                             move |_, cx| {

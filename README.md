@@ -36,49 +36,39 @@ structured event stream.
 Install and authenticate at least one CLI before starting PengPilot. The app
 detects CLIs on `PATH`; Settings → Providers also accepts an explicit binary
 path. Detected providers appear first, followed by providers not found on
-`PATH`; each group is sorted alphabetically.
+`PATH`. Prime Agent is listed first.
 
 | Agent | Command |
 | --- | --- |
-| [Amp](https://ampcode.com/) | `amp` |
-| Antigravity | `agy` |
-| Claude Code | `claude` |
-| CodeBuddy | `codebuddy` |
-| Codex CLI | `codex` |
-| GitHub Copilot CLI | `copilot` |
-| Cursor CLI | `cursor-agent` |
-| DeepSeek Harness | `dsh` |
-| DevEco Code | `deveco` |
-| Grok Build | `grok` |
-| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `hermes` |
-| Kimi CLI | `kimi` |
-| [Kiro CLI](https://kiro.dev/cli/) | `kiro-cli` |
-| [Oh My Pi](https://omp.sh/) | `omp` |
-| OpenClaw | `openclaw` |
-| OpenCode | `opencode` |
-| Pi | `pi` |
-| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
-| Qoder CLI | `qodercli` |
-| Qoder CLI CN | `qoderclicn` |
-| Qwen Code | `qwen` |
-| QwenPaw | `qwenpaw` |
-| Reasonix | `reasonix` |
-| Trae CLI | `traecli` |
+| [Prime Agent (CLI)](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
+| Claude Code (CLI) | `claude` |
+| Codex (CLI) | `codex` |
+| Cursor (CLI) | `cursor-agent` |
+| OpenCode (CLI) | `opencode` |
+| Grok Build (CLI) | `grok` |
+| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` |
+| Trae (CLI) | `traecli` |
+| DeepSeek Harness (CLI) | `dsh` |
+| [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` |
+| OpenClaw (CLI) | `openclaw` |
+| GitHub Copilot (CLI) | `copilot` |
+| Kimi Code (CLI) | `kimi` |
+| Pi (CLI) | `pi` |
+| [Oh My Pi (CLI)](https://omp.sh/) | `omp` |
 
 Capabilities vary with each CLI and protocol. PengPilot exposes model
 discovery, permissions, steering, rollback, forking, and Computer Use only
-where the selected provider supports them.
-Antigravity, CodeBuddy, Copilot, DevEco, OpenClaw, and Qwen currently use their
-native one-shot headless transports and therefore run only in Build + Full
-Access mode. ACP and RPC providers retain long-lived sessions.
+where the selected provider supports them. Sessions already started on other
+CLIs continue to run; new work uses this catalog.
 
 ### Highlights
 
 - Manage multiple local projects and independent, concurrently running agent
   tasks in one native app.
-- Triage sessions through Unfinished, Flagged, Archive, and Board views. Board
-  lanes scroll independently, and cards can move across quadrants and workflow
-  statuses by drag-and-drop; placement and work-item metadata stay local.
+- Triage sessions through All Tasks and Four-Quadrant boards. Workflow lanes
+  scroll independently, cards move across quadrants and progress states by
+  drag-and-drop, and completed or archived work shares one global lane;
+  placement and work-item metadata stay local.
 - Keep long-lived provider sessions across turns, with streamed responses,
   reasoning, tool activity, approvals, and provider-native continuity.
 - Select models, reasoning effort, service tier, build/plan interaction, and
@@ -155,10 +145,10 @@ and [RELEASING.md](RELEASING.md) for signed release packaging.
 ### PengPilot direction
 
 PengPilot currently adds independent branding, bundle identifiers, local data
-paths, session Inbox and Board workflows, an expanded 24-provider CLI catalog,
-PATH-aware provider grouping, Grok Build usage history, and PengPilot-specific
-release infrastructure. The exact changes are preserved in this repository's
-Git history.
+paths, All Tasks and Four-Quadrant workflows, a focused fifteen-provider CLI
+catalog, PATH-aware provider grouping, Grok Build usage history, and
+PengPilot-specific release infrastructure. The exact changes are preserved in
+this repository's Git history.
 
 ### Thanks and attribution
 
@@ -226,45 +216,36 @@ PengPilot 是一款使用 Rust 和
 
 启动 PengPilot 前，请至少安装并登录一个 CLI。PengPilot 会从 `PATH`
 自动检测，也可以在「设置 → 服务商」中指定可执行文件路径。
-已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方；两组均按名称排序。
+已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方。Prime Agent 排在最前。
 
 | 智能体 | 命令 |
 | --- | --- |
-| [Amp](https://ampcode.com/) | `amp` |
-| Antigravity | `agy` |
-| Claude Code | `claude` |
-| CodeBuddy | `codebuddy` |
-| Codex CLI | `codex` |
-| GitHub Copilot CLI | `copilot` |
-| Cursor CLI | `cursor-agent` |
-| DeepSeek Harness | `dsh` |
-| DevEco Code | `deveco` |
-| Grok Build | `grok` |
-| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `hermes` |
-| Kimi CLI | `kimi` |
-| [Kiro CLI](https://kiro.dev/cli/) | `kiro-cli` |
-| [Oh My Pi](https://omp.sh/) | `omp` |
-| OpenClaw | `openclaw` |
-| OpenCode | `opencode` |
-| Pi | `pi` |
-| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
-| Qoder CLI | `qodercli` |
-| Qoder CLI CN | `qoderclicn` |
-| Qwen Code | `qwen` |
-| QwenPaw | `qwenpaw` |
-| Reasonix | `reasonix` |
-| Trae CLI | `traecli` |
+| [Prime Agent（CLI）](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` |
+| Claude Code（CLI） | `claude` |
+| Codex（CLI） | `codex` |
+| Cursor（CLI） | `cursor-agent` |
+| OpenCode（CLI） | `opencode` |
+| Grok Build（CLI） | `grok` |
+| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` |
+| Trae（CLI） | `traecli` |
+| DeepSeek Harness（CLI） | `dsh` |
+| [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` |
+| OpenClaw（CLI） | `openclaw` |
+| GitHub Copilot（CLI） | `copilot` |
+| Kimi Code（CLI） | `kimi` |
+| Pi（CLI） | `pi` |
+| [Oh My Pi（CLI）](https://omp.sh/) | `omp` |
 
 不同 CLI 和协议支持的能力并不完全相同。模型发现、权限交互、运行中追加指令、
-回退、派生会话及 Computer Use 仅在对应服务商支持时显示。
-Antigravity、CodeBuddy、Copilot、DevEco、OpenClaw 和 Qwen 当前使用各自原生的
-单次无头传输，因此仅支持「构建 + 完全访问」；ACP 与 RPC 服务商保留长生命周期会话。
+回退、派生会话及 Computer Use 仅在对应服务商支持时显示。已经用其他 CLI
+开始的会话会继续运行；新任务使用这份名单。
 
 ### 主要功能
 
 - 在一个原生应用中管理多个本地项目和彼此独立、可并行运行的智能体任务。
-- 通过「未完成」、「已标记」、「归档」和「看板」视图整理会话；各看板状态栏可
-  独立滚动，会话卡片可拖拽到其他象限和工作流状态，位置与工作项元数据均保存在本机。
+- 通过「全任务看板」和「四象限看板」整理会话；各进度状态栏可独立滚动，
+  会话卡片可拖拽到其他象限和进度状态，已完成或已归档任务统一进入全局状态栏；
+  位置与工作项元数据均保存在本机。
 - 跨轮次保持长生命周期服务商会话，流式呈现回答、推理、工具活动和权限请求。
 - 在服务商支持时选择模型、推理强度、服务等级、构建/规划交互方式，以及监督或
   自动化访问模式。
@@ -329,8 +310,8 @@ bun run dev
 
 ### PengPilot 的独立方向
 
-PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、会话 Inbox 与看板工作流、
-24 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
+PengPilot 当前增加了独立品牌、Bundle ID、本地数据路径、全任务与四象限工作流、
+15 个 CLI 服务商目录、基于 PATH 检测结果的服务商分组、Grok Build 用量历史，
 以及 PengPilot 专属发布基础设施。所有具体修改均保留在本仓库的 Git 历史中。
 
 ### 致谢与署名

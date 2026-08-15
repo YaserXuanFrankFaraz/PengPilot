@@ -421,6 +421,7 @@ impl PersistedState {
     }
 
     pub fn new_session(&self, project_id: Uuid, provider: ProviderKind) -> AgentSession {
+        let provider = provider.for_new_work();
         let mut session = AgentSession::new(project_id, provider);
         if provider == self.last_provider {
             session.model.clone_from(&self.last_model);
@@ -588,6 +589,13 @@ impl PersistedState {
         }
         self.version = STATE_VERSION;
         normalize_computer_app_grants(&mut self.computer_use_allowed_apps);
+        let last_provider = self.last_provider.for_new_work();
+        if last_provider != self.last_provider {
+            self.last_provider = last_provider;
+            self.last_model = None;
+            self.last_reasoning_effort = None;
+            self.last_service_tier = None;
+        }
         self.backfill_remembered_selection();
     }
 

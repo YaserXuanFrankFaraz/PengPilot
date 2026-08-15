@@ -287,14 +287,22 @@ sidebar.unknown_project:
   en: Unknown project
 inbox.unfinished:
   en: Open
+inbox.all_tasks_board:
+  en: All Tasks Board
 inbox.flagged:
   en: Flagged
 inbox.archive:
   en: Archive
 inbox.board:
   en: Board
+inbox.quadrant_board:
+  en: Four-Quadrant Board
 inbox.archive_done:
-  en: Archive · Done
+  en: Archived
+inbox.done_and_archived:
+  en: Done and Archived
+inbox.completed_or_archived:
+  en: Completed or Archived
 inbox.unfinished_group:
   en: Open
 inbox.complete:
@@ -307,6 +315,8 @@ inbox.move_to:
   en: Move to
 workflow.todo:
   en: Not started
+workflow.progress_status:
+  en: Progress Status
 workflow.in_progress:
   en: In progress
 workflow.in_review:
@@ -326,11 +336,13 @@ quadrant.do_now_hint:
 quadrant.schedule_hint:
   en: Schedule
 quadrant.delegate_hint:
-  en: Hand to a squad
+  en: Hand to AI
 quadrant.later_hint:
   en: Do less
 quadrant.label:
   en: Quadrant
+quadrant.status:
+  en: Quadrant Status
 
 project.new_project:
   en: New project…
@@ -696,6 +708,8 @@ common.default:
 
 models.none_found:
   en: No models found
+models.favorites:
+  en: Favorites
 models.favorite_hint:
   en: Star a model to keep it here
 models.loading:

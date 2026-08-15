@@ -150,16 +150,21 @@ sidebar.hours_ago: "%{count} 時間前"
 sidebar.days_ago: "%{count} 日前"
 sidebar.unknown_project: 不明なプロジェクト
 inbox.unfinished: 未完了
+inbox.all_tasks_board: 全タスクボード
 inbox.flagged: フラグ
 inbox.archive: アーカイブ
 inbox.board: 四象限
-inbox.archive_done: アーカイブ · 完了
+inbox.quadrant_board: 四象限ボード
+inbox.archive_done: アーカイブ済み
+inbox.done_and_archived: 完了・アーカイブ済み
+inbox.completed_or_archived: 完了またはアーカイブ済み
 inbox.unfinished_group: 未完了
 inbox.complete: 完了してアーカイブ
 inbox.flag: フラグを付ける
 inbox.unflag: フラグを外す
 inbox.move_to: 移動
 workflow.todo: 未着手
+workflow.progress_status: 進捗状況
 workflow.in_progress: 進行中
 workflow.in_review: レビュー待ち
 workflow.done: 完了してアーカイブ
@@ -169,9 +174,10 @@ quadrant.delegate: 緊急・重要でない
 quadrant.later: どちらでもない
 quadrant.do_now_hint: 今やる
 quadrant.schedule_hint: 計画する
-quadrant.delegate_hint: 小隊へ
+quadrant.delegate_hint: AIに任せる
 quadrant.later_hint: 後回し
 quadrant.label: 象限
+quadrant.status: 象限ステータス
 
 project.new_project: 新規プロジェクト…
 project.no_project: プロジェクトを使用しない
@@ -362,6 +368,7 @@ common.close: 閉じる
 common.default: デフォルト
 
 models.none_found: モデルが見つかりません
+models.favorites: お気に入り
 models.favorite_hint: モデルにスターを付けると、ここに固定できます
 models.loading: モデルを読み込み中…
 models.none_reported: このプロバイダーにモデルがありません

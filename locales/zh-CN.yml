@@ -138,16 +138,21 @@ sidebar.hours_ago: "%{count} 小时前"
 sidebar.days_ago: "%{count} 天前"
 sidebar.unknown_project: 未知项目
 inbox.unfinished: 未完成
+inbox.all_tasks_board: 全任务看板
 inbox.flagged: 旗标
 inbox.archive: 归档
 inbox.board: 四象限
-inbox.archive_done: 归档 · 已完成
+inbox.quadrant_board: 四象限看板
+inbox.archive_done: 已归档
+inbox.done_and_archived: 完成且归档
+inbox.completed_or_archived: 已完成 或 已归档
 inbox.unfinished_group: 未完成
 inbox.complete: 完成并归档
 inbox.flag: 加上旗标
 inbox.unflag: 取消旗标
 inbox.move_to: 移动到
 workflow.todo: 待开始
+workflow.progress_status: 进度状态
 workflow.in_progress: 进行中
 workflow.in_review: 待人审
 workflow.done: 完成并归档
@@ -157,9 +162,10 @@ quadrant.delegate: 紧急不重要
 quadrant.later: 不紧急不重要
 quadrant.do_now_hint: 现在做
 quadrant.schedule_hint: 排进计划
-quadrant.delegate_hint: 可交给小队
+quadrant.delegate_hint: 可交给AI
 quadrant.later_hint: 少做或放下
 quadrant.label: 象限
+quadrant.status: 象限状态
 project.new_project: 新建项目…
 project.no_project: 不使用项目
 project.no_project_name: 无项目
@@ -337,6 +343,7 @@ permission.agent_wants_to: 智能体想要执行 %{action}
 common.close: 关闭
 common.default: 默认
 models.none_found: 未找到模型
+models.favorites: 收藏
 models.favorite_hint: 为模型加星标即可固定在这里
 models.loading: 正在加载模型…
 models.none_reported: 此服务商未提供任何模型

@@ -35,13 +35,21 @@ export const Route = createFileRoute('/')({
 })
 
 const PROVIDERS = [
-  { slug: 'amp', label: 'Amp' },
-  { slug: 'claude', label: 'Claude Code' },
-  { slug: 'openai', label: 'Codex' },
-  { slug: 'cursor', label: 'Cursor' },
-  { slug: 'opencode', label: 'OpenCode' },
-  { slug: 'grok', label: 'Grok' },
-  { slug: 'pi', label: 'Pi' },
+  { slug: 'prime', label: 'Prime Agent (CLI)' },
+  { slug: 'claude', label: 'Claude Code (CLI)' },
+  { slug: 'openai', label: 'Codex (CLI)' },
+  { slug: 'cursor', label: 'Cursor (CLI)' },
+  { slug: 'opencode', label: 'OpenCode (CLI)' },
+  { slug: 'grok', label: 'Grok (CLI)' },
+  { slug: 'kiro', label: 'Kiro (CLI)' },
+  { slug: 'trae', label: 'Trae (CLI)' },
+  { slug: 'deepseek', label: 'DeepSeek (CLI)' },
+  { slug: 'hermes', label: 'Hermes (CLI)' },
+  { slug: 'openclaw', label: 'OpenClaw (CLI)' },
+  { slug: 'copilot', label: 'Copilot (CLI)' },
+  { slug: 'kimi', label: 'Kimi (CLI)' },
+  { slug: 'pi', label: 'Pi (CLI)' },
+  { slug: 'omp', label: 'Oh My Pi (CLI)' },
 ]
 
 const FEATURES = [
@@ -72,8 +80,8 @@ const FEATURES = [
   },
   {
     icon: RefreshCw,
-    title: 'Quietly current',
-    body: 'Signed, notarized, and auto-updated with binary deltas via Sparkle. The app stays fresh without asking for your attention.',
+    title: 'Transparent releases',
+    body: 'Current GitHub builds are ad-hoc signed and manually updated. Each release ships source, checksums, and explicit Gatekeeper guidance.',
   },
 ]
 

@@ -1805,19 +1805,19 @@ fn model_picker_subtitle_deduplicates_the_provider_name() {
     use super::composer::model_picker_subtitle;
 
     assert_eq!(
-        model_picker_subtitle(ProviderKind::DeepSeek, Some("DeepSeek")),
-        "DeepSeek"
+        model_picker_subtitle(ProviderKind::DeepSeek, Some("DeepSeek (CLI)")),
+        "DeepSeek (CLI)"
     );
     assert_eq!(
         model_picker_subtitle(ProviderKind::DeepSeek, Some("OpenAI")),
-        "OpenAI · DeepSeek"
+        "OpenAI · DeepSeek (CLI)"
     );
 }
 
 #[test]
 fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
     use super::ModelPickerTab;
-    use super::composer::visible_picker_tabs;
+    use super::composer::{provider_picker_order, visible_picker_tabs};
     use crate::model::{ProviderModel, ProviderProbe};
 
     let probe = |provider: ProviderKind, installed: bool| ProviderProbe {
@@ -1830,8 +1830,38 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
     let probes = [
         probe(ProviderKind::Claude, true),
         probe(ProviderKind::Codex, true),
-        probe(ProviderKind::Cursor, false),
+        probe(ProviderKind::Copilot, true),
+        probe(ProviderKind::Cursor, true),
+        probe(ProviderKind::Hermes, true),
     ];
+
+    // Catalog is featured-only, detected first, FEATURED order (Prime first).
+    let provider_order = provider_picker_order(&probes, None);
+    assert_eq!(
+        &provider_order[..5],
+        &[
+            ProviderKind::Claude,
+            ProviderKind::Codex,
+            ProviderKind::Cursor,
+            ProviderKind::Hermes,
+            ProviderKind::Copilot,
+        ]
+    );
+    assert_eq!(
+        &provider_order[5..],
+        &[
+            ProviderKind::Prime,
+            ProviderKind::OpenCode,
+            ProviderKind::Grok,
+            ProviderKind::Kiro,
+            ProviderKind::Trae,
+            ProviderKind::DeepSeek,
+            ProviderKind::OpenClaw,
+            ProviderKind::Kimi,
+            ProviderKind::Pi,
+            ProviderKind::Omp,
+        ]
+    );
 
     // Uninstalled providers never join the cycle; favorites leads.
     assert_eq!(
@@ -1840,6 +1870,9 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ModelPickerTab::Favorites,
             ModelPickerTab::Provider(ProviderKind::Claude),
             ModelPickerTab::Provider(ProviderKind::Codex),
+            ModelPickerTab::Provider(ProviderKind::Cursor),
+            ModelPickerTab::Provider(ProviderKind::Hermes),
+            ModelPickerTab::Provider(ProviderKind::Copilot),
         ]
     );
 
@@ -1849,6 +1882,9 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
         vec![
             ModelPickerTab::Favorites,
             ModelPickerTab::Provider(ProviderKind::Codex),
+            ModelPickerTab::Provider(ProviderKind::Cursor),
+            ModelPickerTab::Provider(ProviderKind::Hermes),
+            ModelPickerTab::Provider(ProviderKind::Copilot),
         ]
     );
 
@@ -1859,6 +1895,15 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
         vec![
             ModelPickerTab::Favorites,
             ModelPickerTab::Provider(ProviderKind::Claude),
+        ]
+    );
+
+    // A locked session reaches only its own installed provider.
+    assert_eq!(
+        visible_picker_tabs(&probes, &[], Some(ProviderKind::Hermes)),
+        vec![
+            ModelPickerTab::Favorites,
+            ModelPickerTab::Provider(ProviderKind::Hermes),
         ]
     );
 }

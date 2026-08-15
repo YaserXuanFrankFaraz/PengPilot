@@ -5,8 +5,12 @@ it speaks, how long that process lives, and what has to be emulated because the
 CLI does not offer it.
 
 Every provider is reached through the same driver abstraction in
-[src/driver/mod.rs](../src/driver/mod.rs). Eight transport implementations cover
-24 providers. ACP, RPC, server, and streaming-input drivers keep a resident
+[src/driver/mod.rs](../src/driver/mod.rs). Settings and the model picker only
+offer the featured catalog (`ProviderKind::FEATURED`: Claude Code, Codex,
+Cursor, OpenCode, Grok Build, Kiro, Trae, DeepSeek Harness, Hermes Agent,
+OpenClaw, GitHub Copilot CLI, Kimi Code, Pi, Oh My Pi, Prime Agent).
+Eight transports still cover `ProviderKind::ALL` so existing sessions on other
+CLIs keep running. ACP, RPC, server, and streaming-input drivers keep a resident
 conversation; native print-mode JSON/JSONL CLIs start one process per turn and
 resume when their protocol returns a session id:
 

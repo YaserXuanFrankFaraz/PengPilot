@@ -170,6 +170,7 @@ const ICONS: &[(&str, &[u8])] = icons![
     "provider-omp-color",
     "provider-kiro",
     "provider-pi",
+    "quadrants",
     "regex",
     "replace",
     "replace-all",

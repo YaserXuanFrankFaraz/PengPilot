@@ -58,15 +58,23 @@ impl Waku {
             .contains(session.workflow_status, session.flagged)
     }
 
+    pub(super) fn show_inbox_collection(
+        &mut self,
+        collection: InboxCollection,
+        cx: &mut Context<Self>,
+    ) {
+        self.inbox_collection = collection;
+        self.board_visible = false;
+        cx.notify();
+    }
+
     pub(super) fn show_unfinished_action(
         &mut self,
         _: &ShowUnfinished,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.inbox_collection = InboxCollection::Unfinished;
-        self.board_visible = false;
-        cx.notify();
+        self.show_inbox_collection(InboxCollection::Unfinished, cx);
     }
 
     pub(super) fn show_flagged_action(
@@ -75,9 +83,7 @@ impl Waku {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.inbox_collection = InboxCollection::Flagged;
-        self.board_visible = false;
-        cx.notify();
+        self.show_inbox_collection(InboxCollection::Flagged, cx);
     }
 
     pub(super) fn show_archive_action(
@@ -86,9 +92,7 @@ impl Waku {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.inbox_collection = InboxCollection::Archive;
-        self.board_visible = false;
-        cx.notify();
+        self.show_inbox_collection(InboxCollection::Archive, cx);
     }
 
     pub(super) fn show_board_action(
@@ -235,37 +239,17 @@ impl Waku {
             .child(self.nav_button(
                 "nav-unfinished",
                 "icons/list.svg",
-                tr!("inbox.unfinished"),
-                !self.board_visible && self.inbox_collection == InboxCollection::Unfinished,
+                tr!("inbox.all_tasks_board"),
+                !self.board_visible,
                 cx.listener(|this, _, window, cx| {
                     this.show_unfinished_action(&ShowUnfinished, window, cx);
                 }),
                 cx,
             ))
             .child(self.nav_button(
-                "nav-flagged",
-                "icons/star.svg",
-                tr!("inbox.flagged"),
-                !self.board_visible && self.inbox_collection == InboxCollection::Flagged,
-                cx.listener(|this, _, window, cx| {
-                    this.show_flagged_action(&ShowFlagged, window, cx);
-                }),
-                cx,
-            ))
-            .child(self.nav_button(
-                "nav-archive",
-                "icons/package.svg",
-                tr!("inbox.archive"),
-                !self.board_visible && self.inbox_collection == InboxCollection::Archive,
-                cx.listener(|this, _, window, cx| {
-                    this.show_archive_action(&ShowArchive, window, cx);
-                }),
-                cx,
-            ))
-            .child(self.nav_button(
                 "nav-board",
-                "icons/hexagon.svg",
-                tr!("inbox.board"),
+                "icons/quadrants.svg",
+                tr!("inbox.quadrant_board"),
                 self.board_visible,
                 cx.listener(|this, _, window, cx| {
                     this.show_board_action(&ShowBoard, window, cx);
@@ -369,7 +353,7 @@ impl Waku {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .text_size(px(13.0))
                                     .flex_none()
-                                    .child(tr!("inbox.board")),
+                                    .child(tr!("inbox.quadrant_board")),
                             )
                             .child(
                                 div()
@@ -382,7 +366,7 @@ impl Waku {
                                         tr!("workflow.todo"),
                                         tr!("workflow.in_progress"),
                                         tr!("workflow.in_review"),
-                                        tr!("inbox.complete")
+                                        tr!("inbox.completed_or_archived")
                                     )),
                             ),
                     )
@@ -396,26 +380,35 @@ impl Waku {
                     div()
                         .size_full()
                         .flex()
-                        .flex_col()
                         .gap(px(8.0))
                         .child(
                             div()
                                 .flex_1()
+                                .min_w_0()
                                 .min_h_0()
                                 .flex()
+                                .flex_col()
                                 .gap(px(8.0))
-                                .child(self.render_quadrant(Quadrant::DO_NOW, cx))
-                                .child(self.render_quadrant(Quadrant::SCHEDULE, cx)),
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_h_0()
+                                        .flex()
+                                        .gap(px(8.0))
+                                        .child(self.render_quadrant(Quadrant::DO_NOW, cx))
+                                        .child(self.render_quadrant(Quadrant::SCHEDULE, cx)),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_h_0()
+                                        .flex()
+                                        .gap(px(8.0))
+                                        .child(self.render_quadrant(Quadrant::DELEGATE, cx))
+                                        .child(self.render_quadrant(Quadrant::LATER, cx)),
+                                ),
                         )
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_h_0()
-                                .flex()
-                                .gap(px(8.0))
-                                .child(self.render_quadrant(Quadrant::DELEGATE, cx))
-                                .child(self.render_quadrant(Quadrant::LATER, cx)),
-                        ),
+                        .child(self.render_completed_archive_column(cx)),
                 ),
             )
     }
@@ -444,20 +437,29 @@ impl Waku {
                     .py(px(8.0))
                     .flex()
                     .items_center()
-                    .justify_between()
                     .border_l_4()
                     .border_color(accent)
                     .child(
                         div()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_size(px(12.5))
-                            .child(tr!(quadrant.label_key())),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(11.0))
-                            .text_color(theme.text_tertiary)
-                            .child(tr!(quadrant.hint_key())),
+                            .min_w_0()
+                            .flex()
+                            .items_center()
+                            .gap(px(8.0))
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_size(px(12.5))
+                                    .child(tr!(quadrant.label_key())),
+                            )
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_size(px(11.0))
+                                    .text_color(theme.text_tertiary)
+                                    .child(tr!(quadrant.hint_key())),
+                            ),
                     ),
             )
             .child(
@@ -550,6 +552,72 @@ impl Waku {
             .into_any_element()
     }
 
+    fn render_completed_archive_column(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = Theme::current(cx);
+        let cards: Vec<Uuid> = self
+            .state
+            .sessions
+            .iter()
+            .filter(|session| {
+                session.has_started() && session.workflow_status == WorkflowStatus::Done
+            })
+            .map(|session| session.id)
+            .collect();
+        let count = cards.len();
+        let drop_background = theme.overlay;
+
+        div()
+            .id("board-completed-archive")
+            .w(px(220.0))
+            .h_full()
+            .flex_none()
+            .min_h_0()
+            .flex()
+            .flex_col()
+            .rounded(px(10.0))
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.raised)
+            .drag_over::<BoardCardDrag>(move |lane, _, _, _| lane.bg(drop_background))
+            .on_drop(cx.listener(|this, card: &BoardCardDrag, _, cx| {
+                this.set_session_workflow(card.session_id, WorkflowStatus::Done, cx);
+            }))
+            .child(
+                div()
+                    .px(px(10.0))
+                    .py(px(8.0))
+                    .flex()
+                    .items_center()
+                    .gap(px(5.0))
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(12.5))
+                    .child(workflow_dot(WorkflowStatus::Done, &theme))
+                    .child(tr!("inbox.completed_or_archived"))
+                    .child(
+                        div()
+                            .ml_auto()
+                            .font_weight(FontWeight::NORMAL)
+                            .text_size(px(11.0))
+                            .text_color(theme.text_ghost)
+                            .child(SharedString::from(count.to_string())),
+                    ),
+            )
+            .child(
+                div()
+                    .id("board-completed-archive-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .p(px(6.0))
+                    .flex()
+                    .flex_col()
+                    .gap(px(6.0))
+                    .children(cards.into_iter().map(|id| self.render_board_card(id, cx))),
+            )
+    }
+
     fn render_board_card(&self, session_id: Uuid, cx: &mut Context<Self>) -> AnyElement {
         let theme = Theme::current(cx);
         let Some(session) = self
@@ -561,6 +629,11 @@ impl Waku {
             return div().into_any_element();
         };
         let selected = self.state.selected_session == Some(session_id);
+        let collection = if session.workflow_status == WorkflowStatus::Done {
+            InboxCollection::Archive
+        } else {
+            InboxCollection::Unfinished
+        };
         let title = SharedString::from(session.display_title().to_string());
         let drag = BoardCardDrag::new(session_id, title.clone());
         div()
@@ -581,6 +654,7 @@ impl Waku {
             })
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.board_visible = false;
+                this.inbox_collection = collection;
                 this.select_session(session_id, cx);
             }))
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
@@ -588,6 +662,7 @@ impl Waku {
                     && matches!(event.keystroke.key.as_str(), "enter" | "space")
                 {
                     this.board_visible = false;
+                    this.inbox_collection = collection;
                     this.select_session(session_id, cx);
                     cx.stop_propagation();
                 }

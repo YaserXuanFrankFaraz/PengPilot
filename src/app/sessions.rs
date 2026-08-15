@@ -134,7 +134,7 @@ impl Waku {
             self.select_session(draft_id, cx);
             return;
         }
-        let session = self.state.new_session(project_id, provider);
+        let session = self.state.new_session(project_id, provider.for_new_work());
         let id = session.id;
         self.state.push_session(session);
         self.select_session(id, cx);

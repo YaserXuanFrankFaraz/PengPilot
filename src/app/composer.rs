@@ -563,7 +563,7 @@ impl Waku {
                             .is_some_and(|session| !session.messages.is_empty());
                         let provider =
                             if !locked && this.state.disabled_providers.contains(&provider) {
-                                ProviderKind::ALL
+                                ProviderKind::FEATURED
                                     .into_iter()
                                     .find(|kind| this.provider_enabled(*kind))
                                     .unwrap_or(provider)
@@ -642,13 +642,11 @@ impl Waku {
                 let available_models = available_models.clone();
 
                 let mut sidebar = div()
-                    .w(px(50.0))
+                    .w(px(170.0))
                     .h_full()
                     .flex_none()
                     .flex()
                     .flex_col()
-                    .items_center()
-                    .gap(px(4.0))
                     .p(px(5.0))
                     .rounded_tl(px(12.0))
                     .rounded_bl(px(12.0))
@@ -662,12 +660,13 @@ impl Waku {
                     .child(
                         div()
                             .id("model-tab-favorites")
-                            .w(px(38.0))
-                            .h(px(38.0))
+                            .w_full()
+                            .h(px(34.0))
+                            .px(px(8.0))
                             .rounded(px(7.0))
                             .flex()
                             .items_center()
-                            .justify_center()
+                            .gap(px(8.0))
                             .cursor_default()
                             .when(favorites_selected, |element| {
                                 element.bg(theme.overlay_strong)
@@ -682,33 +681,93 @@ impl Waku {
                                     theme.text_tertiary
                                 },
                             ))
+                            .child(
+                                div()
+                                    .text_size(px(11.5))
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .text_color(if favorites_selected {
+                                        theme.text
+                                    } else {
+                                        theme.text_secondary
+                                    })
+                                    .child(tr!("models.favorites")),
+                            )
                             .on_click(move |_, _, cx| {
                                 let _ = favorite_weak.update(cx, |this, cx| {
                                     this.select_model_picker_tab(ModelPickerTab::Favorites, cx);
                                 });
                             }),
                     )
-                    .child(div().w(px(34.0)).h(px(1.0)).my(px(3.0)).bg(theme.border));
+                    .child(div().w_full().h(px(1.0)).my(px(4.0)).bg(theme.border));
 
                 // One predicate with the `tab` cycle, so clicking and cycling
                 // agree on which tabs are usable.
                 let rail_tabs = visible_picker_tabs(&probes, &disabled_providers, locked_provider);
-                for kind in ProviderKind::ALL {
+                let provider_order = provider_picker_order(&probes, locked_provider);
+                let provider_count = provider_order.len();
+                let detected_count = provider_order
+                    .iter()
+                    .filter(|kind| {
+                        probes
+                            .iter()
+                            .any(|probe| probe.provider == **kind && probe.installed)
+                    })
+                    .count();
+                let mut current_group = None;
+                let mut provider_list = div()
+                    .id("model-provider-list")
+                    .w_full()
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll();
+                for kind in provider_order {
+                    let installed = probes
+                        .iter()
+                        .any(|probe| probe.provider == kind && probe.installed);
+                    if current_group != Some(installed) {
+                        current_group = Some(installed);
+                        let count = if installed {
+                            detected_count
+                        } else {
+                            provider_count - detected_count
+                        };
+                        provider_list = provider_list.child(
+                            div()
+                                .w_full()
+                                .pt(if installed { px(5.0) } else { px(13.0) })
+                                .pb(px(5.0))
+                                .px(px(8.0))
+                                .text_size(px(9.5))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(theme.text_tertiary)
+                                .child(SharedString::from(format!(
+                                    "{} · {count}",
+                                    if installed {
+                                        tr!("providers.detected_group")
+                                    } else {
+                                        tr!("providers.not_detected_group")
+                                    }
+                                ))),
+                        );
+                    }
                     let usable = rail_tabs.contains(&ModelPickerTab::Provider(kind));
                     let selected = selected_tab == ModelPickerTab::Provider(kind) && !searching;
+                    let disabled = disabled_providers.contains(&kind);
                     let tab_weak = weak.clone();
-                    sidebar = sidebar.child(
+                    provider_list = provider_list.child(
                         div()
                             .id(SharedString::from(format!("model-tab-{}", kind.id())))
-                            .w(px(38.0))
-                            .h(px(38.0))
+                            .w_full()
+                            .h(px(34.0))
+                            .px(px(8.0))
+                            .flex_none()
                             .rounded(px(7.0))
                             .flex()
                             .items_center()
-                            .justify_center()
+                            .gap(px(8.0))
                             .cursor_default()
                             .when(selected, |element| element.bg(theme.overlay_strong))
-                            .when(!usable, |element| element.opacity(0.35))
+                            .when(!usable && !selected, |element| element.opacity(0.42))
                             .when(usable, |element| {
                                 element.hover(|element| element.bg(theme.overlay)).on_click(
                                     move |_, _, cx| {
@@ -723,15 +782,43 @@ impl Waku {
                             })
                             .child(asset_icon(
                                 provider_icon(kind),
-                                18.0,
+                                17.0,
                                 provider_color(&theme, kind).opacity(if selected {
                                     1.0
                                 } else {
                                     0.82
                                 }),
+                            ))
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .flex_1()
+                                    .truncate()
+                                    .text_size(px(11.5))
+                                    .font_weight(if selected {
+                                        FontWeight::SEMIBOLD
+                                    } else {
+                                        FontWeight::NORMAL
+                                    })
+                                    .text_color(if selected {
+                                        theme.text
+                                    } else {
+                                        theme.text_secondary
+                                    })
+                                    .child(kind.short_name()),
+                            )
+                            .child(div().w(px(6.0)).h(px(6.0)).flex_none().rounded_full().bg(
+                                if !installed {
+                                    theme.text_ghost
+                                } else if disabled {
+                                    theme.warning
+                                } else {
+                                    theme.success
+                                },
                             )),
                     );
                 }
+                sidebar = sidebar.child(provider_list);
 
                 let search_input = div()
                     .h(px(52.0))
@@ -917,8 +1004,8 @@ impl Waku {
                 let confirm_weak = weak.clone();
                 let confirm_popover = popover.clone();
                 div()
-                    .w(px(460.0))
-                    .h(px(390.0))
+                    .w(px(540.0))
+                    .h(px(420.0))
                     .rounded(px(13.0))
                     .overflow_hidden()
                     .border_1()
@@ -2881,15 +2968,44 @@ pub(super) fn visible_picker_tabs(
     locked_provider: Option<ProviderKind>,
 ) -> Vec<ModelPickerTab> {
     let mut tabs = vec![ModelPickerTab::Favorites];
-    tabs.extend(ProviderKind::ALL.into_iter().filter_map(|kind| {
-        let installed = probes
-            .iter()
-            .any(|probe| probe.provider == kind && probe.installed);
-        let switched_off = disabled_providers.contains(&kind) && locked_provider != Some(kind);
-        let allowed = (locked_provider.is_none() || locked_provider == Some(kind)) && !switched_off;
-        (installed && allowed).then_some(ModelPickerTab::Provider(kind))
-    }));
+    tabs.extend(
+        provider_picker_order(probes, locked_provider)
+            .into_iter()
+            .filter_map(|kind| {
+                let installed = probes
+                    .iter()
+                    .any(|probe| probe.provider == kind && probe.installed);
+                let switched_off =
+                    disabled_providers.contains(&kind) && locked_provider != Some(kind);
+                let allowed =
+                    (locked_provider.is_none() || locked_provider == Some(kind)) && !switched_off;
+                (installed && allowed).then_some(ModelPickerTab::Provider(kind))
+            }),
+    );
     tabs
+}
+
+/// Featured catalog only: detected first, then FEATURED order (Prime first).
+/// `extra` keeps a live non-featured session visible.
+pub(super) fn provider_picker_order(
+    probes: &[ProviderProbe],
+    extra: Option<ProviderKind>,
+) -> Vec<ProviderKind> {
+    let mut providers = ProviderKind::FEATURED.to_vec();
+    if let Some(kind) = extra {
+        if !kind.is_featured() {
+            providers.push(kind);
+        }
+    }
+    providers.sort_by_key(|kind| {
+        (
+            !probes
+                .iter()
+                .any(|probe| probe.provider == *kind && probe.installed),
+            kind.featured_rank(),
+        )
+    });
+    providers
 }
 
 pub(super) fn model_picker_subtitle(provider: ProviderKind, sub_provider: Option<&str>) -> String {
@@ -2925,6 +3041,7 @@ pub(super) fn visible_picker_models(
                 .map(move |model| (probe.provider, model))
         })
         .filter(|(kind, _)| locked_provider.is_none() || locked_provider == Some(*kind))
+        .filter(|(kind, _)| kind.is_featured() || locked_provider == Some(*kind))
         // Switched-off providers keep serving the session already locked to
         // them, but offer nothing to new work — including favorites.
         .filter(|(kind, _)| !disabled_providers.contains(kind) || locked_provider == Some(*kind))

@@ -16,6 +16,20 @@ the original feature bullet instead of adding separate entries for them.
 
 ## [unreleased]
 
+## [0.1.8]
+
+- Focus the provider catalog on 15 CLIs, labeled with `(CLI)` in menus.
+  Prime Agent is listed first as the recursive self-evolving agent; then
+  Claude Code, Codex, Cursor, OpenCode, Grok Build, Kiro, Trae, DeepSeek
+  Harness, Hermes Agent, OpenClaw, GitHub Copilot, Kimi Code, Pi, and Oh My
+  Pi. Existing sessions on other CLIs still run.
+- Replace the old Inbox navigation with All Tasks and Four-Quadrant boards,
+  plus a compact Four-Quadrant shortcut beside New Task
+- Add independently scrollable workflow lanes, persistent card drag-and-drop,
+  and a global Completed or Archived lane shared by every quadrant
+- Clarify workflow and quadrant menu labels and use one consistent
+  Four-Quadrant icon across both entry points
+
 ## [0.1.7]
 
 - Fix Computer Use startup failures caused by macOS Unix socket path limits

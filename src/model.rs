@@ -35,32 +35,45 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
-    pub const ALL: [Self; 24] = [
-        Self::Amp,
-        Self::Antigravity,
-        Self::Claude,
-        Self::CodeBuddy,
-        Self::Codex,
-        Self::Copilot,
-        Self::Cursor,
-        Self::DeepSeek,
-        Self::DevEco,
-        Self::Grok,
-        Self::Hermes,
-        Self::Kimi,
-        Self::Kiro,
-        Self::Omp,
-        Self::OpenClaw,
-        Self::OpenCode,
-        Self::Pi,
+    /// Visible catalog and PATH probes. Other enum variants remain so older
+    /// sessions still deserialize.
+    pub const FEATURED: [Self; 15] = [
         Self::Prime,
-        Self::Qoder,
-        Self::QoderCn,
-        Self::Qwen,
-        Self::QwenPaw,
-        Self::Reasonix,
+        Self::Claude,
+        Self::Codex,
+        Self::Cursor,
+        Self::OpenCode,
+        Self::Grok,
+        Self::Kiro,
         Self::Trae,
+        Self::DeepSeek,
+        Self::Hermes,
+        Self::OpenClaw,
+        Self::Copilot,
+        Self::Kimi,
+        Self::Pi,
+        Self::Omp,
     ];
+    pub const ALL: [Self; 15] = Self::FEATURED;
+
+    pub fn is_featured(self) -> bool {
+        Self::FEATURED.contains(&self)
+    }
+
+    pub(crate) fn featured_rank(self) -> usize {
+        Self::FEATURED
+            .iter()
+            .position(|kind| *kind == self)
+            .unwrap_or(usize::MAX)
+    }
+
+    pub fn for_new_work(self) -> Self {
+        if self.is_featured() {
+            self
+        } else {
+            Self::Codex
+        }
+    }
 
     pub fn id(self) -> &'static str {
         match self {
@@ -95,28 +108,28 @@ impl ProviderKind {
         match self {
             Self::Amp => "Amp",
             Self::Antigravity => "Antigravity",
-            Self::Claude => "Claude Code",
+            Self::Claude => "Claude Code (CLI)",
             Self::CodeBuddy => "CodeBuddy",
-            Self::Codex => "Codex CLI",
-            Self::Copilot => "GitHub Copilot CLI",
-            Self::Cursor => "Cursor CLI",
-            Self::DeepSeek => "DeepSeek Harness",
+            Self::Codex => "Codex (CLI)",
+            Self::Copilot => "GitHub Copilot (CLI)",
+            Self::Cursor => "Cursor (CLI)",
+            Self::DeepSeek => "DeepSeek Harness (CLI)",
             Self::DevEco => "DevEco Code",
-            Self::OpenCode => "OpenCode",
-            Self::Grok => "Grok Build",
-            Self::Kimi => "Kimi CLI",
-            Self::Pi => "Pi",
-            Self::Prime => "Prime Agent",
-            Self::Omp => "Oh My Pi",
-            Self::Kiro => "Kiro CLI",
-            Self::Hermes => "Hermes Agent",
-            Self::OpenClaw => "OpenClaw",
+            Self::OpenCode => "OpenCode (CLI)",
+            Self::Grok => "Grok Build (CLI)",
+            Self::Kimi => "Kimi Code (CLI)",
+            Self::Pi => "Pi (CLI)",
+            Self::Prime => "Prime Agent (CLI)",
+            Self::Omp => "Oh My Pi (CLI)",
+            Self::Kiro => "Kiro (CLI)",
+            Self::Hermes => "Hermes Agent (CLI)",
+            Self::OpenClaw => "OpenClaw (CLI)",
             Self::Qoder => "Qoder CLI",
             Self::QoderCn => "Qoder CLI CN",
             Self::Qwen => "Qwen Code",
             Self::QwenPaw => "QwenPaw",
             Self::Reasonix => "Reasonix",
-            Self::Trae => "Trae CLI",
+            Self::Trae => "Trae (CLI)",
         }
     }
 
@@ -124,28 +137,28 @@ impl ProviderKind {
         match self {
             Self::Amp => "Amp",
             Self::Antigravity => "Antigravity",
-            Self::Claude => "Claude",
+            Self::Claude => "Claude (CLI)",
             Self::CodeBuddy => "CodeBuddy",
-            Self::Codex => "Codex",
-            Self::Copilot => "Copilot",
-            Self::Cursor => "Cursor",
-            Self::DeepSeek => "DeepSeek",
+            Self::Codex => "Codex (CLI)",
+            Self::Copilot => "Copilot (CLI)",
+            Self::Cursor => "Cursor (CLI)",
+            Self::DeepSeek => "DeepSeek (CLI)",
             Self::DevEco => "DevEco",
-            Self::OpenCode => "OpenCode",
-            Self::Grok => "Grok",
-            Self::Kimi => "Kimi",
-            Self::Pi => "Pi",
-            Self::Prime => "Prime",
-            Self::Omp => "OMP",
-            Self::Kiro => "Kiro",
-            Self::Hermes => "Hermes",
-            Self::OpenClaw => "OpenClaw",
+            Self::OpenCode => "OpenCode (CLI)",
+            Self::Grok => "Grok (CLI)",
+            Self::Kimi => "Kimi (CLI)",
+            Self::Pi => "Pi (CLI)",
+            Self::Prime => "Prime (CLI)",
+            Self::Omp => "OMP (CLI)",
+            Self::Kiro => "Kiro (CLI)",
+            Self::Hermes => "Hermes (CLI)",
+            Self::OpenClaw => "OpenClaw (CLI)",
             Self::Qoder => "Qoder",
             Self::QoderCn => "Qoder CN",
             Self::Qwen => "Qwen",
             Self::QwenPaw => "QwenPaw",
             Self::Reasonix => "Reasonix",
-            Self::Trae => "Trae",
+            Self::Trae => "Trae (CLI)",
         }
     }
 

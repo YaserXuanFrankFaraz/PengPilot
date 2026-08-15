@@ -631,7 +631,10 @@ mod tests {
             SkillSource::Provider(ProviderKind::Codex)
         );
         assert_eq!(skill.icon(), "icons/package.svg");
-        assert_eq!(skill.sources_label(), "Codex · Cursor · OpenCode");
+        assert_eq!(
+            skill.sources_label(),
+            "Codex (CLI) · Cursor (CLI) · OpenCode (CLI)"
+        );
         assert_eq!(skill.duplicates, 0, "grouped copies are not duplicates");
 
         // A disabled copy next to live ones keeps the skill enabled.
