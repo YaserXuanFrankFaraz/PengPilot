@@ -84,7 +84,6 @@ pub fn provider_color(theme: &Theme, provider: ProviderKind) -> Hsla {
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Prime
         | ProviderKind::Qoder
         | ProviderKind::QoderCn
@@ -127,7 +126,6 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Prime
         | ProviderKind::Qoder
         | ProviderKind::QoderCn

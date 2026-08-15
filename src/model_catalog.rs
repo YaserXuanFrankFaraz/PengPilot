@@ -86,7 +86,6 @@ pub fn fallback_models(provider: ProviderKind) -> Vec<ProviderModel> {
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Qoder
         | ProviderKind::QoderCn
         | ProviderKind::Qwen
@@ -143,7 +142,6 @@ pub fn discover_catalog(
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Qoder
         | ProviderKind::QoderCn
         | ProviderKind::Qwen

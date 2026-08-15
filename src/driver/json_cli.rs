@@ -58,7 +58,6 @@ impl JsonCliDriver {
                     cursor.provider().display_name()
                 ));
             }
-            None if provider == ProviderKind::OpenClaw => Some(Uuid::new_v4().to_string()),
             None => None,
         };
         let _ = events.send(DriverEvent::Connected {
@@ -310,19 +309,6 @@ fn configure_command(
             }
             command.arg(prompt);
         }
-        ProviderKind::OpenClaw => {
-            command.args([
-                "agent",
-                "--local",
-                "--json",
-                "--session-id",
-                cursor.unwrap_or_default(),
-            ]);
-            if let Some(agent) = model {
-                command.args(["--agent", agent]);
-            }
-            command.args(["--message", prompt]);
-        }
         ProviderKind::Qwen => {
             command.args(["-p", prompt, "--output-format", "stream-json"]);
             if let Some(model) = model {
@@ -566,38 +552,27 @@ mod tests {
     }
 
     #[test]
-    fn deveco_and_openclaw_native_text_shapes_are_streamed() {
-        for (provider, event, expected) in [
-            (
-                ProviderKind::DevEco,
-                json!({"type":"text","sessionID":"d1","part":{"text":"dev"}}),
-                "dev",
-            ),
-            (
-                ProviderKind::OpenClaw,
-                json!({"payloads":[{"text":"claw"}],"meta":{"durationMs":1}}),
-                "claw",
-            ),
-        ] {
-            let (events, received) = test_event_channel();
-            let config = Config {
-                provider,
-                binary: provider.command().into(),
-                cwd: ".".into(),
-                model: None,
-                cursor: Mutex::new(None),
-                child: Mutex::new(None),
-                running: AtomicBool::new(false),
-                events,
-            };
-            handle_value(&config, &event, &mut StreamState::default());
-            let events: Vec<_> = received.try_iter().collect();
-            assert!(
-                events
-                    .iter()
-                    .any(|event| matches!(event, DriverEvent::TextDelta(text) if text == expected))
-            );
-        }
+    fn deveco_native_text_shape_is_streamed() {
+        let (events, received) = test_event_channel();
+        let config = Config {
+            provider: ProviderKind::DevEco,
+            binary: ProviderKind::DevEco.command().into(),
+            cwd: ".".into(),
+            model: None,
+            cursor: Mutex::new(None),
+            child: Mutex::new(None),
+            running: AtomicBool::new(false),
+            events,
+        };
+        handle_value(
+            &config,
+            &json!({"type":"text","sessionID":"d1","part":{"text":"dev"}}),
+            &mut StreamState::default(),
+        );
+        assert!(matches!(
+            received.recv().unwrap(),
+            DriverEvent::TextDelta(text) if text == "dev"
+        ));
     }
 
     #[test]
@@ -640,12 +615,6 @@ mod tests {
                 .1
                 .windows(3)
                 .any(|part| part == ["run", "--format", "json"])
-        );
-        assert!(
-            args(ProviderKind::OpenClaw)
-                .1
-                .windows(2)
-                .any(|pair| pair == ["--session-id", "session"])
         );
         assert!(
             args(ProviderKind::Qwen)

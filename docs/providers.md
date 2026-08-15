@@ -23,7 +23,7 @@ resume when their protocol returns a session id:
 | Claude streaming-input session (NDJSON over stdio) | [src/driver/claude.rs](../src/driver/claude.rs) | Claude Code |
 | Amp streaming-JSON session (NDJSON over stdio) | [src/driver/amp.rs](../src/driver/amp.rs) | Amp |
 | DeepSeek Harness Host (JSON-RPC over stdio) | [src/driver/deepseek.rs](../src/driver/deepseek.rs) | DeepSeek Harness |
-| Native one-shot JSON/JSONL | [src/driver/json_cli.rs](../src/driver/json_cli.rs) | Antigravity, CodeBuddy, GitHub Copilot CLI, DevEco Code, OpenClaw, Qwen Code |
+| Native one-shot JSON/JSONL | [src/driver/json_cli.rs](../src/driver/json_cli.rs) | Antigravity, CodeBuddy, GitHub Copilot CLI, DevEco Code, Qwen Code |
 
 ## The driver contract
 

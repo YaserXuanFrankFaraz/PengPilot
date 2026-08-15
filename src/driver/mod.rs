@@ -212,7 +212,6 @@ pub fn start(
         | ProviderKind::CodeBuddy
         | ProviderKind::Copilot
         | ProviderKind::DevEco
-        | ProviderKind::OpenClaw
         | ProviderKind::Qwen => {
             Arc::new(json_cli::JsonCliDriver::start(provider, options, events)?)
         }

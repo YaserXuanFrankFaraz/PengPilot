@@ -19,8 +19,7 @@ the original feature bullet instead of adding separate entries for them.
 ## [0.1.9]
 
 - Replace the new-task empty-state sparkle with the PengPilot app icon.
-- Remove OpenClaw from the public provider catalog while keeping existing
-  sessions compatible.
+- Remove the unsupported OpenClaw integration.
 - Remove `(CLI)` from Chat Box provider short names and label DeepSeek Harness
   without that suffix in Settings.
 - Hide Prime Agent from the featured catalog and public provider lists until it

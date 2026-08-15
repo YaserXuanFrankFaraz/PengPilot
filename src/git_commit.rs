@@ -384,7 +384,6 @@ fn agent_arguments(
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Prime
         | ProviderKind::Qoder
         | ProviderKind::QoderCn
@@ -814,7 +813,6 @@ mod tests {
                 | ProviderKind::Copilot
                 | ProviderKind::DevEco
                 | ProviderKind::Kimi
-                | ProviderKind::OpenClaw
                 | ProviderKind::Prime
                 | ProviderKind::Qoder
                 | ProviderKind::QoderCn

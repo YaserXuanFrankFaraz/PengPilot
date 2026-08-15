@@ -371,7 +371,6 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Qoder
         | ProviderKind::QoderCn
         | ProviderKind::Qwen

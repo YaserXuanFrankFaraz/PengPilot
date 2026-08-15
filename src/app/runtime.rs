@@ -341,7 +341,6 @@ fn perform_provider_rewind(
         | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
-        | ProviderKind::OpenClaw
         | ProviderKind::Qoder
         | ProviderKind::QoderCn
         | ProviderKind::Qwen
@@ -630,7 +629,6 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
             | ProviderKind::Copilot
             | ProviderKind::DevEco
             | ProviderKind::Kimi
-            | ProviderKind::OpenClaw
             | ProviderKind::Qoder
             | ProviderKind::QoderCn
             | ProviderKind::Qwen

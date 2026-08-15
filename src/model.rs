@@ -25,7 +25,6 @@ pub enum ProviderKind {
     Omp,
     Kiro,
     Hermes,
-    OpenClaw,
     Qoder,
     QoderCn,
     Qwen,
@@ -53,7 +52,7 @@ impl ProviderKind {
         Self::Omp,
     ];
     /// Runtime integrations retained for current and legacy sessions.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 14] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -63,7 +62,6 @@ impl ProviderKind {
         Self::Trae,
         Self::DeepSeek,
         Self::Hermes,
-        Self::OpenClaw,
         Self::Copilot,
         Self::Kimi,
         Self::Pi,
@@ -102,7 +100,6 @@ impl ProviderKind {
             Self::Omp => "omp",
             Self::Kiro => "kiro",
             Self::Hermes => "hermes",
-            Self::OpenClaw => "openclaw",
             Self::Qoder => "qoder",
             Self::QoderCn => "qoder-cn",
             Self::Qwen => "qwen",
@@ -131,7 +128,6 @@ impl ProviderKind {
             Self::Omp => "Oh My Pi (CLI)",
             Self::Kiro => "Kiro (CLI)",
             Self::Hermes => "Hermes Agent (CLI)",
-            Self::OpenClaw => "OpenClaw (CLI)",
             Self::Qoder => "Qoder CLI",
             Self::QoderCn => "Qoder CLI CN",
             Self::Qwen => "Qwen Code",
@@ -160,7 +156,6 @@ impl ProviderKind {
             Self::Omp => "OMP",
             Self::Kiro => "Kiro",
             Self::Hermes => "Hermes",
-            Self::OpenClaw => "OpenClaw",
             Self::Qoder => "Qoder",
             Self::QoderCn => "Qoder CN",
             Self::Qwen => "Qwen",
@@ -191,7 +186,6 @@ impl ProviderKind {
             Self::Omp => "omp",
             Self::Kiro => "kiro-cli",
             Self::Hermes => "hermes",
-            Self::OpenClaw => "openclaw",
             Self::Qoder => "qodercli",
             Self::QoderCn => "qoderclicn",
             Self::Qwen => "qwen",
@@ -3009,11 +3003,9 @@ mod tests {
     }
 
     #[test]
-    fn hidden_providers_remain_runtime_compatible() {
+    fn prime_remains_runtime_compatible() {
         assert!(!ProviderKind::Prime.is_featured());
-        assert!(!ProviderKind::OpenClaw.is_featured());
         assert!(ProviderKind::ALL.contains(&ProviderKind::Prime));
-        assert!(ProviderKind::ALL.contains(&ProviderKind::OpenClaw));
     }
 
     #[test]
