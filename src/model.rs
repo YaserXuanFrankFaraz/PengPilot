@@ -36,7 +36,7 @@ pub enum ProviderKind {
 impl ProviderKind {
     /// Public catalog for new work. Other enum variants remain so older
     /// sessions still deserialize and continue running.
-    pub const FEATURED: [Self; 13] = [
+    pub const FEATURED: [Self; 12] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -47,7 +47,6 @@ impl ProviderKind {
         Self::DeepSeek,
         Self::Hermes,
         Self::Copilot,
-        Self::Kimi,
         Self::Pi,
         Self::Omp,
     ];
@@ -3003,9 +3002,11 @@ mod tests {
     }
 
     #[test]
-    fn prime_remains_runtime_compatible() {
+    fn hidden_providers_remain_runtime_compatible() {
         assert!(!ProviderKind::Prime.is_featured());
+        assert!(!ProviderKind::Kimi.is_featured());
         assert!(ProviderKind::ALL.contains(&ProviderKind::Prime));
+        assert!(ProviderKind::ALL.contains(&ProviderKind::Kimi));
     }
 
     #[test]

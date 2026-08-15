@@ -33,17 +33,15 @@ pub fn file_icon(path: &'static str, size: f32) -> Img {
 pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> Div {
     let is_full_color = matches!(
         path,
-        "icons/provider-omp-color.svg" | "icons/provider-hermes.png"
+        "icons/provider-hermes.png"
+            | "icons/provider-kiro.svg"
+            | "icons/provider-omp-color.svg"
+            | "icons/provider-trae.png"
     );
-    let visual_size = if path == "icons/provider-omp-color.svg" {
-        size * 0.82
-    } else {
-        size
-    };
     let mark = if is_full_color {
-        file_icon(path, visual_size).into_any_element()
+        file_icon(path, size).into_any_element()
     } else {
-        icon(path, visual_size, color).into_any_element()
+        icon(path, size, color).into_any_element()
     };
 
     div()
@@ -113,6 +111,7 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::Amp => "icons/provider-amp.svg",
         ProviderKind::Claude => "icons/provider-claude.svg",
         ProviderKind::Codex => "icons/provider-openai.svg",
+        ProviderKind::Copilot => "icons/provider-copilot.svg",
         ProviderKind::Cursor => "icons/provider-cursor.svg",
         ProviderKind::DeepSeek => "icons/provider-deepseek.svg",
         ProviderKind::OpenCode => "icons/provider-opencode.svg",
@@ -121,9 +120,9 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::Omp => "icons/provider-omp-color.svg",
         ProviderKind::Kiro => "icons/provider-kiro.svg",
         ProviderKind::Hermes => "icons/provider-hermes.png",
+        ProviderKind::Trae => "icons/provider-trae.png",
         ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Prime
@@ -131,8 +130,7 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         | ProviderKind::QoderCn
         | ProviderKind::Qwen
         | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
-        | ProviderKind::Trae => "icons/terminal-square.svg",
+        | ProviderKind::Reasonix => "icons/terminal-square.svg",
     }
 }
 
@@ -434,6 +432,7 @@ mod tests {
             "icons/rotate-cw.svg",
             "icons/package.svg",
             "icons/pengpilot.png",
+            "icons/pengpilot-mark.png",
             "icons/trash.svg",
         ];
         for provider in ProviderKind::ALL {

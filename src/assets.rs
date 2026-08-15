@@ -162,6 +162,7 @@ const ICONS: &[(&str, &[u8])] = icons![
     "plus",
     "provider-amp",
     "provider-claude",
+    "provider-copilot",
     "provider-cursor",
     "provider-deepseek",
     "provider-grok",
@@ -202,8 +203,16 @@ const IMAGES: &[(&str, &[u8])] = &[
         include_bytes!("../website/public/app-icon.png"),
     ),
     (
+        "icons/pengpilot-mark.png",
+        include_bytes!("../assets/icons/pengpilot-mark.png"),
+    ),
+    (
         "icons/provider-hermes.png",
         include_bytes!("../assets/icons/provider-hermes.png"),
+    ),
+    (
+        "icons/provider-trae.png",
+        include_bytes!("../assets/icons/provider-trae.png"),
     ),
 ];
 

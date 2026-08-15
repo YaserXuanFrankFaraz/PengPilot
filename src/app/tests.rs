@@ -1852,7 +1852,6 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
         &[
             ProviderKind::DeepSeek,
             ProviderKind::Grok,
-            ProviderKind::Kimi,
             ProviderKind::Kiro,
             ProviderKind::Omp,
             ProviderKind::OpenCode,
