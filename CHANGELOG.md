@@ -14,6 +14,38 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.12]
+
+### Inbox fixes
+
+- The Flagged tab no longer shows conversations that were never flagged: the
+  sidebar's cached row snapshot now tracks the active collection and each
+  session's workflow status and flag state, so switching tabs or toggling a
+  flag moves rows immediately instead of showing a stale list.
+- The session context menu is flag-aware: flagged conversations show
+  「去掉旗标」and unflagged ones 「加旗标」; removing the flag drops the
+  conversation out of the Flagged tab back into Open.
+- Removing a conversation now asks for confirmation first: a card shows the
+  session title, warns that the conversation and its checkpoints will be
+  deleted permanently, and requires an explicit Remove click (or Enter) —
+  Escape or Cancel dismisses it. No more accidental one-click deletions.
+
+### Provider verification (ad-hoc dogfooding release)
+
+Real CLI smoke tests on the packaged commit (detection + a streamed turn):
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Claude | 2.1.233 | `claude -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Codex | 0.147.0 | `codex exec --skip-git-repo-check "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Grok Build | latest | `grok -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Pi | latest | `pi "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| DeepSeek Harness | 0.1.0-rc.6 | installed, no profile configured | unverified | 2026-08-17 |
+
+Cursor, OpenCode, Amp, and the JSON-CLI providers remain unverified for this
+release (not installed on the build machine). Tool, permission, resume, and
+cancel behavior was not re-exercised end-to-end for this dogfooding build.
+
 ## [0.1.11]
 
 Syncs the shared codebase with the latest upstream Waku and ports its
