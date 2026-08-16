@@ -838,15 +838,21 @@ impl Waku {
     /// tick for values that move at most once per stream commit. The
     /// fingerprint is an allocation-free scan of exactly what
     /// [`Self::sidebar_rows`] reads: started sessions in order with their
-    /// recency timestamps, the collapsed-group set, and today's date.
+    /// recency timestamps and collection membership (workflow + flag), the
+    /// active collection, the collapsed-group set, and today's date.
     fn sidebar_rows_cached(&self, today: NaiveDate) -> Rc<Vec<SidebarRow>> {
         let mut fingerprint = mix(0x51de_ba5e_5eed_c0de, today.num_days_from_ce() as u64);
+        fingerprint = mix(fingerprint, self.inbox_collection as u64);
         for session in &self.state.sessions {
             if !session.has_started() {
                 continue;
             }
             fingerprint = mix_uuid(fingerprint, session.id);
             fingerprint = mix(fingerprint, sidebar_session_timestamp(session));
+            // `session_matches_collection` reads both; a flag or workflow
+            // change must move the row between collections immediately.
+            fingerprint = mix(fingerprint, session.workflow_status as u64);
+            fingerprint = mix(fingerprint, session.flagged as u64);
         }
         // A set has no stable iteration order; combine order-independently.
         let collapsed = self
@@ -1118,6 +1124,9 @@ impl Waku {
             .unwrap_or_else(|| tr!("sidebar.unknown_project"));
         let rename_input =
             (self.session_rename == Some(session_id)).then(|| self.session_rename_input.clone());
+        // Captured for the context menu label; a reference into `self.state`
+        // cannot escape the render method, and the toggle flips this bit.
+        let flagged = session.flagged;
         let renaming = rename_input.is_some();
         let title = if let Some(rename_input) = rename_input {
             div()
@@ -1296,6 +1305,14 @@ impl Waku {
                     let workflow_waku = waku.clone();
                     let flag_waku = waku.clone();
                     let quadrant_waku = waku.clone();
+                    // The label must reflect the state the menu is opened on;
+                    // the toggle flips it, and the fingerprint rebuild moves
+                    // the row out of the Flagged collection on the next frame.
+                    let flag_label = if flagged {
+                        tr!("inbox.unflag")
+                    } else {
+                        tr!("inbox.flag")
+                    };
                     vec![
                         MenuItem::new(tr!("common.rename"), move |window, cx| {
                             let _ = rename_waku.update(cx, |waku, cx| {
@@ -1352,7 +1369,7 @@ impl Waku {
                                 });
                             }
                         }),
-                        MenuItem::new(tr!("inbox.flag"), move |_, cx| {
+                        MenuItem::new(flag_label, move |_, cx| {
                             let _ = flag_waku
                                 .update(cx, |waku, cx| waku.toggle_session_flag(session_id, cx));
                         }),
@@ -1407,9 +1424,10 @@ impl Waku {
                             }
                         }),
                         MenuItem::Separator,
-                        MenuItem::new(tr!("common.remove"), move |_, cx| {
-                            let _ = remove_waku
-                                .update(cx, |waku, cx| waku.remove_session(session_id, cx));
+                        MenuItem::new(tr!("common.remove"), move |window, cx| {
+                            let _ = remove_waku.update(cx, |waku, cx| {
+                                waku.request_session_removal(session_id, window, cx);
+                            });
                         }),
                     ]
                 },

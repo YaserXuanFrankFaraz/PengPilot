@@ -164,6 +164,7 @@ impl Render for Waku {
         let theme = Theme::current(cx);
         let empty = should_render_empty_state(self.selected_session());
         let permission = self.render_permission(cx);
+        let session_removal = self.render_session_removal_confirm(cx);
         let computer_use = self.render_computer_use_overlay(cx);
         let command_palette = self.render_command_palette(window, cx);
         let commit_dialog = self.render_commit_dialog(cx);
@@ -256,6 +257,7 @@ impl Render for Waku {
                             .into_any_element()
                     })
                     .children(permission)
+                    .children(session_removal)
                     .when(self.selected_project().is_some(), |element| {
                         element
                             .children(self.render_queued_messages(cx))

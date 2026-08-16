@@ -1177,6 +1177,13 @@ pub struct Waku {
     /// Window-modal expansion of an image attachment. The path is already
     /// cached attachment metadata; render never probes the filesystem.
     image_preview: Option<image_preview::ImagePreviewState>,
+    /// A session awaiting destructive-removal confirmation. The sidebar's
+    /// remove action arms this instead of deleting immediately.
+    pending_session_removal: Option<Uuid>,
+    session_removal_focus: FocusHandle,
+    /// Title shown on the removal confirmation card, captured when the
+    /// removal is armed so the card survives session renames.
+    session_removal_title: Option<String>,
     image_preview_generation: u64,
     /// In-memory GPUI images for daemon-owned bytes. A missing entry schedules
     /// one background fetch only when a visible row asks to render it; the
@@ -2541,6 +2548,9 @@ impl Waku {
                 composer_attachments,
                 image_preview: None,
                 image_preview_generation: 0,
+                pending_session_removal: None,
+                session_removal_focus: cx.focus_handle(),
+                session_removal_title: None,
                 event_wake_tx,
                 runtimes: HashMap::new(),
                 background_work: HashMap::new(),

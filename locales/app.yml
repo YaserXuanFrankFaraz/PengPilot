@@ -1682,3 +1682,10 @@ user_input.submit:
   en: Submit
 activity.running_described_command:
   en: "Running command: %{description}"
+
+inbox.remove_confirm_title:
+  en: Remove “%{title}”?
+inbox.remove_confirm_body:
+  en: The conversation and its checkpoints will be deleted permanently. This cannot be undone.
+inbox.remove_confirm_action:
+  en: Remove

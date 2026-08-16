@@ -152,6 +152,172 @@ impl Waku {
         cx.notify();
     }
 
+    /// Arm the destructive-removal confirmation for `session_id`. The actual
+    /// deletion waits for the user to confirm on the card; Escape or the
+    /// cancel button dismisses it.
+    pub(super) fn request_session_removal(
+        &mut self,
+        session_id: Uuid,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.pending_session_removal = Some(session_id);
+        if let Some(session) = self.state.sessions.iter().find(|s| s.id == session_id) {
+            self.session_removal_title = Some(session.display_title().to_owned());
+        }
+        // The card joins the focus tree on the next frame, after the context
+        // menu has closed; focus it then so Escape is reliable immediately.
+        let weak = cx.entity().downgrade();
+        window.on_next_frame(move |window, cx| {
+            let _ = weak.update(cx, |this, cx| {
+                if this.pending_session_removal.is_some() {
+                    window.focus(&this.session_removal_focus, cx);
+                }
+            });
+        });
+        cx.notify();
+    }
+
+    pub(super) fn confirm_session_removal(&mut self, cx: &mut Context<Self>) {
+        let Some(session_id) = self.pending_session_removal.take() else {
+            return;
+        };
+        self.session_removal_title = None;
+        self.remove_session(session_id, cx);
+    }
+
+    pub(super) fn cancel_session_removal(&mut self, cx: &mut Context<Self>) {
+        if self.pending_session_removal.take().is_some() {
+            self.session_removal_title = None;
+            cx.notify();
+        }
+    }
+
+    /// The confirmation card for an armed removal, rendered above the
+    /// transcript alongside the permission card.
+    pub(super) fn render_session_removal_confirm(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let session_id = self.pending_session_removal?;
+        if !self.state.sessions.iter().any(|session| session.id == session_id) {
+            return None;
+        }
+        let theme = Theme::current(cx);
+        let focus = self.session_removal_focus.clone();
+        let title = self.session_removal_title.clone().unwrap_or_else(|| tr!("inbox.remove_task"));
+        Some(
+            div()
+                .id("session-removal-confirm")
+                .track_focus(&focus)
+                .tab_index(0)
+                .px(px(20.0))
+                .pb(px(8.0))
+                .child(
+                    div()
+                        .w_full()
+                        .max_w(px(CONTENT_MAX_WIDTH))
+                        .mx_auto()
+                        .p(px(12.0))
+                        .rounded(px(12.0))
+                        .border_1()
+                        .border_color(theme.border_strong)
+                        .bg(theme.raised)
+                        .shadow_md()
+                        .focus_visible(|style| style.border_color(theme.accent))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(8.0))
+                                .child(icon("icons/alert.svg", 13.0, theme.danger))
+                                .child(
+                                    div()
+                                        .text_size(px(12.5))
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .text_color(theme.text)
+                                        .child(tr!(
+                                            "inbox.remove_confirm_title",
+                                            title = title
+                                        )),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .mt(px(6.0))
+                                .text_size(px(11.5))
+                                .text_color(theme.text_secondary)
+                                .child(tr!("inbox.remove_confirm_body")),
+                        )
+                        .child(
+                            div()
+                                .mt(px(10.0))
+                                .flex()
+                                .items_center()
+                                .gap(px(8.0))
+                                .justify_end()
+                                .child(
+                                    div()
+                                        .id("session-removal-cancel")
+                                        .h(px(28.0))
+                                        .px(px(13.0))
+                                        .rounded(px(7.0))
+                                        .flex()
+                                        .items_center()
+                                        .cursor_default()
+                                        .text_size(px(11.5))
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .border_1()
+                                        .border_color(theme.border_strong)
+                                        .text_color(theme.text_secondary)
+                                        .hover(|element| element.bg(theme.overlay).text_color(theme.text))
+                                        .active(|element| element.opacity(0.8))
+                                        .child(tr!("common.cancel"))
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.cancel_session_removal(cx);
+                                        }))
+                                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                                                this.cancel_session_removal(cx);
+                                                cx.stop_propagation();
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    div()
+                                        .id("session-removal-confirm-button")
+                                        .h(px(28.0))
+                                        .px(px(13.0))
+                                        .rounded(px(7.0))
+                                        .flex()
+                                        .items_center()
+                                        .cursor_default()
+                                        .text_size(px(11.5))
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .bg(theme.danger)
+                                        .text_color(gpui::white())
+                                        .hover(|element| element.opacity(0.9))
+                                        .active(|element| element.opacity(0.8))
+                                        .child(tr!("inbox.remove_confirm_action"))
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.confirm_session_removal(cx);
+                                        }))
+                                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                                                this.confirm_session_removal(cx);
+                                                cx.stop_propagation();
+                                            }
+                                        })),
+                                ),
+                        )
+                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                            if event.keystroke.key.as_str() == "escape" {
+                                this.cancel_session_removal(cx);
+                                cx.stop_propagation();
+                            }
+                        })),
+                )
+                .into_any_element(),
+        )
+    }
+
     pub(super) fn remove_session(&mut self, session_id: Uuid, cx: &mut Context<Self>) {
         if self.response_fork_preparations.contains_key(&session_id) {
             self.show_toast(tr!("session.response_fork_in_progress"));
