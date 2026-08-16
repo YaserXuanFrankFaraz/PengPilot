@@ -77,6 +77,8 @@ pub(crate) struct RememberedModelTraits {
     reasoning_effort: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     service_tier: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    context_window: Option<String>,
 }
 
 /// One file or directory staged in the composer.
@@ -297,6 +299,8 @@ struct AppState {
     last_reasoning_effort: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     last_service_tier: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_context_window: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     remembered_model_traits: Vec<RememberedModelTraits>,
     #[serde(default = "default_sidebar_visibility")]
@@ -307,6 +311,24 @@ struct AppState {
     sidebar_width: f32,
     #[serde(default = "default_right_panel_width")]
     right_panel_width: f32,
+}
+
+/// Last observed main-window frame in logical pixels. GPUI window bounds are
+/// relative to the display the window sits on, so the frame only means
+/// something together with `display` — the stable display UUID (Zed persists
+/// the same pair; display *ids* renumber across reboots and replugs). While
+/// the window is maximized or fullscreen these bounds keep the floating frame
+/// the window returns to, not the screen-filling one.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PersistedWindowState {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    #[serde(default)]
+    pub maximized: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<Uuid>,
 }
 
 /// The complete in-memory model hydrated from settings, app state, and SQLite.
@@ -324,6 +346,10 @@ pub struct PersistedState {
     pub last_reasoning_effort: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_service_tier: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_context_window: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_state: Option<PersistedWindowState>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) remembered_model_traits: Vec<RememberedModelTraits>,
     #[serde(default)]
@@ -392,6 +418,8 @@ impl PersistedState {
             last_model: None,
             last_reasoning_effort: None,
             last_service_tier: None,
+            last_context_window: None,
+            window_state: None,
             remembered_model_traits: Vec::new(),
             favorite_models: Vec::new(),
             theme: ThemePreference::System,
@@ -429,6 +457,7 @@ impl PersistedState {
                 .reasoning_effort
                 .clone_from(&self.last_reasoning_effort);
             session.service_tier.clone_from(&self.last_service_tier);
+            session.context_window.clone_from(&self.last_context_window);
         }
         session
     }
@@ -439,12 +468,13 @@ impl PersistedState {
         model: &str,
         reasoning_effort: Option<String>,
         service_tier: Option<String>,
+        context_window: Option<String>,
     ) {
         let existing = self
             .remembered_model_traits
             .iter()
             .position(|traits| traits.provider == provider && traits.model == model);
-        if reasoning_effort.is_none() && service_tier.is_none() {
+        if reasoning_effort.is_none() && service_tier.is_none() && context_window.is_none() {
             if let Some(index) = existing {
                 self.remembered_model_traits.remove(index);
             }
@@ -454,12 +484,14 @@ impl PersistedState {
             let traits = &mut self.remembered_model_traits[index];
             traits.reasoning_effort = reasoning_effort;
             traits.service_tier = service_tier;
+            traits.context_window = context_window;
         } else {
             self.remembered_model_traits.push(RememberedModelTraits {
                 provider,
                 model: model.to_owned(),
                 reasoning_effort,
                 service_tier,
+                context_window,
             });
         }
     }
@@ -468,11 +500,17 @@ impl PersistedState {
         &self,
         provider: ProviderKind,
         model: &str,
-    ) -> (Option<String>, Option<String>) {
+    ) -> (Option<String>, Option<String>, Option<String>) {
         self.remembered_model_traits
             .iter()
             .find(|traits| traits.provider == provider && traits.model == model)
-            .map(|traits| (traits.reasoning_effort.clone(), traits.service_tier.clone()))
+            .map(|traits| {
+                (
+                    traits.reasoning_effort.clone(),
+                    traits.service_tier.clone(),
+                    traits.context_window.clone(),
+                )
+            })
             .unwrap_or_default()
     }
 
@@ -497,6 +535,7 @@ impl PersistedState {
             last_model: self.last_model.clone(),
             last_reasoning_effort: self.last_reasoning_effort.clone(),
             last_service_tier: self.last_service_tier.clone(),
+            last_context_window: self.last_context_window.clone(),
             remembered_model_traits: self.remembered_model_traits.clone(),
             sidebar_visible: self.sidebar_visible,
             right_panel_visible: self.right_panel_visible,
@@ -522,6 +561,7 @@ impl PersistedState {
         self.last_model = app_state.last_model;
         self.last_reasoning_effort = app_state.last_reasoning_effort;
         self.last_service_tier = app_state.last_service_tier;
+        self.last_context_window = app_state.last_context_window;
         self.remembered_model_traits = app_state.remembered_model_traits;
         self.sidebar_visible = app_state.sidebar_visible;
         self.right_panel_visible = app_state.right_panel_visible;
@@ -595,6 +635,7 @@ impl PersistedState {
             self.last_model = None;
             self.last_reasoning_effort = None;
             self.last_service_tier = None;
+            self.last_context_window = None;
         }
         self.backfill_remembered_selection();
     }
@@ -615,6 +656,9 @@ impl PersistedState {
         }
         if self.last_service_tier.is_none() {
             self.last_service_tier = session.service_tier;
+        }
+        if self.last_context_window.is_none() {
+            self.last_context_window = session.context_window;
         }
     }
 }
@@ -1471,6 +1515,7 @@ fn session_skeleton(row: SessionColumns) -> Option<AgentSession> {
         interaction_mode: InteractionMode::default(),
         reasoning_effort: None,
         service_tier: None,
+        context_window: None,
         agent_preset: None,
         status: serde_json::from_value(serde_json::Value::String(status)).ok()?,
         workflow_status: serde_json::from_value(serde_json::Value::String(workflow_status))
@@ -2374,6 +2419,7 @@ mod tests {
             "gpt-5.6-luna",
             Some("xhigh".into()),
             Some("fast".into()),
+            Some("1m".into()),
         );
         state.sessions[0].runtime_mode = crate::model::RuntimeMode::Auto;
         state.favorite_models.push(FavoriteModel {
@@ -2430,7 +2476,11 @@ mod tests {
         assert_eq!(restored.sessions[0].service_tier.as_deref(), Some("fast"));
         assert_eq!(
             restored.model_traits_for(ProviderKind::Codex, "gpt-5.6-luna"),
-            (Some("xhigh".into()), Some("fast".into()))
+            (
+                Some("xhigh".into()),
+                Some("fast".into()),
+                Some("1m".into())
+            )
         );
         assert_eq!(
             restored.sessions[0].runtime_mode,
@@ -3361,21 +3411,22 @@ mod tests {
             "gpt-5.6-sol",
             Some("max".into()),
             Some("fast".into()),
+            None,
         );
 
         assert_eq!(
             state.model_traits_for(ProviderKind::Claude, "claude-opus-5"),
-            (None, None),
+            (None, None, None),
             "a different provider starts from its own defaults"
         );
         assert_eq!(
             state.model_traits_for(ProviderKind::Codex, "gpt-5.6-terra"),
-            (None, None),
+            (None, None, None),
             "a different model starts from its own defaults"
         );
         assert_eq!(
             state.model_traits_for(ProviderKind::Codex, "gpt-5.6-sol"),
-            (Some("max".into()), Some("fast".into())),
+            (Some("max".into()), Some("fast".into()), None),
             "switching back restores both explicit choices"
         );
     }

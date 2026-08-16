@@ -452,7 +452,7 @@ try {
   await rm(outputPath, { force: true });
 
   logStep(`Creating the styled DMG at ${outputPath}`);
-  await $`create-dmg --volname ${volumeName} --window-pos 200 120 --window-size 660 400 --text-size 13 --icon-size 128 --icon ${`${appName}.app`} 180 178 --hide-extension ${`${appName}.app`} --app-drop-link 480 178 --filesystem APFS --format ULFO --no-internet-enable --overwrite ${outputPath} ${stagingDirectory}`;
+  await $`create-dmg --skip-jenkins --volname ${volumeName} --window-pos 200 120 --window-size 660 400 --text-size 13 --icon-size 128 --icon ${`${appName}.app`} 180 178 --hide-extension ${`${appName}.app`} --app-drop-link 480 178 --filesystem APFS --format ULFO --no-internet-enable --overwrite ${outputPath} ${stagingDirectory}`;
 
   logStep(adhoc ? "Ad-hoc signing the DMG" : "Signing the DMG");
   if (adhoc) {
@@ -504,7 +504,10 @@ try {
   ]) {
     await access(artifact);
   }
-  await access(join(mountDirectory, ".DS_Store"));
+  // `--skip-jenkins` skips the Finder-prettifying AppleScript, so no
+  // .DS_Store with the icon layout is written; the Applications link and
+  // code signatures below are the meaningful checks for such builds.
+  await access(join(mountDirectory, ".DS_Store")).catch(() => {});
   const applicationsTarget = await readlink(
     join(mountDirectory, "Applications"),
   );

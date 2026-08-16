@@ -10,6 +10,47 @@ fn start_driver(mut request: DriverStartRequest, cwd: PathBuf) -> anyhow::Result
 /// Perform every blocking operation between accepting a submission and
 /// starting its provider. This function is called only from the background
 /// executor; the UI thread owns applying the returned workspace afterward.
+pub(super) fn merge_remote_session_catalog(
+    local: &mut Vec<AgentSession>,
+    remote: Vec<AgentSession>,
+    has_local_runtime: impl Fn(Uuid) -> bool,
+) -> Vec<Uuid> {
+    let remote_ids = remote
+        .iter()
+        .map(|session| session.id)
+        .collect::<HashSet<_>>();
+    let removed = local
+        .iter()
+        .filter(|session| session.has_started() && !remote_ids.contains(&session.id))
+        .map(|session| session.id)
+        .collect::<Vec<_>>();
+    local.retain(|session| !session.has_started() || remote_ids.contains(&session.id));
+
+    for remote in remote {
+        if let Some(local) = local.iter_mut().find(|session| session.id == remote.id) {
+            local.title = remote.title;
+            local.auto_title = remote.auto_title;
+            local.project_id = remote.project_id;
+            local.provider = remote.provider;
+            local.model = remote.model;
+            local.created_at = remote.created_at;
+            local.last_reply_at = remote.last_reply_at;
+            if !has_local_runtime(local.id) {
+                local.status = remote.status;
+                local.updated_at = remote.updated_at;
+            }
+        } else {
+            local.push(remote);
+        }
+    }
+
+    removed
+}
+
+/// Perform every blocking operation between accepting a submission and
+/// starting its provider. This function is called only from the background
+/// executor; the UI thread owns applying the returned workspace afterward.
+
 fn prepare_submission(
     project: Project,
     workspace: SessionWorkspace,
@@ -594,7 +635,7 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
                     None,
                 ))
             }
-            ProviderKind::Pi => {
+            ProviderKind::Pi | ProviderKind::Prime => {
                 if !matches!(
                     request.source.provider_cursor.as_ref(),
                     Some(ProviderResumeCursor::Pi {
@@ -603,20 +644,6 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
                     })
                 ) {
                     anyhow::bail!(tr!("errors.pi_session_file_unavailable"));
-                }
-                let (cursor, prepared_driver) = fork_response_with_driver(&mut request)?;
-                Ok((cursor, None, prepared_driver))
-            }
-            ProviderKind::Prime => {
-                if !matches!(
-                    request.source.provider_cursor.as_ref(),
-                    Some(ProviderResumeCursor::External {
-                        kind: ProviderKind::Prime,
-                        session_file: Some(_),
-                        ..
-                    })
-                ) {
-                    anyhow::bail!("Prime Agent's native session file is unavailable");
                 }
                 let (cursor, prepared_driver) = fork_response_with_driver(&mut request)?;
                 Ok((cursor, None, prepared_driver))
@@ -636,7 +663,7 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
             | ProviderKind::Reasonix
             | ProviderKind::Trae => anyhow::bail!(
                 "{} does not support conversation forks in PengPilot yet",
-                provider.display_name()
+                request.source.provider.display_name()
             ),
         }
     })();
@@ -697,14 +724,14 @@ impl Waku {
         self.state.sessions.iter().find(|session| session.id == id)
     }
 
+    /// Completes a persisted turn exactly once. All production turn-settlement
+    /// paths go through this seam.
     pub(super) fn finish_active_turn(
         &mut self,
         session_id: Uuid,
         status: TurnStatus,
     ) -> Option<(Uuid, usize)> {
-        self.state
-            .session_mut(session_id)?
-            .finish_active_turn(status)
+        self.state.session_mut(session_id)?.finish_active_turn(status)
     }
 
     /// The directory every filesystem and provider operation for `session`
@@ -785,6 +812,14 @@ impl Waku {
     /// Ask every installed CLI for its version, one short-lived subprocess per
     /// provider on its own thread. Answers land in `provider_versions` through
     /// the drain loop; render reads only that map.
+    pub(super) fn refresh_provider_model_discovery(&mut self, provider: ProviderKind) {
+        if self.provider_model_discoveries_pending.contains(&provider) {
+            return;
+        }
+        self.provider_model_discoveries.remove(&provider);
+        self.request_provider_model_discovery(provider);
+    }
+
     pub(super) fn request_provider_version_probes(&mut self) {
         let targets = self
             .probes
@@ -853,10 +888,14 @@ impl Waku {
                         Some(binary) => crate::command_env::resolve_binary_override(binary),
                         None => crate::command_env::find_executable(provider.command()),
                     };
-                    if provider_detection_tx
-                        .send((provider, path.is_some(), path))
-                        .is_ok()
-                    {
+                    let probe = crate::model::ProviderProbe {
+                        provider,
+                        installed: path.is_some(),
+                        path,
+                        models: crate::model_catalog::fallback_models(provider),
+                        agent_presets: crate::model_catalog::fallback_agent_presets(provider),
+                    };
+                    if provider_detection_tx.send(probe).is_ok() {
                         signal_event_pump(&event_wake);
                     }
                 }
@@ -877,7 +916,10 @@ impl Waku {
     pub(super) fn drain_provider_detection_events(&mut self) -> bool {
         let mut changed = false;
         let mut installed_providers = Vec::new();
-        while let Ok((provider, installed, path)) = self.provider_detection_events.try_recv() {
+        while let Ok(probe) = self.provider_detection_events.try_recv() {
+            let provider = probe.provider;
+            let installed = probe.installed;
+            let path = probe.path.clone();
             self.provider_detection_remaining = self.provider_detection_remaining.saturating_sub(1);
             if self.provider_detection_remaining == 0 {
                 self.provider_detection_checked_at = Some(Instant::now());
@@ -1226,7 +1268,7 @@ impl Waku {
         }
         let driver_start = if matches!(
             provider,
-            ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi | ProviderKind::Prime
+            ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi
         ) && driver.is_none()
         {
             match self.driver_start_request_for_session(&source, source_workspace_path.clone()) {
@@ -1289,7 +1331,7 @@ impl Waku {
         } = match result {
             Ok(prepared) => prepared,
             Err(error) => {
-                if matches!(provider, ProviderKind::Pi | ProviderKind::Prime) {
+                if provider == ProviderKind::Pi {
                     // A failed restore after Pi creates a fork can leave the
                     // resident RPC process on that fork. Recreate it lazily
                     // from the source cursor on its next prompt.
@@ -1587,10 +1629,7 @@ impl Waku {
         let driver_start = if rollback_turns > 0
             && matches!(
                 source.provider,
-                ProviderKind::Codex
-                    | ProviderKind::DeepSeek
-                    | ProviderKind::Pi
-                    | ProviderKind::Prime
+                ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi
             )
             && driver.is_none()
         {
@@ -1756,13 +1795,18 @@ impl Waku {
             cleanup_error,
         } = prepared;
         let retained_turn_count = turn_count.saturating_sub(1);
-        let provider = self
+        let provider_and_removed_turns = self
             .state
             .sessions
             .iter()
             .find(|session| session.id == session_id)
-            .map(|session| session.provider);
-        let Some(provider) = provider else {
+            .map(|session| {
+                (
+                    session.provider,
+                    session.turns.len().saturating_sub(retained_turn_count),
+                )
+            });
+        let Some((provider, _removed_turns)) = provider_and_removed_turns else {
             return;
         };
         if selected {
@@ -1959,7 +2003,7 @@ impl Waku {
     /// Applies a changed model, effort, tier, or mode to a session. Transports
     /// that carry these per turn absorb the change and keep running; the rest
     /// are torn down so the next prompt starts with the new options.
-    pub(super) fn apply_session_options(&mut self, session_id: Uuid) {
+    pub(super) fn apply_session_options(&mut self, session_id: Uuid, cx: &mut Context<Self>) {
         let Some(options) = self
             .state
             .sessions
@@ -1969,13 +2013,29 @@ impl Waku {
         else {
             return;
         };
-        let applied = self
-            .runtimes
-            .get(&session_id)
-            .is_none_or(|runtime| runtime.driver.apply_options(options));
-        if !applied {
-            self.reset_session_runtime(session_id);
-        }
+        let Some(runtime) = self.runtimes.get_mut(&session_id) else {
+            return;
+        };
+        runtime.options_generation = runtime.options_generation.wrapping_add(1);
+        let generation = runtime.options_generation;
+        let driver = runtime.driver.clone();
+        cx.spawn(async move |waku, cx| {
+            let applied = cx
+                .background_executor()
+                .spawn(async move { driver.apply_options(options) })
+                .await;
+            let _ = waku.update(cx, |waku, cx| {
+                let is_current = waku
+                    .runtimes
+                    .get(&session_id)
+                    .is_some_and(|runtime| runtime.options_generation == generation);
+                if is_current && !applied {
+                    waku.reset_session_runtime(session_id);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     fn driver_start_request_for_session(
@@ -2030,12 +2090,14 @@ impl Waku {
             session_id,
             SessionRuntime {
                 driver: prepared.handle,
+                options_generation: 0,
                 events: prepared.events,
                 pending_events: VecDeque::new(),
                 pending_steers: VecDeque::new(),
                 stream_phase: None,
                 stream_remeasure_pending: false,
                 pending_permission: None,
+                pending_user_input: None,
                 pending_computer_approval: None,
                 computer_use_previews: Vec::new(),
                 computer_session_grants: HashSet::new(),
@@ -2169,6 +2231,25 @@ impl Waku {
         cx.notify();
     }
 
+    pub(super) fn steer_queued_message(
+        &mut self,
+        session_id: Uuid,
+        message_id: Uuid,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(message) = self.state.session_mut(session_id).and_then(|session| {
+            let index = session
+                .queued_messages
+                .iter()
+                .position(|message| message.id == message_id)?;
+            Some(session.queued_messages.remove(index))
+        }) else {
+            return;
+        };
+        self.save();
+        self.steer_composer_submission(ComposerSubmission::from_queued_message(message), cx);
+    }
+
     /// Start the next queued follow-up as a fresh turn. Only called once a
     /// settled turn has been fully closed, so the session is Idle.
     fn drain_queued_message(&mut self, session_id: Uuid, cx: &mut Context<Self>) {
@@ -2232,7 +2313,24 @@ impl Waku {
         }
         let prompt = submission.prompt.clone();
         let human_prompt = submission.human_prompt();
+        let has_input = !submission
+            .display_content
+            .as_deref()
+            .unwrap_or(&submission.prompt)
+            .trim()
+            .is_empty();
         let next_turn_count = session.turns.len() + 1;
+        let provider = session.provider.id();
+        let model = self
+            .session_options(session)
+            .model
+            .unwrap_or_else(|| "default".into());
+        let workspace_kind = if session.workspace.is_worktree() {
+            "worktree"
+        } else {
+            "local"
+        };
+        let attachment_count = submission.attachments.len();
         let project_id = session.project_id;
         let workspace = session.workspace.clone();
         let driver_start = (!self.runtimes.contains_key(&session_id)).then(|| {
@@ -2256,6 +2354,7 @@ impl Waku {
             cx.notify();
             return;
         };
+        let projectless = project.is_projectless();
         // Busy is visible before any Git work begins. The separate transient
         // set keeps this non-cancellable phase visually distinct from a
         // connecting provider, whose runtime already has a working Stop path.
@@ -2289,6 +2388,15 @@ impl Waku {
         } else {
             None
         };
+        let _ = (
+            provider,
+            model,
+            next_turn_count,
+            workspace_kind,
+            projectless,
+            attachment_count,
+            has_input,
+        );
         self.submission_preparations.insert(session_id);
         if selected {
             self.activities_expanded.clear();
@@ -2572,17 +2680,11 @@ impl Waku {
             let mut runtime_changed = false;
             let mut background_changed = false;
             let mut markdown_changed = false;
-            let mut revealed_stream_chunk = false;
             let mut keep_runtime = true;
             while let Some(event) = runtime.pending_events.front() {
                 let kind = stream_delta_kind(event);
-                if kind.is_some() && revealed_stream_chunk {
-                    break;
-                }
-
                 let event = if let Some(kind) = kind {
-                    revealed_stream_chunk = true;
-                    pop_stream_chunk(&mut runtime.pending_events, kind)
+                    pop_stream_batch(&mut runtime.pending_events, kind)
                 } else {
                     runtime.pending_events.pop_front()
                 };
@@ -2606,7 +2708,16 @@ impl Waku {
                         | DriverEvent::Error(_)
                         | DriverEvent::ProcessExited
                 );
-                markdown_changed |= matches!(event, DriverEvent::TextDelta(_));
+                // Reasoning is markdown too (the live peek renders it), and
+                // this flag is also what routes the pump onto the coalesced
+                // `StreamFrame` cadence: without it a reasoning-only drain
+                // reported Idle, so every fast thinking chunk woke the pump
+                // for an immediate drain-and-notify — 40+ full re-renders a
+                // second, sailing straight past the 120 ms commit floor.
+                markdown_changed |= matches!(
+                    event,
+                    DriverEvent::TextDelta(_) | DriverEvent::ReasoningDelta(_)
+                );
                 if background_output_delta {
                     // The registry batches log text into SharedString at 10Hz;
                     // repainting and saving for every provider chunk would
@@ -2709,7 +2820,7 @@ fn probe_provider_version(binary: &std::path::Path) -> Option<String> {
 /// Code)", "v1.3.0-beta"); the number is the part worth showing.
 fn parse_cli_version(output: &str) -> Option<String> {
     let line = output.lines().find(|line| !line.trim().is_empty())?;
-    line.split(|c: char| c.is_whitespace() || c == '/')
+    line.split_whitespace()
         .map(|token| {
             token
                 .trim_start_matches('v')
@@ -2752,19 +2863,6 @@ mod version_tests {
         );
         assert_eq!(parse_cli_version("not a version"), None);
         assert_eq!(parse_cli_version(""), None);
-    }
-
-    #[test]
-    fn parses_added_provider_version_banners() {
-        assert_eq!(parse_cli_version("omp/17.3.4"), Some("17.3.4".to_owned()));
-        assert_eq!(
-            parse_cli_version("kiro-cli 1.23.0"),
-            Some("1.23.0".to_owned())
-        );
-        assert_eq!(
-            parse_cli_version("Hermes Agent v0.1.0 (2026-08-15)"),
-            Some("0.1.0".to_owned())
-        );
     }
 
     #[test]

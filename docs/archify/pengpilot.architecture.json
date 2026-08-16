@@ -1,0 +1,339 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "PengPilot 运行时架构",
+    "subtitle": "单体原生 macOS 客户端：进程内驱动、事件泵、增量 Markdown",
+    "output": "pengpilot-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/YaserXuanFrankFaraz/PengPilot",
+      "revision": "6a5b67ba81ad6e1f69a9aff55768f5bc98322c97"
+    },
+    "views": [
+      {
+        "id": "stream-path",
+        "label": "流式主路径",
+        "focus": [
+          "ui",
+          "pump",
+          "drivers",
+          "clis",
+          "md",
+          "sqlite"
+        ],
+        "note": "一条用户消息从 composer 到流式渲染、落库的完整路径。"
+      },
+      {
+        "id": "bg-work",
+        "label": "后台工作",
+        "focus": [
+          "bg",
+          "git",
+          "sqlite",
+          "work"
+        ],
+        "note": "检查点、分支、用量扫描都在后台执行器，帧路径只读缓存。"
+      },
+      {
+        "id": "inbox",
+        "label": "任务管理",
+        "focus": [
+          "ui",
+          "work"
+        ],
+        "note": "Inbox/看板与象限板。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "桌面界面",
+      "sublabel": "GPUI · Waku 实体",
+      "pos": [
+        40,
+        120
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/app.rs"
+        }
+      ]
+    },
+    {
+      "id": "pump",
+      "type": "backend",
+      "label": "事件泵 / 运行时",
+      "sublabel": "120ms 批处理",
+      "pos": [
+        280,
+        120
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/app/runtime.rs"
+        },
+        {
+          "path": "src/app/streaming.rs"
+        }
+      ]
+    },
+    {
+      "id": "drivers",
+      "type": "backend",
+      "label": "驱动层",
+      "sublabel": "claude / codex / deepseek / acp / pi …",
+      "pos": [
+        540,
+        120
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/driver/mod.rs"
+        }
+      ]
+    },
+    {
+      "id": "clis",
+      "type": "external",
+      "label": "Provider CLI",
+      "sublabel": "Claude Code · Codex · …",
+      "pos": [
+        800,
+        120
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/model.rs"
+        }
+      ]
+    },
+    {
+      "id": "md",
+      "type": "backend",
+      "label": "Markdown 渲染",
+      "sublabel": "增量解析 + veil 渐隐",
+      "pos": [
+        280,
+        300
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/md/render.rs"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite",
+      "sublabel": "会话 / 消息 / 草稿",
+      "pos": [
+        540,
+        300
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/persistence.rs"
+        }
+      ]
+    },
+    {
+      "id": "git",
+      "type": "backend",
+      "label": "Git 检查点",
+      "sublabel": "refs/waku · 分支",
+      "pos": [
+        800,
+        300
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/checkpoint.rs"
+        }
+      ]
+    },
+    {
+      "id": "bg",
+      "type": "backend",
+      "label": "后台执行器",
+      "sublabel": "background_executor",
+      "pos": [
+        280,
+        470
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/app/background_work.rs"
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "type": "frontend",
+      "label": "Inbox / 看板",
+      "sublabel": "work.rs · 象限板",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/work.rs"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ui-pump",
+      "from": "ui",
+      "to": "pump",
+      "label": "提交 / 事件唤醒",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "pump-drivers",
+      "from": "pump",
+      "to": "drivers",
+      "label": "启动 / steer / 应答",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        490,
+        95
+      ]
+    },
+    {
+      "id": "drivers-clis",
+      "from": "drivers",
+      "to": "clis",
+      "label": "stdio / HTTP",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        670,
+        95
+      ]
+    },
+    {
+      "id": "pump-md",
+      "from": "pump",
+      "to": "md",
+      "label": "文本增量",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        300,
+        245
+      ]
+    },
+    {
+      "id": "pump-sqlite",
+      "from": "pump",
+      "to": "sqlite",
+      "label": "≤1s 增量保存",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "bg-git",
+      "from": "bg",
+      "to": "git",
+      "label": "git 进程调用",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom"
+    },
+    {
+      "id": "bg-sqlite",
+      "from": "bg",
+      "to": "sqlite",
+      "label": "用量扫描",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelDy": 16
+    },
+    {
+      "id": "ui-work",
+      "from": "ui",
+      "to": "work",
+      "label": "看板 / 收集箱",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        124,
+        245
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "流式路径",
+      "items": [
+        "事件泵以 120ms 帧间隔合并同种 delta，全文一次进布局",
+        "Markdown 的 paint-only veil 提供渐进溶解，不触发重排",
+        "推理流与文本流共享同一合并节奏"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "数据与后台",
+      "items": [
+        "SQLite WAL 增量写，脏会话指纹只重写变更行",
+        "检查点/分支/用量扫描全部在后台执行器",
+        "帧路径只读内存缓存，零文件系统访问"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "产品差异",
+      "items": [
+        "Inbox/看板与象限板（work.rs）",
+        "14 个 provider 驱动 + 24 个 legacy 变体",
+        "无遥测、无网络面、单进程"
+      ]
+    }
+  ]
+}

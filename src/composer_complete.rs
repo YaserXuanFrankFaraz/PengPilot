@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Matcher, Utf32Str};
 
-use crate::model::{ProviderKind, ReportedCommand};
+use crate::model::{ProviderKind, ProviderModelOption, ReportedCommand};
 
 /// How many rows a filter pass returns. The popup shows a screenful and the
 /// keyboard walks the rest; past this the tail is noise, not choice.
@@ -127,7 +127,7 @@ fn builtin_waku_commands(provider: ProviderKind) -> Vec<SlashCommand> {
         ProviderKind::Claude => "CLAUDE.md",
         _ => "AGENTS.md",
     };
-    [
+    let mut commands = [
         (
             "init",
             tr!(
@@ -135,25 +135,19 @@ fn builtin_waku_commands(provider: ProviderKind) -> Vec<SlashCommand> {
                 instructions_file = instructions_file
             ),
             format!(
-                "Analyze this repository and write {instructions_file} for coding agents \
-                 working in it: build, test and lint commands, architecture overview, code \
-                 conventions, and any gotchas. If the file already exists, update it and \
-                 keep it concise."
+                "Analyze this repository and write {instructions_file} for coding agents                  working in it: build, test and lint commands, architecture overview, code                  conventions, and any gotchas. If the file already exists, update it and                  keep it concise."
             ),
         ),
         (
             "review",
             tr!("commands.review_description"),
-            "Review the pending changes in this working tree: uncommitted work plus commits \
-             not on the default branch. Look for bugs, regressions, and risky patterns; \
-             report findings ordered by severity with file and line references."
+            "Review the pending changes in this working tree: uncommitted work plus commits              not on the default branch. Look for bugs, regressions, and risky patterns;              report findings ordered by severity with file and line references."
                 .to_owned(),
         ),
         (
             "commit",
             tr!("commands.commit_description"),
-            "Look at the current working tree, stage the appropriate files, and create a git \
-             commit with a clear message that describes the change and why it was made."
+            "Look at the current working tree, stage the appropriate files, and create a git              commit with a clear message that describes the change and why it was made."
                 .to_owned(),
         ),
     ]
@@ -165,7 +159,51 @@ fn builtin_waku_commands(provider: ProviderKind) -> Vec<SlashCommand> {
         argument_hint: None,
         template: Some(template),
     })
-    .collect()
+    .collect::<Vec<_>>();
+    if provider == ProviderKind::Codex {
+        commands.push(SlashCommand {
+            name: "fast".to_owned(),
+            description: tr!("commands.fast_description"),
+            scope: CommandScope::Builtin,
+            argument_hint: None,
+            template: None,
+        });
+    }
+    commands
+}
+
+/// Whether the submitted text resolves to Waku's Codex-only fast-mode
+/// toggle. Checking the resolved entry preserves project/user command
+/// precedence when one of them intentionally owns `/fast`.
+pub fn is_fast_mode_toggle_submission(
+    provider: ProviderKind,
+    prompt: &str,
+    commands: &[SlashCommand],
+) -> bool {
+    provider == ProviderKind::Codex
+        && prompt.trim() == "/fast"
+        && commands.iter().any(|command| {
+            command.name == "fast"
+                && command.scope == CommandScope::Builtin
+                && command.template.is_none()
+        })
+}
+
+/// Resolve the next concrete service-tier ID for Codex's Fast toggle. Model
+/// metadata may expose the Fast tier as `fast` or as `priority`; the display
+/// label is the stable product vocabulary, while the ID is provider-owned.
+pub fn toggled_fast_service_tier(
+    current: Option<&str>,
+    service_tiers: &[ProviderModelOption],
+) -> Option<String> {
+    let fast = service_tiers.iter().find(|tier| {
+        matches!(tier.id.as_str(), "fast" | "priority") || tier.label.eq_ignore_ascii_case("fast")
+    })?;
+    Some(if current == Some(fast.id.as_str()) {
+        "default".to_owned()
+    } else {
+        fast.id.clone()
+    })
 }
 
 /// Claude Code built-ins worth surfacing from a frontend. The live session's

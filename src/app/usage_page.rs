@@ -2,8 +2,8 @@
 //! transcripts, mirroring T3 Code's usage dashboard — a windowed headline with
 //! per-provider share bars, a layered daily chart, a metric strip, a
 //! model/day breakdown, and cost quality. Data comes from
-//! [`crate::usage_history`], scanned on the background executor; frames read
-//! only the snapshot stored on the entity.
+//! [`crate::usage_history`], scanned by the daemon; frames read only the
+//! snapshot stored on the entity.
 
 use std::path::Path;
 
@@ -30,7 +30,6 @@ const USAGE_PROJECT_ROW_HEIGHT: f32 = 96.0;
 const USAGE_RESCAN_AFTER: Duration = Duration::from_secs(120);
 /// The in-memory rate table is revalidated against its disk TTL this often.
 const USAGE_RATES_RELOAD: Duration = Duration::from_secs(3600);
-
 fn provider_kind(provider: UsageProvider) -> ProviderKind {
     match provider {
         UsageProvider::Claude => ProviderKind::Claude,
@@ -91,9 +90,9 @@ impl Waku {
         self.usage_history_pending_for = Some(window);
         self.usage_history_generation += 1;
         let generation = self.usage_history_generation;
-        let cache = std::sync::Arc::clone(&self.usage_scan_cache);
         let rate_table = std::sync::Arc::clone(&self.usage_rate_table);
         let rates_dir = self.usage_rates_dir.clone();
+        let cache = self.usage_history_cache.clone();
         let project_roots: Vec<PathBuf> = self
             .state
             .projects
@@ -134,10 +133,10 @@ impl Waku {
                     return;
                 }
                 this.usage_history_pending_for = None;
-                this.usage_history_scanned_at = Some(Instant::now());
                 // The day axis may have changed length; a stale index would
                 // point at the wrong day.
                 this.usage_chart_hover = None;
+                this.usage_history_scanned_at = Some(Instant::now());
                 this.usage_history = Some(history);
                 cx.notify();
             });
@@ -360,19 +359,7 @@ impl Waku {
         });
 
         let refresh_glyph: AnyElement = if pending {
-            icon("icons/loader-circle.svg", 12.0, theme.text_tertiary)
-                .with_animation(
-                    "usage-refresh-spinner",
-                    Animation::new(Duration::from_millis(900))
-                        .repeat()
-                        .with_easing(gpui::linear),
-                    |icon, delta| {
-                        icon.with_transformation(gpui::Transformation::rotate(gpui::percentage(
-                            delta,
-                        )))
-                    },
-                )
-                .into_any_element()
+            motion::spin(icon("icons/loader-circle.svg", 12.0, theme.text_tertiary))
         } else {
             icon("icons/rotate-cw.svg", 12.0, theme.text_tertiary).into_any_element()
         };
@@ -1469,8 +1456,8 @@ impl Waku {
                     .map(|name| name.to_string_lossy().into_owned())
             })
             .unwrap_or_else(|| project.path.clone());
-        let home = crate::projectless::workspace_root().and_then(Path::parent);
-        (name, Some(usage_project_path(path, home)))
+        let home = crate::projectless::home_directory();
+        (name, Some(usage_project_path(path, home.as_deref())))
     }
 }
 
@@ -2079,16 +2066,14 @@ fn usage_skeleton(view: UsageViewMode, theme: &Theme) -> AnyElement {
         }
     };
 
-    div()
-        .child(body)
-        .with_animation(
-            "usage-page-skeleton",
-            Animation::new(Duration::from_millis(1400))
-                .repeat()
-                .with_easing(pulsating_between(0.45, 0.9)),
-            |element, delta| element.opacity(delta),
-        )
-        .into_any_element()
+    motion::pulse(Duration::from_millis(1400), move |phase| {
+        div()
+            .child(body)
+            .opacity(pulsating_between(0.45, 0.9)(phase))
+            .into_any_element()
+    })
+    .every(2)
+    .into_any_element()
 }
 
 /* ------------------------------------------------------------------------- */

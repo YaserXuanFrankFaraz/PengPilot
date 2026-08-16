@@ -1161,6 +1161,7 @@ impl Waku {
                 self.state.last_model = None;
                 self.state.last_reasoning_effort = None;
                 self.state.last_service_tier = None;
+                self.state.last_context_window = None;
             }
             let draft_ids = self
                 .state
@@ -1175,6 +1176,7 @@ impl Waku {
                     session.model = None;
                     session.reasoning_effort = None;
                     session.service_tier = None;
+                    session.context_window = None;
                 }
             }
         }

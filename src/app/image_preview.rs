@@ -22,7 +22,7 @@ pub fn init(cx: &mut App) {
 }
 
 pub(super) struct ImagePreviewState {
-    path: PathBuf,
+    image: Arc<gpui::Image>,
     name: SharedString,
     focus: FocusHandle,
     close_focus: FocusHandle,
@@ -30,7 +30,26 @@ pub(super) struct ImagePreviewState {
     generation: u64,
 }
 
-pub(super) fn attachment_menu_items(path: PathBuf) -> Vec<MenuItem> {
+pub(super) fn image_format_for_name(name: &str) -> Option<gpui::ImageFormat> {
+    let extension = Path::new(name)
+        .extension()
+        .and_then(|extension| extension.to_str())?
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "png" => Some(gpui::ImageFormat::Png),
+        "jpg" | "jpeg" => Some(gpui::ImageFormat::Jpeg),
+        "webp" => Some(gpui::ImageFormat::Webp),
+        "gif" => Some(gpui::ImageFormat::Gif),
+        "svg" => Some(gpui::ImageFormat::Svg),
+        "bmp" => Some(gpui::ImageFormat::Bmp),
+        "tif" | "tiff" => Some(gpui::ImageFormat::Tiff),
+        "ico" => Some(gpui::ImageFormat::Ico),
+        "pnm" | "pbm" | "pgm" | "ppm" => Some(gpui::ImageFormat::Pnm),
+        _ => None,
+    }
+}
+
+pub(super) fn attachment_menu_items(path: PathBuf, _can_reveal: bool) -> Vec<MenuItem> {
     vec![
         MenuItem::new(tr!("common.reveal_in_finder"), move |_, cx| {
             crate::platform::reveal_in_file_manager(&path, cx);
@@ -42,7 +61,7 @@ pub(super) fn attachment_menu_items(path: PathBuf) -> Vec<MenuItem> {
 impl Waku {
     pub(super) fn open_image_preview(
         &mut self,
-        path: PathBuf,
+        image: Arc<gpui::Image>,
         name: SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -51,7 +70,7 @@ impl Waku {
         let generation = self.image_preview_generation;
         let focus = cx.focus_handle();
         self.image_preview = Some(ImagePreviewState {
-            path,
+            image,
             name,
             focus: focus.clone(),
             close_focus: cx.focus_handle(),
@@ -97,7 +116,7 @@ impl Waku {
     pub(super) fn render_image_preview(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let preview = self.image_preview.as_ref()?;
         let theme = Theme::current(cx);
-        let path = preview.path.clone();
+        let image_source = preview.image.clone();
         let name = preview.name.clone();
         let focus = preview.focus.clone();
         let close_focus = preview.close_focus.clone();
@@ -142,7 +161,7 @@ impl Waku {
             .justify_center()
             .cursor_default()
             .child(
-                img(path)
+                img(image_source)
                     .size_full()
                     .object_fit(ObjectFit::Contain)
                     .with_fallback(move || {

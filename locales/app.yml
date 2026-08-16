@@ -1642,3 +1642,43 @@ usage_error.unknown_error:
   en: unknown error
 usage_error.curl_no_status:
   en: curl returned no HTTP status line
+activity.action_edit:
+  en: Edit
+activity.action_list:
+  en: List
+activity.action_plan:
+  en: Plan
+activity.action_read:
+  en: Read
+activity.action_run:
+  en: Run
+activity.action_search:
+  en: Search
+activity.action_think:
+  en: Think
+activity.ask_questions:
+  en: Ask questions
+activity.command_detail:
+  en: Command
+activity.ran_described_command:
+  en: "Ran command: %{description}"
+commands.fast_description:
+  en: Toggle fast mode
+composer.remove_followup:
+  en: Remove from queue
+composer.steer:
+  en: Steer
+composer.steer_current:
+  en: Steer current turn
+models.context_window:
+  en: Context Window
+user_input.back:
+  en: Back
+user_input.next:
+  en: Next
+user_input.other_placeholder:
+  en: Type another answer
+user_input.submit:
+  en: Submit
+activity.running_described_command:
+  en: "Running command: %{description}"

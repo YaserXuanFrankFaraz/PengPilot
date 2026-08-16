@@ -25,6 +25,12 @@ pub struct Workspace {
 
 /// The root is cached because `Project::is_projectless` is reached from row
 /// builders and render paths. Those callers must only perform path compares.
+pub fn home_directory() -> Option<PathBuf> {
+    let mut home = dirs::home_dir()?;
+    home.push(".pengpilot");
+    Some(home)
+}
+
 pub fn workspace_root() -> Option<&'static Path> {
     static ROOT: OnceLock<Option<PathBuf>> = OnceLock::new();
     ROOT.get_or_init(|| dirs::home_dir().map(|home| home.join(".pengpilot")))

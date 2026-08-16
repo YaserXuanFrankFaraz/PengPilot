@@ -334,6 +334,13 @@ impl Waku {
             AutocompleteRow::Command(scored) => format!("/{} ", scored.item.name),
             AutocompleteRow::File(scored) => format!("@{} ", scored.item.path),
         };
+        if matches!(row, AutocompleteRow::Command(_)) {
+            let mut submission = self.composer.read(cx).content().to_owned();
+            submission.replace_range(trigger.range.clone(), &insert);
+            if self.execute_local_composer_command(&submission, cx) {
+                return;
+            }
+        }
         self.composer.update(cx, |input, cx| {
             input.replace_range(trigger.range.clone(), &insert, cx);
         });
@@ -444,7 +451,7 @@ impl Waku {
                 let icon_path = if command.scope == composer_complete::CommandScope::Skill {
                     "icons/sparkle.svg"
                 } else {
-                    "icons/slash.svg"
+                    "icons/command.svg"
                 };
                 // Positions index the bare name; the drawn `/` shifts every
                 // byte range right by one.

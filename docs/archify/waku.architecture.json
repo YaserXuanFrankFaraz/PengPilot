@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Waku 运行时架构",
+    "subtitle": "daemon + WebSocket 协议：桌面与 Web 多客户端共享会话",
+    "output": "waku-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/egoist/waku",
+      "revision": "97fee55f70510c27c3ba80f88a790fde61d3fa47"
+    },
+    "views": [
+      {
+        "id": "client-path",
+        "label": "客户端主路径",
+        "focus": [
+          "desktop",
+          "web",
+          "daemon",
+          "core",
+          "clis"
+        ],
+        "note": "两个客户端通过同一协议挂到同一 daemon。"
+      },
+      {
+        "id": "wire",
+        "label": "线协议",
+        "focus": [
+          "desktop",
+          "web",
+          "protocol",
+          "daemon"
+        ],
+        "note": "版本化 WebSocket、重放日志与缓存响应。"
+      },
+      {
+        "id": "core",
+        "label": "会话核心",
+        "focus": [
+          "daemon",
+          "core",
+          "sqlite",
+          "clis"
+        ],
+        "note": "provider 会话、持久化、终端全部由 daemon 托管。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "desktop",
+      "type": "frontend",
+      "label": "桌面客户端",
+      "sublabel": "GPUI · RPC 代理",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/lib.rs"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web 客户端",
+      "sublabel": "React 19 · TS",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/waku-app.tsx"
+        }
+      ]
+    },
+    {
+      "id": "protocol",
+      "type": "messagebus",
+      "label": "WebSocket 协议",
+      "sublabel": "waku-protocol v3 · 重放日志",
+      "pos": [
+        300,
+        200
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "crates/waku-protocol/src/protocol.rs"
+        }
+      ]
+    },
+    {
+      "id": "daemon",
+      "type": "backend",
+      "label": "waku-daemon",
+      "sublabel": "请求分发 · 事件 Hub",
+      "pos": [
+        560,
+        200
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "crates/waku-daemon/src/main.rs"
+        },
+        {
+          "path": "crates/waku-core/src/server.rs"
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "type": "backend",
+      "label": "waku-core",
+      "sublabel": "驱动 / 会话 / 持久化",
+      "pos": [
+        800,
+        110
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "crates/waku-core/src/daemon.rs"
+        }
+      ]
+    },
+    {
+      "id": "clis",
+      "type": "external",
+      "label": "Provider CLI",
+      "sublabel": "Claude Code · Codex · …",
+      "pos": [
+        800,
+        300
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "crates/waku-core/src/driver/mod.rs"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite",
+      "sublabel": "会话 / 消息",
+      "pos": [
+        560,
+        430
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "crates/waku-core/src/persistence.rs"
+        }
+      ]
+    },
+    {
+      "id": "terminal",
+      "type": "backend",
+      "label": "daemon 终端",
+      "sublabel": "PTY · 临时事件",
+      "pos": [
+        360,
+        430
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "crates/waku-core/src/terminal.rs"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "desktop-proto",
+      "from": "desktop",
+      "to": "protocol",
+      "label": "订阅 + RPC",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelDy": -16
+    },
+    {
+      "id": "web-proto",
+      "from": "web",
+      "to": "protocol",
+      "label": "订阅 + RPC",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelDy": -16
+    },
+    {
+      "id": "proto-daemon",
+      "from": "protocol",
+      "to": "daemon",
+      "label": "SequencedEvent",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "daemon-core",
+      "from": "daemon",
+      "to": "core",
+      "label": "进程内调用",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        680,
+        90
+      ]
+    },
+    {
+      "id": "core-clis",
+      "from": "core",
+      "to": "clis",
+      "label": "stdio / HTTP",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        911,
+        194
+      ]
+    },
+    {
+      "id": "core-sqlite",
+      "from": "core",
+      "to": "sqlite",
+      "label": "SQLite",
+      "fromSide": "left",
+      "toSide": "top",
+      "labelDy": -20,
+      "via": [
+        [
+          740,
+          145
+        ],
+        [
+          740,
+          420
+        ],
+        [
+          635,
+          420
+        ]
+      ]
+    },
+    {
+      "id": "daemon-terminal",
+      "from": "daemon",
+      "to": "terminal",
+      "label": "PTY 输出",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": -20
+    },
+    {
+      "id": "terminal-proto",
+      "from": "terminal",
+      "to": "protocol",
+      "label": "临时事件",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -20
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "多客户端",
+      "items": [
+        "桌面与 Web 是同一协议的平等客户端",
+        "AttachSession 可观察而不启动会话",
+        "每会话 4096 条重放事件、2048 条缓存响应"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "会话核心",
+      "items": [
+        "provider 会话、SQLite、终端、git 全在 daemon",
+        "桌面 App 退出后会话仍存活",
+        "调试构建可独立热替换 daemon 二进制"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "共享的 UI 层",
+      "items": [
+        "120ms 流式批处理、veil 渐隐、脉冲时钟与 PengPilot 同源",
+        "这些优化与 daemon 架构无关，纯 UI 层"
+      ]
+    }
+  ]
+}

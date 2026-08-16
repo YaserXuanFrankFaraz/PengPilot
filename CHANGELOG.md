@@ -14,6 +14,74 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.11]
+
+Syncs the shared codebase with the latest upstream Waku and ports its
+streaming and interaction improvements.
+
+### Performance
+
+- Streamed responses now commit to layout in coalesced batches on a 120 ms
+  frame floor instead of grapheme-budgeted chunks, and reasoning deltas ride
+  the same cadence — a fast thinking stream no longer forces 40+ full
+  re-renders a second.
+- Newly appended streaming text fades in with a paint-only veil: the complete
+  text enters layout immediately, so shaping, wrapping, and row heights never
+  reflow while a response streams.
+- Loaders share one pulse clock (~30 fps) with leases that park it when no
+  loader is mounted, instead of each animation pinning the window at display
+  rate.
+- Sidebar, transcript, and right panel render as cached panes: a pulse or
+  veil tick repaints only the island that owns it.
+- A long live reasoning peek renders only its tail window, so a long think
+  costs O(window) per frame instead of O(document).
+- Code-block copy feedback and the live activity header now use cached
+  fingerprints instead of re-deriving per frame.
+
+### Interaction
+
+- Agents can ask structured questions mid-turn (question cards with options,
+  multi-select, and custom answers; Claude, Codex, OpenCode, ACP, and
+  DeepSeek transports).
+- Claude sessions expose a context-window choice (e.g. the 1M window opt-in)
+  remembered per model.
+- Codex gains a local `/fast` command that toggles the Fast service tier.
+- Queued follow-ups can be steered individually from the composer.
+- The selected provider's model catalog refreshes when its model picker opens.
+- Composer commands show the command icon; wheel scrolling is contained
+  inside nested scrollables; drag selection tracks at the window level so it
+  extends past the input bounds.
+
+### Polish and fixes
+
+- Main-window position, size, and display are restored across launches.
+- The embedded terminal uses the overlay scrollbar and measures cell width
+  from the font.
+- Fixes: shrink-wrapped user bubbles collapsing around quotes and lists,
+  a char-boundary panic when sliding the live reasoning window, Markdown
+  message width, unloaded history rendering the new-task prompt, and
+  composer height overflow.
+- The terminal and activity viewports cap their height and scroll with an
+  overlay scrollbar.
+
+### Provider verification (ad-hoc dogfooding release)
+
+Real CLI smoke tests on the packaged commit (detection + a streamed turn):
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Claude | 2.1.233 | `claude -p "Reply with exactly: PENG_OK"` | pass | 2026-08-16 |
+| Codex | 0.147.0 | `codex exec --skip-git-repo-check "Reply with exactly: PENG_OK"` | pass | 2026-08-16 |
+| Grok Build | latest | `grok -p "Reply with exactly: PENG_OK"` | pass | 2026-08-16 |
+| Pi | latest | `pi "Reply with exactly: PENG_OK"` | pass | 2026-08-16 |
+| DeepSeek Harness | 0.1.0-rc.6 | installed, no profile configured | unverified | 2026-08-16 |
+
+Cursor, OpenCode, Amp, and the JSON-CLI providers (Antigravity, CodeBuddy,
+Copilot, DevEco, Qwen, …) are not installed on this machine and remain
+unverified for this release. Tool, permission, resume, and cancel behavior
+was not re-exercised end-to-end for this dogfooding build.
+
+
 ## [unreleased]
 
 ## [0.1.10]

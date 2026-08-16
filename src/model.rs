@@ -475,6 +475,13 @@ pub struct ProviderModel {
     pub service_tiers: Vec<ProviderModelOption>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_service_tier: Option<String>,
+    /// Context window sizes the provider exposes as a per-session choice.
+    /// Claude Code keeps its 1M window opt-in behind a model-id suffix, so the
+    /// window is a trait of the session rather than of the model.
+    #[serde(default)]
+    pub context_windows: Vec<ProviderModelOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_context_window: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -565,6 +572,8 @@ impl ProviderModel {
             default_reasoning_effort: None,
             service_tiers: Vec::new(),
             default_service_tier: None,
+            context_windows: Vec::new(),
+            default_context_window: None,
         }
     }
 
@@ -610,32 +619,8 @@ pub struct ProviderProbe {
     pub agent_presets: Vec<ProviderAgentPreset>,
 }
 
+
 impl ProviderProbe {
-    pub fn pending(provider: ProviderKind) -> Self {
-        let path = find_in_path(provider.command());
-        Self {
-            provider,
-            installed: path.is_some(),
-            path,
-            models: crate::model_catalog::fallback_models(provider),
-            agent_presets: crate::model_catalog::fallback_agent_presets(provider),
-        }
-    }
-
-    /// A probe resolved through a user-configured binary override instead of
-    /// PATH detection. An override that resolves to nothing leaves the
-    /// provider uninstalled rather than silently falling back.
-    pub fn with_binary_override(provider: ProviderKind, binary: &str) -> Self {
-        let path = crate::command_env::resolve_binary_override(binary);
-        Self {
-            provider,
-            installed: path.is_some(),
-            path,
-            models: crate::model_catalog::fallback_models(provider),
-            agent_presets: crate::model_catalog::fallback_agent_presets(provider),
-        }
-    }
-
     pub fn discover_models(mut self) -> Self {
         if self.provider.supports_model_discovery()
             && let Some(path) = self.path.as_deref()
@@ -661,10 +646,6 @@ impl ProviderProbe {
             .find(|preset| preset.is_default)
             .or_else(|| self.agent_presets.first())
     }
-}
-
-fn find_in_path(command: &str) -> Option<PathBuf> {
-    crate::command_env::find_executable(command)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -915,6 +896,9 @@ pub struct AgentSession {
     pub reasoning_effort: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_tier: Option<String>,
+    /// Selected context window, when the provider exposes more than one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<String>,
     /// Provider-owned agent composition selected before the first turn.
     /// Currently populated by DeepSeek Harness; unlike Build/Plan, Harness
     /// locks this value once conversation history exists.
@@ -1004,6 +988,7 @@ impl AgentSession {
             interaction_mode: InteractionMode::Build,
             reasoning_effort: None,
             service_tier: None,
+            context_window: None,
             agent_preset: None,
             status: SessionStatus::Idle,
             workflow_status: crate::work::WorkflowStatus::Todo,
@@ -1053,6 +1038,45 @@ impl AgentSession {
             || !self.messages.is_empty()
             || self.provider_cursor.is_some()
     }
+    /// A list-only projection of the session. The transcript and other heavy
+    /// detail stay behind; hydrating restores them.
+    pub fn list_projection(&self) -> Self {
+        Self {
+            id: self.id,
+            title: self.title.clone(),
+            auto_title: self.auto_title.clone(),
+            project_id: self.project_id,
+            workspace: SessionWorkspace::Local,
+            provider: self.provider,
+            model: self.model.clone(),
+            runtime_mode: RuntimeMode::default(),
+            interaction_mode: InteractionMode::default(),
+            reasoning_effort: None,
+            service_tier: None,
+            context_window: None,
+            agent_preset: None,
+            status: self.status,
+            workflow_status: self.workflow_status,
+            important: self.important,
+            urgent: self.urgent,
+            flagged: self.flagged,
+            work_item_id: self.work_item_id,
+            agent_profile_id: self.agent_profile_id,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            last_reply_at: self.last_reply_at,
+            provider_cursor: None,
+            provider_session_id: None,
+            detail_loaded: false,
+            queued_messages: Vec::new(),
+            messages: Vec::new(),
+            turns: Vec::new(),
+            transcript_blocks: Vec::new(),
+            available_commands: Vec::new(),
+            context_usage: None,
+        }
+    }
+
 
     pub fn display_title(&self) -> &str {
         if self.title != Self::DEFAULT_TITLE && !self.title.trim().is_empty() {
@@ -1654,8 +1678,23 @@ impl ActivityKind {
     }
 }
 
+/// The daemon runtime and its replay journal can outlive any particular
+/// desktop or browser connection. Persisting this cursor with the transcript
+/// lets a newly attached client replay only the events the stored projection
+/// has not already applied.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RuntimeEventCursor {
+    pub runtime_id: Uuid,
+    pub epoch: Uuid,
+    pub sequence: u64,
+}
+
 #[derive(Clone, Debug)]
 pub enum DriverEvent {
+    /// Client-only acknowledgement that every driver event through this
+    /// sequence has been incorporated into the local session projection.
+    /// Providers never emit this and transports never serialize it.
+    RuntimeEventCursorAdvanced(RuntimeEventCursor),
     Connected {
         provider_cursor: Option<ProviderResumeCursor>,
     },
@@ -1691,6 +1730,13 @@ pub enum DriverEvent {
         title: String,
         detail: String,
         options: Vec<PermissionOption>,
+    },
+    /// Structured questions the provider needs answered before it can
+    /// continue the active turn. Unlike a permission, this is never
+    /// auto-approved: the content itself has to come from the user.
+    UserInputRequested {
+        request_id: String,
+        questions: Vec<UserInputQuestion>,
     },
     ComputerUseUpdated(crate::computer_use::ComputerUseState),
     /// The provider accepted a steering message into the running turn.
@@ -1836,10 +1882,15 @@ pub enum BackgroundWorkEvent {
         delta: String,
     },
     /// Authoritative snapshot of the provider's detached terminal registry.
-    ReconcileProcesses(Vec<BackgroundWorkItem>),
+    /// Authoritative snapshot of the provider's detached terminal registry.
+    ReconcileProcesses {
+        items: Vec<BackgroundWorkItem>,
+    },
     /// Authoritative snapshot of all provider work still live. Used by
     /// transports which publish a level signal in addition to edge events.
-    ReconcileLive(Vec<BackgroundWorkItem>),
+    ReconcileLive {
+        items: Vec<BackgroundWorkItem>,
+    },
     StopRequested(BackgroundWorkKey),
     StopFailed {
         key: BackgroundWorkKey,
@@ -1890,6 +1941,33 @@ pub struct PermissionOption {
     pub allow: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInputOption {
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInputQuestion {
+    pub id: String,
+    pub header: String,
+    pub question: String,
+    #[serde(default)]
+    pub options: Vec<UserInputOption>,
+    #[serde(default)]
+    pub multi_select: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInputAnswer {
+    pub question_id: String,
+    pub answers: Vec<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ActivityFileChange {
     pub path: String,
@@ -1937,6 +2015,10 @@ pub struct ActivityItem {
     /// directory, or command). The row builder only formats this cached value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_target: Option<String>,
+    /// Compact command description shown as a live one-liner, kept separate
+    /// from `detail` so streaming command rows never re-layout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_description: Option<String>,
     /// Native model reasoning carried by the same ordered activity stream as
     /// tool work. Generic provider `think` tools can still use the ordinary
     /// activity fields and leave this empty.
@@ -1967,6 +2049,7 @@ impl ActivityItem {
             complete,
             file_changes: Vec::new(),
             display_target,
+            display_description: None,
             reasoning: None,
         }
     }
@@ -1993,6 +2076,7 @@ impl ActivityItem {
 
     pub fn with_output(mut self, output: Option<String>) -> Self {
         self.output = output;
+        self.refresh_command_output();
         self
     }
 
@@ -2029,8 +2113,27 @@ impl ActivityItem {
                 }
             }
         }
+        if self.kind == ActivityKind::Command {
+            self.arguments = self
+                .arguments
+                .take()
+                .and_then(normalize_command_activity_command);
+            if let Some(command) = self.arguments.as_deref() {
+                self.display_target = Some(compact_activity_target(command));
+            }
+        }
         if self.display_target.is_none() {
             self.display_target = fallback_activity_display_target(self.kind, &self.title);
+        }
+        self.refresh_command_output();
+    }
+
+    fn refresh_command_output(&mut self) {
+        if self.kind == ActivityKind::Command {
+            self.output = self
+                .output
+                .take()
+                .and_then(normalize_command_activity_output);
         }
     }
 
@@ -2045,8 +2148,210 @@ impl ActivityItem {
         if let Some(target) = extract_activity_display_target(self.kind, source) {
             self.display_target = Some(target);
         }
+        if self.kind == ActivityKind::Command
+            && let Some(description) = find_activity_string(source, &["description"], 0)
+        {
+            self.display_description = Some(compact_activity_target(&description));
+        }
     }
 }
+
+fn normalize_command_activity_command(source: String) -> Option<String> {
+    let source = source.trim();
+    if source.is_empty() {
+        return None;
+    }
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(source) else {
+        return Some(source.to_owned());
+    };
+    match &value {
+        serde_json::Value::String(command) => non_empty_activity_text(command),
+        serde_json::Value::Array(parts) if parts.iter().all(|part| part.as_str().is_some()) => {
+            non_empty_activity_text(
+                &parts
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )
+        }
+        serde_json::Value::Object(_) => {
+            find_activity_string(&value, &["command", "cmd", "script"], 0)
+                .and_then(|command| non_empty_activity_text(&command))
+        }
+        _ => Some(source.to_owned()),
+    }
+}
+
+fn normalize_command_activity_output(output: String) -> Option<String> {
+    let output = output.trim();
+    if output.is_empty() {
+        return None;
+    }
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(output) else {
+        return Some(output.to_owned());
+    };
+    if !is_command_output_envelope(&value) {
+        return Some(output.to_owned());
+    }
+    command_output_envelope_text(&value, 0)
+}
+
+fn non_empty_activity_text(value: &str) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_owned())
+}
+
+fn is_command_output_envelope(value: &serde_json::Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    if object.contains_key("aggregatedOutput")
+        || object.contains_key("structuredContent")
+        || object.contains_key("stdout")
+        || object.contains_key("stderr")
+        || object.contains_key("toolCallId")
+        || object.contains_key("tool_call_id")
+    {
+        return true;
+    }
+    let output_field = object.contains_key("content")
+        || object.contains_key("result")
+        || object.contains_key("output");
+    if output_field && (object.contains_key("isError") || object.contains_key("is_error")) {
+        return true;
+    }
+    let item_type = object
+        .get("type")
+        .and_then(serde_json::Value::as_str)
+        .map(|value| {
+            value
+                .chars()
+                .filter(|character| character.is_ascii_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+        });
+    if item_type.as_deref().is_some_and(|item_type| {
+        matches!(
+            item_type,
+            "toolresult" | "tooloutput" | "commandresult" | "commandoutput" | "result" | "text"
+        )
+    }) {
+        return true;
+    }
+    object
+        .get("content")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|items| {
+            !items.is_empty()
+                && items.iter().all(|item| {
+                    item.as_object().is_some_and(|item| {
+                        item.get("type")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some()
+                    })
+                })
+        })
+}
+
+fn command_output_envelope_text(value: &serde_json::Value, depth: usize) -> Option<String> {
+    if depth > 6 {
+        return None;
+    }
+    match value {
+        serde_json::Value::String(text) => {
+            let text = text.trim();
+            if text.is_empty() {
+                return None;
+            }
+            if let Ok(nested) = serde_json::from_str::<serde_json::Value>(text)
+                && is_command_output_envelope(&nested)
+            {
+                return command_output_envelope_text(&nested, depth + 1);
+            }
+            Some(text.to_owned())
+        }
+        serde_json::Value::Array(items) => {
+            let text = items
+                .iter()
+                .filter(|item| !is_command_output_image(item))
+                .filter_map(|item| command_output_content_text(item, depth + 1))
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            non_empty_activity_text(&text)
+        }
+        serde_json::Value::Object(object) => {
+            if object.get("type").and_then(serde_json::Value::as_str) == Some("text") {
+                return object
+                    .get("text")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(non_empty_activity_text);
+            }
+            if let Some(structured) = object
+                .get("structuredContent")
+                .filter(|value| !value.is_null())
+            {
+                return serde_json::to_string_pretty(structured)
+                    .ok()
+                    .and_then(|text| non_empty_activity_text(&text));
+            }
+            if let Some(output) = object
+                .get("aggregatedOutput")
+                .and_then(serde_json::Value::as_str)
+                .and_then(non_empty_activity_text)
+            {
+                return Some(output);
+            }
+            let streams = ["stdout", "stderr"]
+                .into_iter()
+                .filter_map(|key| {
+                    object
+                        .get(key)
+                        .and_then(serde_json::Value::as_str)
+                        .and_then(non_empty_activity_text)
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if let Some(streams) = non_empty_activity_text(&streams) {
+                return Some(streams);
+            }
+            ["content", "result", "output", "message", "text"]
+                .into_iter()
+                .find_map(|key| {
+                    object
+                        .get(key)
+                        .filter(|value| !value.is_null())
+                        .and_then(|value| command_output_content_text(value, depth + 1))
+                })
+        }
+        serde_json::Value::Null => None,
+        value => non_empty_activity_text(&value.to_string()),
+    }
+}
+
+fn command_output_content_text(value: &serde_json::Value, depth: usize) -> Option<String> {
+    if is_command_output_envelope(value) || value.is_array() || value.is_string() {
+        return command_output_envelope_text(value, depth);
+    }
+    if is_command_output_image(value) {
+        return None;
+    }
+    serde_json::to_string_pretty(value)
+        .ok()
+        .and_then(|text| non_empty_activity_text(&text))
+}
+
+fn is_command_output_image(value: &serde_json::Value) -> bool {
+    let item_type = value.get("type").and_then(serde_json::Value::as_str);
+    let mime = value
+        .get("mime")
+        .or_else(|| value.get("mimeType"))
+        .or_else(|| value.get("mime_type"))
+        .and_then(serde_json::Value::as_str);
+    matches!(item_type, Some("image" | "inputImage"))
+        || (item_type == Some("file") && mime.is_some_and(|mime| mime.starts_with("image/")))
+}
+
 
 fn fallback_activity_display_target(kind: ActivityKind, title: &str) -> Option<String> {
     let title = title.trim();
@@ -2059,7 +2364,10 @@ fn fallback_activity_display_target(kind: ActivityKind, title: &str) -> Option<S
 }
 
 pub(crate) fn is_generic_activity_title(kind: ActivityKind, title: &str) -> bool {
-    if ActivityKind::from_tool_name(title) == kind {
+    // A tool-name title is only generic when it names the kind itself; a
+    // provider tool like `mcp__threads__create_thread` carries meaning even
+    // though the kind is Tool, so it must not be treated as generic.
+    if kind != ActivityKind::Tool && ActivityKind::from_tool_name(title) == kind {
         return true;
     }
     match kind {
@@ -2073,6 +2381,7 @@ pub(crate) fn is_generic_activity_title(kind: ActivityKind, title: &str) -> bool
         }
         ActivityKind::FileList => title == tr!("activity.list_files"),
         ActivityKind::Plan => title == tr!("activity.plan_updated"),
+        ActivityKind::Tool => title.eq_ignore_ascii_case("tool") || title == tr!("activity.tool"),
         _ => false,
     }
 }
