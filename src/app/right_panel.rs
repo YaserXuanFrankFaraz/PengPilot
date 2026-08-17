@@ -1984,10 +1984,9 @@ impl Waku {
         let theme = Theme::current(cx);
         div()
             .id("toggle-right-panel")
-            .w(px(26.0))
-            .h(px(26.0))
+            .size(px(28.0))
             .flex_none()
-            .rounded(px(6.0))
+            .rounded(px(7.0))
             .flex()
             .items_center()
             .justify_center()

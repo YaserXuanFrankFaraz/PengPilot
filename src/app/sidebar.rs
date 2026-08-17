@@ -315,6 +315,7 @@ impl Waku {
                 div().id("app-chrome-titlebar-drag").h_full().flex_1(),
                 cx,
             ))
+            .child(self.render_background_work_summary(cx))
             .when(self.fps_counter_visible && !self.right_panel_visible, |bar| {
                 bar.child(self.render_fps_counter(cx))
             })
@@ -365,10 +366,9 @@ impl Waku {
         let theme = Theme::current(cx);
         div()
             .id("toggle-sidebar")
-            .w(px(26.0))
-            .h(px(26.0))
+            .size(px(28.0))
             .flex_none()
-            .rounded(px(6.0))
+            .rounded(px(7.0))
             .flex()
             .items_center()
             .justify_center()
@@ -1530,7 +1530,6 @@ impl Waku {
                     })),
             )
             .child(div().id("header-center").h_full().flex_1())
-            .child(self.render_background_work_summary(cx))
             .when(self.right_panel_visible && self.fps_counter_visible, |element| {
                 element.child(self.render_fps_counter(cx))
             })

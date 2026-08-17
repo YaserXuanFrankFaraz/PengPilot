@@ -14,6 +14,22 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.17]
+
+### App icon refresh
+
+- Replaced the app mark with the new PengPilot Prime icon across the macOS
+  bundle (`AppIcon.icns` / `AppIconDev.icns`), in-app empty-state artwork
+  (`pengpilot-mark`), and website + README assets (`app-icon`, apple-touch-icon,
+  og-icon, favicon).
+
+### 中文摘要
+
+**应用图标更新**
+
+- 全面换成 PengPilot Prime 新图标：macOS App 包、应用内空状态标志，以及网站 /
+  README 用的 app-icon、apple-touch-icon、og-icon、favicon。
+
 ## [0.1.16]
 
 ### Media library and Grok Imagine
