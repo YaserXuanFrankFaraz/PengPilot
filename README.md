@@ -38,6 +38,12 @@ detects CLIs on `PATH`; Settings → Providers also accepts an explicit binary
 path. Detected providers appear first, followed by providers not found on
 `PATH`.
 
+The supported catalog is waku's official provider set minus Amp, plus
+OMP, Hermes Agent, Trae CLI, and Kiro CLI — eleven providers in total. The
+remaining provider stubs (Amp, Antigravity, CodeBuddy, DevEco, Kimi, Qoder,
+Qoder CN, Qwen, QwenPaw, Reasonix, Prime) exist only so older sessions stay
+readable; they are outside the supported catalog and are never verified.
+
 Catalog presence means PengPilot can detect and route the CLI; it is not by
 itself a compatibility guarantee. A provider becomes verified only after an
 authenticated, real-CLI end-to-end test passes on that exact release commit.
@@ -45,7 +51,7 @@ PengPilot is currently a personal dogfooding build, so missing evidence does
 not block an ad-hoc release; unverified entries remain experimental and are not
 claimed as release-verified support.
 
-| Agent | Command | v0.1.13 verification |
+| Agent | Command | v0.1.15 verification |
 | --- | --- | --- |
 | Claude Code (CLI) | `claude` | ✅ pass (2.1.233, 2026-08-17) |
 | Codex (CLI) | `codex` | ✅ pass (0.147.0, 2026-08-17) |
@@ -227,12 +233,17 @@ PengPilot 是一款使用 Rust 和
 自动检测，也可以在「设置 → 服务商」中指定可执行文件路径。
 已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方。
 
+支持目录以 waku 官方服务商集合为基准，移除 Amp，并增加 OMP、Hermes
+Agent、Trae CLI、Kiro CLI——共 11 家。其余保留的 provider 存根（Amp、
+Antigravity、CodeBuddy、DevEco、Kimi、Qoder、Qoder CN、Qwen、QwenPaw、
+Reasonix、Prime）仅用于让旧会话保持可读，不在支持目录内，也不做验证。
+
 进入目录只表示 PengPilot 能检测并路由该 CLI，本身不等于兼容性承诺。只有在目标
 发布提交上通过已登录真实 CLI 的端到端测试，才可称为该版本已验证。PengPilot
 目前属于个人 dogfooding 版本，因此缺少证据不会阻止 ad-hoc 发布；未验证项目继续
 标记为实验性支持，不宣称已经通过该版本验证。
 
-| 智能体 | 命令 | v0.1.13 验证状态 |
+| 智能体 | 命令 | v0.1.15 验证状态 |
 | --- | --- | --- |
 | Claude Code（CLI） | `claude` | ✅ 通过（2.1.233，2026-08-17） |
 | Codex（CLI） | `codex` | ✅ 通过（0.147.0，2026-08-17） |

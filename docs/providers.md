@@ -8,7 +8,10 @@ Every provider is reached through the same driver abstraction in
 [src/driver/mod.rs](../src/driver/mod.rs). Settings and the model picker only
 offer the featured catalog (`ProviderKind::FEATURED`: Claude Code, Codex,
 Cursor, OpenCode, Grok Build, Kiro, Trae, DeepSeek Harness, Hermes Agent,
-Pi, Oh My Pi).
+Pi, Oh My Pi). The supported catalog is waku's official provider set minus
+Amp, plus OMP, Hermes Agent, Trae CLI, and Kiro CLI; every other provider in
+`ProviderKind::ALL` is legacy-only — kept so old sessions still deserialize,
+but outside the supported catalog and never verified.
 Eight transports still cover `ProviderKind::ALL` so existing sessions on other
 CLIs keep running. ACP, RPC, server, and streaming-input drivers keep a resident
 conversation; native print-mode JSON/JSONL CLIs start one process per turn and
