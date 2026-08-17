@@ -40,11 +40,17 @@ Real CLI smoke tests on the packaged commit (detection + a streamed turn):
 | Codex | 0.147.0 | `codex exec --skip-git-repo-check "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
 | Grok Build | latest | `grok -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
 | Pi | latest | `pi "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
-| DeepSeek Harness | 0.1.0-rc.6 | installed, no profile configured | unverified | 2026-08-17 |
+| OMP | 17.3.5 | `omp -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Cursor | cursor-agent (latest) | `cursor-agent --trust -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| DeepSeek Harness | 0.1.0-rc.6 | `dsh web --host 127.0.0.1 --port 0` → ready line + HTTP 200 | pass (host) | 2026-08-17 |
 
-Cursor, OpenCode, Amp, and the JSON-CLI providers remain unverified for this
-release (not installed on the build machine). Tool, permission, resume, and
-cancel behavior was not re-exercised end-to-end for this dogfooding build.
+OMP and Cursor were missed in the first verification pass (wrong command names
+probed); DeepSeek Harness's profile is named `web`, not `default`. The dsh row
+covers detection and host startup (the transport PengPilot drives); a full
+Harness RPC turn was not exercised. OpenCode, Amp, and the JSON-CLI providers
+remain unverified for this release (not installed on the build machine). Tool,
+permission, resume, and cancel behavior was not re-exercised end-to-end for
+this dogfooding build.
 
 ## [0.1.11]
 
@@ -108,10 +114,12 @@ Real CLI smoke tests on the packaged commit (detection + a streamed turn):
 | Pi | latest | `pi "Reply with exactly: PENG_OK"` | pass | 2026-08-16 |
 | DeepSeek Harness | 0.1.0-rc.6 | installed, no profile configured | unverified | 2026-08-16 |
 
-Cursor, OpenCode, Amp, and the JSON-CLI providers (Antigravity, CodeBuddy,
-Copilot, DevEco, Qwen, …) are not installed on this machine and remain
-unverified for this release. Tool, permission, resume, and cancel behavior
-was not re-exercised end-to-end for this dogfooding build.
+OMP, Cursor (cursor-agent), and DeepSeek Harness (profile `web`) were not
+covered by that release's smoke pass; OpenCode, Amp, and the JSON-CLI
+providers (Antigravity, CodeBuddy, Copilot, DevEco, Qwen, …) are not
+installed on this machine. All of these remain unverified for 0.1.11. Tool,
+permission, resume, and cancel behavior was not re-exercised end-to-end for
+this dogfooding build.
 
 
 ## [unreleased]
