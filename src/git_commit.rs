@@ -379,7 +379,7 @@ fn agent_arguments(
             push(&mut args, "chat");
             push(&mut args, "-q");
         }
-        | ProviderKind::Trae => {}
+        ProviderKind::Trae => {}
     }
     push(&mut args, prompt);
     args
@@ -797,7 +797,7 @@ mod tests {
                 ProviderKind::Hermes => {
                     assert!(has_pair(&args, "chat", "-q"));
                 }
-                | ProviderKind::Trae => {}
+                ProviderKind::Trae => {}
             }
         }
     }

@@ -2479,11 +2479,7 @@ mod tests {
         assert_eq!(restored.sessions[0].service_tier.as_deref(), Some("fast"));
         assert_eq!(
             restored.model_traits_for(ProviderKind::Codex, "gpt-5.6-luna"),
-            (
-                Some("xhigh".into()),
-                Some("fast".into()),
-                Some("1m".into())
-            )
+            (Some("xhigh".into()), Some("fast".into()), Some("1m".into()))
         );
         assert_eq!(
             restored.sessions[0].runtime_mode,

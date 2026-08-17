@@ -195,14 +195,25 @@ impl Waku {
 
     /// The confirmation card for an armed removal, rendered above the
     /// transcript alongside the permission card.
-    pub(super) fn render_session_removal_confirm(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_session_removal_confirm(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let session_id = self.pending_session_removal?;
-        if !self.state.sessions.iter().any(|session| session.id == session_id) {
+        if !self
+            .state
+            .sessions
+            .iter()
+            .any(|session| session.id == session_id)
+        {
             return None;
         }
         let theme = Theme::current(cx);
         let focus = self.session_removal_focus.clone();
-        let title = self.session_removal_title.clone().unwrap_or_else(|| tr!("inbox.remove_task"));
+        let title = self
+            .session_removal_title
+            .clone()
+            .unwrap_or_else(|| tr!("inbox.remove_task"));
         Some(
             div()
                 .id("session-removal-confirm")
@@ -233,10 +244,7 @@ impl Waku {
                                         .text_size(px(12.5))
                                         .font_weight(FontWeight::MEDIUM)
                                         .text_color(theme.text)
-                                        .child(tr!(
-                                            "inbox.remove_confirm_title",
-                                            title = title
-                                        )),
+                                        .child(tr!("inbox.remove_confirm_title", title = title)),
                                 ),
                         )
                         .child(
@@ -267,18 +275,25 @@ impl Waku {
                                         .border_1()
                                         .border_color(theme.border_strong)
                                         .text_color(theme.text_secondary)
-                                        .hover(|element| element.bg(theme.overlay).text_color(theme.text))
+                                        .hover(|element| {
+                                            element.bg(theme.overlay).text_color(theme.text)
+                                        })
                                         .active(|element| element.opacity(0.8))
                                         .child(tr!("common.cancel"))
                                         .on_click(cx.listener(|this, _, _, cx| {
                                             this.cancel_session_removal(cx);
                                         }))
-                                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                                                this.cancel_session_removal(cx);
-                                                cx.stop_propagation();
-                                            }
-                                        })),
+                                        .on_key_down(cx.listener(
+                                            |this, event: &KeyDownEvent, _, cx| {
+                                                if matches!(
+                                                    event.keystroke.key.as_str(),
+                                                    "enter" | "space"
+                                                ) {
+                                                    this.cancel_session_removal(cx);
+                                                    cx.stop_propagation();
+                                                }
+                                            },
+                                        )),
                                 )
                                 .child(
                                     div()
@@ -299,12 +314,17 @@ impl Waku {
                                         .on_click(cx.listener(|this, _, _, cx| {
                                             this.confirm_session_removal(cx);
                                         }))
-                                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                                            if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                                                this.confirm_session_removal(cx);
-                                                cx.stop_propagation();
-                                            }
-                                        })),
+                                        .on_key_down(cx.listener(
+                                            |this, event: &KeyDownEvent, _, cx| {
+                                                if matches!(
+                                                    event.keystroke.key.as_str(),
+                                                    "enter" | "space"
+                                                ) {
+                                                    this.confirm_session_removal(cx);
+                                                    cx.stop_propagation();
+                                                }
+                                            },
+                                        )),
                                 ),
                         )
                         .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
@@ -508,8 +528,7 @@ impl Waku {
             return;
         }
         self.right_panel_visible = visible;
-        if visible {
-        }
+        if visible {}
         self.persist_panel_layout();
         cx.notify();
     }

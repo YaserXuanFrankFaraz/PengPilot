@@ -2198,7 +2198,11 @@ fn live_reasoning_window_anchor(cached: usize, content: &str) -> usize {
     // A restarted block can leave the cached start past the end of the new
     // content or inside a multibyte character; either way the window is
     // stale (`is_char_boundary` is false past the end too), so restart it.
-    let cached = if content.is_char_boundary(cached) { cached } else { 0 };
+    let cached = if content.is_char_boundary(cached) {
+        cached
+    } else {
+        0
+    };
     if content.len() - cached <= LIVE_REASONING_WINDOW_MAX {
         return cached;
     }

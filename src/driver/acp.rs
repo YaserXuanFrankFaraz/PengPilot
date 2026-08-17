@@ -63,13 +63,12 @@ struct AcpLaunch {
 
 fn launch_for(provider: ProviderKind) -> anyhow::Result<AcpLaunch> {
     match provider {
-        ProviderKind::Cursor
-        | ProviderKind::Omp
-        | ProviderKind::Kiro
-        | ProviderKind::Hermes => Ok(AcpLaunch {
-            args: vec!["acp".into()],
-            env: Vec::new(),
-        }),
+        ProviderKind::Cursor | ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes => {
+            Ok(AcpLaunch {
+                args: vec!["acp".into()],
+                env: Vec::new(),
+            })
+        }
         ProviderKind::Trae => Ok(AcpLaunch {
             args: ["acp", "serve", "--yolo"]
                 .into_iter()
@@ -1140,11 +1139,7 @@ mod tests {
 
     #[test]
     fn providers_launch_their_acp_subcommand() {
-        for provider in [
-            ProviderKind::Omp,
-            ProviderKind::Kiro,
-            ProviderKind::Hermes,
-        ] {
+        for provider in [ProviderKind::Omp, ProviderKind::Kiro, ProviderKind::Hermes] {
             let launch = launch_for(provider).unwrap();
             assert_eq!(launch.args, ["acp"], "{provider:?}");
             assert!(launch.env.is_empty(), "{provider:?}");

@@ -72,12 +72,10 @@ impl Waku {
                 .cloned()
                 .flatten();
             let binary_override = self.state.provider_binary_overrides.get(&provider).cloned();
-            let grok_binary = binary_override
-                .map(std::path::PathBuf::from)
-                .or_else(|| {
-                    self.provider_probe(ProviderKind::Grok)
-                        .and_then(|probe| probe.path.clone())
-                });
+            let grok_binary = binary_override.map(std::path::PathBuf::from).or_else(|| {
+                self.provider_probe(ProviderKind::Grok)
+                    .and_then(|probe| probe.path.clone())
+            });
             cx.background_executor()
                 .spawn(async move {
                     let result = match provider {

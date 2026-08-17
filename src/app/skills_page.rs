@@ -37,7 +37,6 @@ fn skill_source_icon(source: SkillSource) -> &'static str {
     }
 }
 
-
 /// A landed catalog older than this is rescanned when the page opens.
 const SKILLS_RESCAN_AFTER: Duration = Duration::from_secs(60);
 

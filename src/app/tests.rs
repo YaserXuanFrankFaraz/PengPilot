@@ -7,22 +7,20 @@ use super::settings::visible_settings_pages;
 use super::{
     ESCAPE_STOP_CONFIRMATION_TIMEOUT, EscapeStopConfirmation, EscapeStopPress, EscapeStopTarget,
     INBOX_NAV_RAIL_WIDTH, NAVIGATION_RAIL_TICK_HEIGHT, NAVIGATION_RAIL_TURN_HEIGHT,
-    SessionNavigation, StreamDeltaKind, TRAFFIC_LIGHT_CLEARANCE, TranscriptRowKind::*,
-    active_navigation_turn_index, append_text_delta_to_session, assistant_response_footer,
-    assistant_response_footer_index, assistant_response_footer_time,
+    PendingUserInput, SessionNavigation, StreamDeltaKind, TRAFFIC_LIGHT_CLEARANCE,
+    TranscriptRowKind::*, active_navigation_turn_index, append_text_delta_to_session,
+    assistant_response_footer, assistant_response_footer_index, assistant_response_footer_time,
     changed_files_inline_message_index, compact_driver_error, disclosure_leading_space,
     fenced_code, fitted_file_tree_width, fitted_panel_widths, folded_transcript_row_kinds,
     format_worked_duration, format_working_elapsed, leftover_traffic_light_clearance,
     maintain_transcript_anchor, message_starts_followup_turn, navigation_preview_snippet,
-    navigation_rail_height, navigation_rail_scale, paused_toast_duration,
-    push_transcript_activity, session_is_reapable, should_refresh_branch_after_activity,
-    should_show_navigation_rail, should_show_scroll_to_bottom, sidebar_material_width,
-    task_id_from_notification_tag, task_notification_tag,
-    PendingUserInput, navigation_rail_fade_visibility, pop_stream_batch,
-
-    transcript_anchor_end_space, transcript_navigation_turns, transcript_row_kinds,
-    transcript_row_splice, transcript_rows_fingerprint, widened_panel_width_for_file_editor,
-    widened_panel_width_for_review,
+    navigation_rail_fade_visibility, navigation_rail_height, navigation_rail_scale,
+    paused_toast_duration, pop_stream_batch, push_transcript_activity, session_is_reapable,
+    should_refresh_branch_after_activity, should_show_navigation_rail,
+    should_show_scroll_to_bottom, sidebar_material_width, task_id_from_notification_tag,
+    task_notification_tag, transcript_anchor_end_space, transcript_navigation_turns,
+    transcript_row_kinds, transcript_row_splice, transcript_rows_fingerprint,
+    widened_panel_width_for_file_editor, widened_panel_width_for_review,
 };
 use crate::git_branch::BranchEntry;
 use crate::model::{

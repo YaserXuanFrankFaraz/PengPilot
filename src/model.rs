@@ -557,7 +557,6 @@ pub struct ProviderProbe {
     pub agent_presets: Vec<ProviderAgentPreset>,
 }
 
-
 impl ProviderProbe {
     pub fn discover_models(mut self) -> Self {
         if self.provider.supports_model_discovery()
@@ -1014,7 +1013,6 @@ impl AgentSession {
             context_usage: None,
         }
     }
-
 
     pub fn display_title(&self) -> &str {
         if self.title != Self::DEFAULT_TITLE && !self.title.trim().is_empty() {
@@ -2289,7 +2287,6 @@ fn is_command_output_image(value: &serde_json::Value) -> bool {
     matches!(item_type, Some("image" | "inputImage"))
         || (item_type == Some("file") && mime.is_some_and(|mime| mime.starts_with("image/")))
 }
-
 
 fn fallback_activity_display_target(kind: ActivityKind, title: &str) -> Option<String> {
     let title = title.trim();

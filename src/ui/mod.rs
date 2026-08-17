@@ -35,9 +35,7 @@ pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> Div {
     let is_full_color = path.ends_with(".png")
         || matches!(
             path,
-            "icons/provider-cursor.svg"
-                | "icons/provider-omp-color.svg"
-                | "icons/provider-pi.svg"
+            "icons/provider-cursor.svg" | "icons/provider-omp-color.svg" | "icons/provider-pi.svg"
         );
     let mark = if is_full_color {
         file_icon(path, size).into_any_element()
@@ -94,7 +92,7 @@ pub fn provider_color(theme: &Theme, provider: ProviderKind) -> Hsla {
         ProviderKind::Claude => rgb(0xD97757).into(),
         ProviderKind::DeepSeek => rgb(0x4D6BFE).into(),
         ProviderKind::Kiro => rgb(0x9046FF).into(),
-        | ProviderKind::Trae
+        ProviderKind::Trae
         | ProviderKind::Codex
         | ProviderKind::Cursor
         | ProviderKind::OpenCode

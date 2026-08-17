@@ -195,9 +195,7 @@ pub fn start(
 ) -> anyhow::Result<DriverHandle> {
     let inner: Arc<dyn DriverControl> = match provider {
         ProviderKind::Codex => Arc::new(codex::CodexDriver::start(options, events)?),
-        ProviderKind::Pi => {
-            Arc::new(pi::PiDriver::start(provider, options, events)?)
-        }
+        ProviderKind::Pi => Arc::new(pi::PiDriver::start(provider, options, events)?),
         // These providers serve a long-lived ACP session, which is the only
         // way their Supervised mode can actually ask the user rather than
         // silently forcing or denying.

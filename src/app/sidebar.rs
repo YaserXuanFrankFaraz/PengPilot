@@ -1899,5 +1899,4 @@ mod tests {
         sessions.sort_by_key(|session| std::cmp::Reverse(sidebar_session_timestamp(session)));
         assert_eq!(sessions[0].id, newer_unanswered_session.id);
     }
-
 }

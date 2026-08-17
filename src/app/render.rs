@@ -222,15 +222,19 @@ impl Render for Waku {
             .text_color(theme.text)
             .font_family(".SystemUIFont")
             .when(self.sidebar_visible, |root| {
-                root.child(self.render_nav_rail(window, cx))
-                    .when(self.list_pane_visible(), |root| {
-                        root.child(self.sidebar_pane.clone().cached(
-                            StyleRefinement::default()
-                                .w(px(sidebar_width))
-                                .h_full()
-                                .flex_none(),
-                        ))
-                    })
+                root.child(self.render_nav_rail(window, cx)).when(
+                    self.list_pane_visible(),
+                    |root| {
+                        root.child(
+                            self.sidebar_pane.clone().cached(
+                                StyleRefinement::default()
+                                    .w(px(sidebar_width))
+                                    .h_full()
+                                    .flex_none(),
+                            ),
+                        )
+                    },
+                )
             })
             .child(if self.board_visible {
                 self.render_quadrant_board(window, cx).into_any_element()
@@ -251,9 +255,7 @@ impl Render for Waku {
                     } else {
                         self.transcript_pane
                             .clone()
-                            .cached(
-                                StyleRefinement::default().flex_1().min_h(px(0.0)).w_full(),
-                            )
+                            .cached(StyleRefinement::default().flex_1().min_h(px(0.0)).w_full())
                             .into_any_element()
                     })
                     .children(permission)
@@ -277,12 +279,14 @@ impl Render for Waku {
                     .into_any_element()
             })
             .when(self.right_panel_visible, |root| {
-                root.child(self.right_panel_pane.clone().cached(
-                    StyleRefinement::default()
-                        .w(px(right_panel_width))
-                        .h_full()
-                        .flex_none(),
-                ))
+                root.child(
+                    self.right_panel_pane.clone().cached(
+                        StyleRefinement::default()
+                            .w(px(right_panel_width))
+                            .h_full()
+                            .flex_none(),
+                    ),
+                )
             })
             .children(command_palette)
             .children(commit_dialog)

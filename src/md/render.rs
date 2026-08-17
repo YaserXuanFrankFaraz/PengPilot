@@ -374,7 +374,6 @@ impl MarkdownView {
         view
     }
 
-
     /// Point the view at `text`. `mend` closes hanging inline markers, which is
     /// wanted while a response streams and not once it has settled.
     /// Bytes of source this view retains. Parsed structures run to roughly
@@ -993,8 +992,7 @@ fn markdown_capped<'a>(
         ctx.next_ordinal.set(block_ordinal_base(block_ix));
         children.push(render_block(block, &ctx));
         debug_assert!(
-            ctx.next_ordinal.get() - block_ordinal_base(block_ix)
-                < 1 << BLOCK_ORDINAL_STRIDE_BITS,
+            ctx.next_ordinal.get() - block_ordinal_base(block_ix) < 1 << BLOCK_ORDINAL_STRIDE_BITS,
             "a single block overflowed its ordinal stride"
         );
     }

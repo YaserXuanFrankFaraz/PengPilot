@@ -374,13 +374,12 @@ fn perform_provider_rewind(
             let cursor = driver.rollback(request.rollback_turns)?;
             Ok((cursor, None, prepared_driver))
         }
-        ProviderKind::Omp
-        | ProviderKind::Kiro
-        | ProviderKind::Hermes
-        | ProviderKind::Trae => anyhow::bail!(
-            "{} does not support conversation rollback in PengPilot yet",
-            provider.display_name()
-        ),
+        ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes | ProviderKind::Trae => {
+            anyhow::bail!(
+                "{} does not support conversation rollback in PengPilot yet",
+                provider.display_name()
+            )
+        }
     }
 }
 
@@ -638,13 +637,12 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
                 let (cursor, prepared_driver) = fork_response_with_driver(&mut request)?;
                 Ok((cursor, None, prepared_driver))
             }
-            ProviderKind::Omp
-            | ProviderKind::Kiro
-            | ProviderKind::Hermes
-            | ProviderKind::Trae => anyhow::bail!(
-                "{} does not support conversation forks in PengPilot yet",
-                request.source.provider.display_name()
-            ),
+            ProviderKind::Omp | ProviderKind::Kiro | ProviderKind::Hermes | ProviderKind::Trae => {
+                anyhow::bail!(
+                    "{} does not support conversation forks in PengPilot yet",
+                    request.source.provider.display_name()
+                )
+            }
         }
     })();
 
@@ -711,7 +709,9 @@ impl Waku {
         session_id: Uuid,
         status: TurnStatus,
     ) -> Option<(Uuid, usize)> {
-        self.state.session_mut(session_id)?.finish_active_turn(status)
+        self.state
+            .session_mut(session_id)?
+            .finish_active_turn(status)
     }
 
     /// The directory every filesystem and provider operation for `session`

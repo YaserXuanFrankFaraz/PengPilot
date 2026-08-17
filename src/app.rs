@@ -2214,13 +2214,10 @@ impl Waku {
                 async move {
                     // The window is already hidden at this point; never let a
                     // stuck save leave a black screen with a live process.
-                    let _ = smol::future::or(
-                        save,
-                        async {
-                            smol::Timer::after(std::time::Duration::from_secs(2)).await;
-                            Ok(())
-                        },
-                    )
+                    let _ = smol::future::or(save, async {
+                        smol::Timer::after(std::time::Duration::from_secs(2)).await;
+                        Ok(())
+                    })
                     .await;
                 }
             })

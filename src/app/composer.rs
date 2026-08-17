@@ -1540,8 +1540,10 @@ impl Waku {
             });
 
         let fast = selected_tier == "fast" || tier_label.eq_ignore_ascii_case("fast");
-        let trigger_label = match (effort_label.unwrap_or_else(|| tier_label.clone()), window_label)
-        {
+        let trigger_label = match (
+            effort_label.unwrap_or_else(|| tier_label.clone()),
+            window_label,
+        ) {
             (label, Some(window)) => format!("{label} · {window}"),
             (label, None) => label,
         };
@@ -1988,7 +1990,11 @@ impl Waku {
         blob_reference: Option<String>,
         client_preview_image: Option<Arc<gpui::Image>>,
     ) -> bool {
-        if self.composer_attachments.iter().any(|attachment| attachment.path == path) {
+        if self
+            .composer_attachments
+            .iter()
+            .any(|attachment| attachment.path == path)
+        {
             return false;
         }
         let mut mention = path.display().to_string();
@@ -2044,7 +2050,10 @@ impl Waku {
                         .map(|(index, image)| {
                             let preview_image = Arc::new(image);
                             let reference = blobs
-                                .store_image_bytes(preview_image.format.mime_type(), &preview_image.bytes)
+                                .store_image_bytes(
+                                    preview_image.format.mime_type(),
+                                    &preview_image.bytes,
+                                )
                                 .map_err(|error| error.to_string())?;
                             let path = blobs.path_for(&reference).ok_or_else(|| {
                                 "stored clipboard image had no local path".to_owned()
@@ -3391,9 +3400,7 @@ const MAX_ATTACHMENT_BYTES: u64 = 32 * 1024 * 1024;
 /// Reads a client-local drop far enough to name it and, for image files,
 /// decode an in-composer preview. Attachments stay local in PengPilot: the
 /// path itself is the persisted reference, so no upload payload exists.
-fn attachment_local_preview_from_path(
-    source: &Path,
-) -> anyhow::Result<(String, Option<Vec<u8>>)> {
+fn attachment_local_preview_from_path(source: &Path) -> anyhow::Result<(String, Option<Vec<u8>>)> {
     let metadata = std::fs::symlink_metadata(source)
         .with_context(|| format!("could not read attachment {}", source.display()))?;
     if metadata.file_type().is_symlink() {
