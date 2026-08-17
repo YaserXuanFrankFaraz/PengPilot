@@ -694,7 +694,23 @@ impl WakuPane {
 
     fn bind(&mut self, waku: &Entity<Waku>, cx: &mut Context<Self>) {
         self.waku = Some(waku.downgrade());
-        cx.observe(waku, |_, _, cx| cx.notify()).detach();
+        cx.observe(waku, |_, waku, cx| {
+            // A panel slide notifies the root at display rate for its 200ms,
+            // and this fan-out would price every one of those ticks at a
+            // three-island rebuild. Skipping it hands the decision to the
+            // cached-view keys: the sliding panel (its clip moves) and the
+            // transcript (its bounds move) miss their caches and re-render
+            // with fresh state anyway, while the island nothing is moving
+            // re-plays its cached subtree. Root-state changes it displays
+            // can wait out the slide: updates born inside an island
+            // (terminal output, pulse leases) dirty their ancestor pane
+            // without this observer, and the slide's retirement notify
+            // below re-runs the fan-out, so nothing outlasts the 200ms.
+            if !waku.read(cx).panels_sliding() {
+                cx.notify();
+            }
+        })
+        .detach();
     }
 }
 
@@ -1249,6 +1265,17 @@ pub struct Waku {
     sidebar_width: f32,
     right_panel_visible: bool,
     right_panel_width: f32,
+    /// The show/hide slide each panel is in the middle of, if any. Driven by
+    /// hand from `render` (see [`motion::WidthTween`]) because the width these
+    /// produce is what the transcript column between them is laid out against.
+    sidebar_slide: Option<motion::WidthTween>,
+    right_panel_slide: Option<motion::WidthTween>,
+    /// Width each panel actually occupied in the last frame — where a toggle
+    /// starts its slide from, and what the transcript measures itself against
+    /// while one is running. The sidebar value is the full left chrome, rail
+    /// and list together.
+    sidebar_rendered_width: f32,
+    right_panel_rendered_width: f32,
     fps_counter_visible: bool,
     panel_resize_drag: Option<PanelResizeDrag>,
     right_panel_session_states: HashMap<Uuid, RightPanelSessionState>,
@@ -2606,6 +2633,20 @@ impl Waku {
                 sidebar_width,
                 right_panel_visible,
                 right_panel_width,
+                sidebar_slide: None,
+                right_panel_slide: None,
+                // The board starts hidden, so the list pane is visible at
+                // launch and the material is rail + list.
+                sidebar_rendered_width: if sidebar_visible {
+                    sidebar_material_width(true, true, sidebar_width)
+                } else {
+                    0.0
+                },
+                right_panel_rendered_width: if right_panel_visible {
+                    right_panel_width
+                } else {
+                    0.0
+                },
                 fps_counter_visible: false,
                 panel_resize_drag: None,
                 right_panel_session_states: HashMap::new(),

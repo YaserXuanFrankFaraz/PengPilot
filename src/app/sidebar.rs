@@ -1482,8 +1482,13 @@ impl Waku {
             .items_center()
             .gap(px(8.0))
             .children(left_window_controls)
+            // The header starts where the sidebar ends, so until the sidebar
+            // is wide enough to host the traffic lights itself the header has
+            // to clear them. Steady state with the sidebar open adds nothing;
+            // a sidebar sliding in shrinks the inset as it takes the lights
+            // over, which is what keeps the title from passing under them.
             .pl(if self.sidebar_visible {
-                px(14.0)
+                px(14.0 + (TRAFFIC_LIGHT_CLEARANCE - self.sidebar_rendered_width).max(0.0))
             } else {
                 px(0.0)
             })

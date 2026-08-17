@@ -514,8 +514,17 @@ impl Waku {
             return;
         }
         self.sidebar_visible = visible;
+        self.sidebar_slide = self.begin_panel_slide(self.sidebar_rendered_width, cx);
         self.persist_panel_layout();
         cx.notify();
+    }
+
+    /// A toggle's slide, starting from the width the panel currently occupies
+    /// so an interrupted one reverses from where its edge actually is.
+    /// Reduce-motion gets `None`: the panel simply appears at its new width,
+    /// and no frames are scheduled for it.
+    fn begin_panel_slide(&self, from: f32, cx: &App) -> Option<motion::WidthTween> {
+        (!cx.reduce_motion()).then(|| motion::WidthTween::new(from))
     }
 
     pub(super) fn set_right_panel_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
@@ -528,6 +537,7 @@ impl Waku {
             return;
         }
         self.right_panel_visible = visible;
+        self.right_panel_slide = self.begin_panel_slide(self.right_panel_rendered_width, cx);
         if visible {}
         self.persist_panel_layout();
         cx.notify();
@@ -570,22 +580,19 @@ impl Waku {
     }
 
     pub(super) fn sync_sidebar_material(&self, window: &Window) {
-        let list_width = if self.sidebar_visible && self.list_pane_visible() {
-            self.effective_panel_widths(window).0
-        } else {
-            0.0
-        };
-        crate::platform::set_sidebar_material_width(
-            window,
-            sidebar_material_width(self.sidebar_visible, self.list_pane_visible(), list_width),
-        );
+        crate::platform::set_sidebar_material_width(window, self.sidebar_rendered_width);
     }
 
+    /// The width each panel lays its content out at. A panel mid-slide counts
+    /// as on screen and keeps its full width here: the slide narrows the
+    /// container that clips it, so nothing inside reflows on the way out.
+    /// What the panel actually occupies this frame is
+    /// [`Waku::sidebar_rendered_width`] / [`Waku::right_panel_rendered_width`].
     pub(super) fn effective_panel_widths(&self, window: &Window) -> (f32, f32) {
         fitted_panel_widths(
             f32::from(window.viewport_size().width),
-            self.sidebar_visible,
-            self.right_panel_visible,
+            self.sidebar_visible || self.sidebar_slide.is_some(),
+            self.right_panel_visible || self.right_panel_slide.is_some(),
             self.sidebar_width,
             self.right_panel_width,
         )
@@ -599,13 +606,17 @@ impl Waku {
         cx: &mut Context<Self>,
     ) {
         let (sidebar_width, right_panel_width) = self.effective_panel_widths(window);
+        // A drag tracks the pointer directly; whatever slide was still
+        // finishing would fight it for the same edge.
         let start_width = match target {
             PanelResizeTarget::Sidebar => {
+                self.sidebar_slide = None;
                 self.sidebar_width = sidebar_width;
                 crate::platform::set_sidebar_material_width(window, sidebar_width);
                 sidebar_width
             }
             PanelResizeTarget::RightPanel => {
+                self.right_panel_slide = None;
                 self.right_panel_width = right_panel_width;
                 right_panel_width
             }
