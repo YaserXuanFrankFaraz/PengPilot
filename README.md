@@ -45,20 +45,26 @@ PengPilot is currently a personal dogfooding build, so missing evidence does
 not block an ad-hoc release; unverified entries remain experimental and are not
 claimed as release-verified support.
 
-| Agent | Command | v0.1.10 verification |
+| Agent | Command | v0.1.13 verification |
 | --- | --- | --- |
-| Claude Code (CLI) | `claude` | Not recorded; real E2E required |
-| Codex (CLI) | `codex` | Not recorded; real E2E required |
-| Cursor (CLI) | `cursor-agent` | Not recorded; real E2E required |
-| OpenCode (CLI) | `opencode` | Not recorded; real E2E required |
-| Grok Build (CLI) | `grok` | Not recorded; real E2E required |
-| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` | Not recorded; real E2E required |
-| Trae (CLI) | `traecli` | Not recorded; real E2E required |
-| DeepSeek Harness (CLI) | `dsh` | Not recorded; real E2E required |
-| [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` | Not recorded; real E2E required |
-| GitHub Copilot (CLI) | `copilot` | Not recorded; real E2E required |
-| Pi (CLI) | `pi` | Not recorded; real E2E required |
-| [Oh My Pi (CLI)](https://omp.sh/) | `omp` | Not recorded; real E2E required |
+| Claude Code (CLI) | `claude` | ✅ pass (2.1.233, 2026-08-17) |
+| Codex (CLI) | `codex` | ✅ pass (0.147.0, 2026-08-17) |
+| Cursor (CLI) | `cursor-agent` | ✅ pass (latest, 2026-08-17) |
+| Grok Build (CLI) | `grok` | ✅ pass (latest, 2026-08-17) |
+| Pi (CLI) | `pi` | ✅ pass (latest, 2026-08-17) |
+| [Oh My Pi (CLI)](https://omp.sh/) | `omp` | ✅ pass (17.3.5, 2026-08-17) |
+| DeepSeek Harness (CLI) | `dsh` | ✅ pass (host startup, 0.1.0-rc.6, 2026-08-17) |
+| OpenCode (CLI) | `opencode` | Not installed; unverified |
+| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` | Not installed; unverified |
+| Trae (CLI) | `traecli` | Not installed; unverified |
+| [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` | Not installed; unverified |
+| GitHub Copilot (CLI) | `copilot` | Not installed; unverified |
+
+Verification means a real authenticated CLI smoke test (detection + a
+streamed turn) passed on the exact release commit. dsh is verified through
+host startup (the transport PengPilot drives); a full Harness RPC turn was
+not exercised. Tool, permission, resume, and cancel behavior is not covered
+by the dogfooding smoke matrix.
 
 Capabilities vary with each CLI and protocol. PengPilot exposes model
 discovery, permissions, steering, rollback, forking, and Computer Use only
@@ -227,20 +233,24 @@ PengPilot 是一款使用 Rust 和
 目前属于个人 dogfooding 版本，因此缺少证据不会阻止 ad-hoc 发布；未验证项目继续
 标记为实验性支持，不宣称已经通过该版本验证。
 
-| 智能体 | 命令 | v0.1.10 验证状态 |
+| 智能体 | 命令 | v0.1.13 验证状态 |
 | --- | --- | --- |
-| Claude Code（CLI） | `claude` | 未记录；必须完成真实 E2E |
-| Codex（CLI） | `codex` | 未记录；必须完成真实 E2E |
-| Cursor（CLI） | `cursor-agent` | 未记录；必须完成真实 E2E |
-| OpenCode（CLI） | `opencode` | 未记录；必须完成真实 E2E |
-| Grok Build（CLI） | `grok` | 未记录；必须完成真实 E2E |
-| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` | 未记录；必须完成真实 E2E |
-| Trae（CLI） | `traecli` | 未记录；必须完成真实 E2E |
-| DeepSeek Harness（CLI） | `dsh` | 未记录；必须完成真实 E2E |
-| [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` | 未记录；必须完成真实 E2E |
-| GitHub Copilot（CLI） | `copilot` | 未记录；必须完成真实 E2E |
-| Pi（CLI） | `pi` | 未记录；必须完成真实 E2E |
-| [Oh My Pi（CLI）](https://omp.sh/) | `omp` | 未记录；必须完成真实 E2E |
+| Claude Code（CLI） | `claude` | ✅ 通过（2.1.233，2026-08-17） |
+| Codex（CLI） | `codex` | ✅ 通过（0.147.0，2026-08-17） |
+| Cursor（CLI） | `cursor-agent` | ✅ 通过（最新版，2026-08-17） |
+| Grok Build（CLI） | `grok` | ✅ 通过（最新版，2026-08-17） |
+| Pi（CLI） | `pi` | ✅ 通过（最新版，2026-08-17） |
+| [Oh My Pi（CLI）](https://omp.sh/) | `omp` | ✅ 通过（17.3.5，2026-08-17） |
+| DeepSeek Harness（CLI） | `dsh` | ✅ 通过（host 启动，0.1.0-rc.6，2026-08-17） |
+| OpenCode（CLI） | `opencode` | 未安装；未验证 |
+| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` | 未安装；未验证 |
+| Trae（CLI） | `traecli` | 未安装；未验证 |
+| [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` | 未安装；未验证 |
+| GitHub Copilot（CLI） | `copilot` | 未安装；未验证 |
+
+验证指在打包的发布提交上通过真实鉴权 CLI 冒烟测试（检测 + 一轮流式回复）。
+dsh 验证到 host 启动（即 PengPilot 驱动的传输层），未跑完整 Harness RPC
+回合；工具调用、权限、恢复与取消行为不在本 dogfooding 冒烟矩阵覆盖范围内。
 
 不同 CLI 和协议支持的能力并不完全相同。模型发现、权限交互、运行中追加指令、
 回退、派生会话及 Computer Use 仅在对应服务商支持时显示。已经用其他 CLI

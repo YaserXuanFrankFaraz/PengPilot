@@ -14,6 +14,23 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.13]
+
+### App icon refresh
+
+- Replaced the app icon with the refreshed PengPilot mark: the macOS app
+  bundle (`AppIcon.icns`, debug and release), the notification/about
+  artwork, and the website + README icons (`app-icon`, apple-touch-icon,
+  og-icon, favicon) all ship the new mark.
+
+### 中文摘要
+
+**应用图标更新**
+
+- 应用图标替换为最新版 PengPilot 标志：macOS App 包（`AppIcon.icns`，
+  调试与发布）、通知/关于对话框图标，以及网站与 README 图标（app-icon、
+  apple-touch-icon、og-icon、favicon）全部换新。
+
 ## [0.1.12]
 
 ### Inbox fixes
