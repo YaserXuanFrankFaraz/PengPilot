@@ -14,6 +14,50 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.15]
+
+### Provider removal: GitHub Copilot CLI
+
+PengPilot no longer supports GitHub Copilot CLI. The provider is gone from
+the model picker, Settings, provider detection, and the README; its icon
+and driver branch are removed too. Sessions created by older builds with a
+Copilot provider remain readable and open as Codex instead of disappearing.
+
+### Provider verification (ad-hoc dogfooding release)
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Claude | 2.1.233 | `claude -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Codex | 0.147.0 | `codex exec --skip-git-repo-check "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Grok Build | latest | `grok -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Pi | latest | `pi "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| OMP | 17.3.5 | `omp -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Cursor | cursor-agent (latest) | `cursor-agent --trust -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| DeepSeek Harness | 0.1.0-rc.6 | `dsh --version` | pass (detection) | 2026-08-17 |
+
+The dsh row covers CLI detection; a full Harness RPC turn was not exercised
+for this build. OpenCode, Amp, and the JSON-CLI providers remain unverified
+for this release (not installed on the build machine). Tool, permission,
+resume, and cancel behavior was not re-exercised end-to-end for this
+dogfooding build.
+
+### 中文摘要
+
+**移除 GitHub Copilot CLI 支持**
+
+PengPilot 不再支持 GitHub Copilot CLI：模型选择器、设置、CLI 检测和
+README 中不再出现该 provider，相关图标与驱动分支一并删除。旧版本创建
+的 Copilot 会话仍可正常显示，并以 Codex 身份继续打开，不会从列表中
+消失。
+
+**Provider 验证（临时自用 dogfooding 版本）**
+
+在打包提交上执行的真实 CLI 冒烟测试（检测 + 一轮流式回复）：Claude
+2.1.233、Codex 0.147.0、Grok Build、Pi、OMP 17.3.5、Cursor
+（cursor-agent）全部通过；DeepSeek Harness 0.1.0-rc.6 仅验证 CLI 检测。
+OpenCode、Amp 与 JSON-CLI 系列 provider 本机未安装，仍标注 unverified。
+工具调用、权限、恢复与取消行为未在本版本端到端复测。
+
 ## [0.1.14]
 
 ### Stability fixes
