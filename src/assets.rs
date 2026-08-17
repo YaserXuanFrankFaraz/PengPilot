@@ -42,6 +42,7 @@ const ICONS: &[(&str, &[u8])] = icons![
     "file",
     "folder",
     "folder-new",
+    "file-bottom-left-arrow",
     "file-diff",
     "file-types/angular",
     "file-types/audio",

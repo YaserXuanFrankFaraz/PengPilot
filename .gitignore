@@ -8,3 +8,9 @@ target
 /dist
 node_modules
 temp/
+.memsearch
+Cargo.toml.tmp
+.memsearch/
+Cargo.toml.tmp
+.memsearch/
+Cargo.toml.tmp

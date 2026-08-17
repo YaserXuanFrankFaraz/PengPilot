@@ -1136,7 +1136,15 @@ fn handle_message(
                         None,
                     ));
                 let failed = block.get("is_error").and_then(Value::as_bool) == Some(true);
-                let _ = events.send(DriverEvent::RichActivity(activity::tool_activity(
+                // The result text of an edit is only a confirmation sentence.
+                // The positioned hunks Claude actually applied ride alongside
+                // it, so hand them over as the activity's source and the diff
+                // lands in the transcript with real line numbers.
+                let patch = (kind == ActivityKind::FileChange)
+                    .then(|| value.get("tool_use_result"))
+                    .flatten()
+                    .filter(|result| !result.is_null());
+                let item = activity::tool_activity(
                     id,
                     kind,
                     title,
@@ -1145,7 +1153,9 @@ fn handle_message(
                     block.get("content"),
                     failed,
                     true,
-                )));
+                )
+                .with_activity_source(patch);
+                let _ = events.send(DriverEvent::RichActivity(item));
             }
         }
         Some("result") => {

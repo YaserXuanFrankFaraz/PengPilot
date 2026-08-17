@@ -557,6 +557,8 @@ activity.updated_plan:
   en: Updated plan
 activity.plan_update_failed:
   en: Failed to update plan
+activity.open_file:
+  en: Open file
 activity.activity:
   en: Activity
 activity.tool:
@@ -1274,6 +1276,14 @@ diff.truncated:
   en: Large diff · showing first 50,000 lines
 diff.unmodified_lines:
   en: "%{count} unmodified lines"
+diff.rows_hidden_one:
+  en: 1 more line · open Review to read the whole change
+diff.rows_hidden:
+  en: "%{count} more lines · open Review to read the whole change"
+diff.status_added:
+  en: Added
+diff.status_deleted:
+  en: Deleted
 diff.expand_all_context:
   en: Expand all unmodified lines
 diff.expand_context:

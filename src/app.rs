@@ -1475,6 +1475,10 @@ pub struct Waku {
     /// Independent capped viewports for expanded thoughts and command output.
     /// Keeping these stable preserves scroll position through virtualization.
     activity_scroll_viewports: RefCell<HashMap<Uuid, ActivityScrollViewport>>,
+    /// Built diff rows per expanded file-change activity, held until the
+    /// activity collapses or its changes are replaced.
+    activity_diffs: RefCell<HashMap<Uuid, Rc<activity_diff::Diff>>>,
+    activity_diff_viewports: RefCell<HashMap<Uuid, ActivityScrollViewport>>,
     /// One allocation for every transcript markdown context to share. The
     /// callback knows about the active workspace; the renderer deliberately
     /// does not.
@@ -1506,6 +1510,7 @@ pub struct Waku {
     fps_value: u32,
 }
 
+mod activity_diff;
 mod autocomplete;
 mod background_work;
 mod branches;
@@ -2757,6 +2762,8 @@ impl Waku {
                 activity_markdown: RefCell::new(HashMap::new()),
                 reasoning_window_starts: RefCell::new(HashMap::new()),
                 activity_scroll_viewports: RefCell::new(HashMap::new()),
+                activity_diffs: RefCell::new(HashMap::new()),
+                activity_diff_viewports: RefCell::new(HashMap::new()),
                 markdown_link_handler,
                 transcript_selection: TranscriptSelection::default(),
                 toast_selection: TranscriptSelection::default(),

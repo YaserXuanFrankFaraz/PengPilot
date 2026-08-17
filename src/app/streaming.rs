@@ -138,6 +138,9 @@ impl Waku {
                     }
                     if !item.file_changes.is_empty() {
                         activity.file_changes = item.file_changes;
+                        // The rows this activity's diff was built from are
+                        // gone; an expanded card rebuilds from the new ones.
+                        self.activity_diffs.borrow_mut().remove(&activity.id);
                     }
                     if item.display_target.is_some()
                         && (activity.display_target.is_none() || has_arguments)

@@ -297,6 +297,152 @@ fn review_diff_tree_rows(
     rows
 }
 
+/// How wide and tall a diff row is drawn. The Review panel is a reading
+/// surface; the copy embedded in a transcript activity is a summary and gives
+/// its space back to the code.
+#[derive(Clone, Copy)]
+pub(super) struct DiffRowStyle {
+    gutter_width: f32,
+    row_height: f32,
+    /// What to put in the gutter of a row that has no line number. Git always
+    /// reports positions, so this only comes up on a diff synthesized from a
+    /// provider's before/after text: there the `+`/`-` marker stands in, which
+    /// keeps the gutter from going blank and the meaning off color alone.
+    marker_fallback: bool,
+}
+
+impl DiffRowStyle {
+    pub(super) const REVIEW: Self = Self {
+        gutter_width: 52.0,
+        row_height: 20.0,
+        marker_fallback: false,
+    };
+    /// The same rows the Review tab draws, so an edit reads the same wherever
+    /// it is opened.
+    pub(super) const ACTIVITY: Self = Self {
+        marker_fallback: true,
+        ..Self::REVIEW
+    };
+}
+
+/// One context, addition, or deletion row, shared by the Review panel and the
+/// diff inside an expanded file-change activity so the two never drift.
+pub(super) fn render_diff_code_row(
+    line: &crate::review_diff::Line,
+    index: usize,
+    key_prefix: &str,
+    selection: &TranscriptSelection,
+    style: DiffRowStyle,
+    theme: &Theme,
+) -> AnyElement {
+    let semantic_body_opacity = if theme.is_dark { 0.20 } else { 0.12 };
+    let semantic_gutter_opacity = if theme.is_dark { 0.15 } else { 0.09 };
+    let (marker, body_background, gutter_background, edge, number_color) = match &line.kind {
+        crate::review_diff::LineKind::Addition => (
+            "+",
+            Some(theme.success.opacity(semantic_body_opacity)),
+            Some(theme.success.opacity(semantic_gutter_opacity)),
+            Some(theme.success),
+            theme.success,
+        ),
+        crate::review_diff::LineKind::Deletion => (
+            "-",
+            Some(theme.danger.opacity(semantic_body_opacity)),
+            Some(theme.danger.opacity(semantic_gutter_opacity)),
+            Some(theme.danger),
+            theme.danger,
+        ),
+        _ => (" ", None, None, None, theme.text_tertiary),
+    };
+    let shown_line = line.new_line.or(line.old_line);
+    let flat = review_diff_flat_text(line, theme);
+    let selectable = md::render::selectable_flat_text(
+        &flat,
+        crate::md::selection::TextKey::new(
+            format!(
+                "{key_prefix}-line-{}-{}-{}-{}",
+                line.file_index,
+                match &line.kind {
+                    crate::review_diff::LineKind::Context => "context",
+                    crate::review_diff::LineKind::Addition => "addition",
+                    crate::review_diff::LineKind::Deletion => "deletion",
+                    _ => "other",
+                },
+                line.old_line.unwrap_or(0),
+                line.new_line.unwrap_or(0),
+            ),
+            0,
+        ),
+        selection.clone(),
+        theme.code_wash,
+        theme.selection,
+        false,
+    );
+    let gutter = div()
+        .w(px(style.gutter_width))
+        .min_h(px(style.row_height))
+        .self_stretch()
+        .flex_none()
+        .pr(px(9.0))
+        .flex()
+        .items_start()
+        .justify_end()
+        .border_r_1()
+        .border_color(theme.border)
+        .text_color(number_color)
+        .when_some(gutter_background, |gutter, background| {
+            gutter.bg(background)
+        })
+        .child(
+            shown_line
+                .map(|line| line.to_string())
+                .or_else(|| style.marker_fallback.then(|| marker.to_owned()))
+                .unwrap_or_default(),
+        );
+    let body = div()
+        .min_h(px(style.row_height))
+        .self_stretch()
+        .min_w_0()
+        .flex_1()
+        .pl(px(12.0))
+        .flex()
+        .items_start()
+        .when_some(body_background, |body, background| body.bg(background))
+        .child(
+            div()
+                .id(SharedString::from(format!(
+                    "{key_prefix}-line-content-{index}"
+                )))
+                .min_h(px(style.row_height))
+                .min_w_0()
+                .flex_1()
+                .pr(px(10.0))
+                .flex()
+                .items_start()
+                .overflow_hidden()
+                .whitespace_normal()
+                .child(selectable),
+        );
+    div()
+        .id(SharedString::from(format!("{key_prefix}-row-{index}")))
+        .w_full()
+        .min_w_0()
+        .min_h(px(style.row_height))
+        // A wrapped line makes the row taller than one line. Stacked in a
+        // scrolling column, a shrinkable row would be squeezed back to one
+        // and paint its overflow over the row beneath it.
+        .flex_none()
+        .flex()
+        .items_stretch()
+        .font_family(md::render::MONO_FAMILY)
+        .text_size(px(10.5))
+        .line_height(px(style.row_height))
+        .when_some(edge, |row, edge| row.border_l_2().border_color(edge))
+        .child(gutter)
+        .child(body)
+        .into_any_element()
+}
+
 fn review_diff_flat_text(line: &crate::review_diff::Line, theme: &Theme) -> md::render::FlatText {
     let text = line.content.clone();
     let palette = MarkdownPalette::from_theme(theme);
@@ -1471,6 +1617,24 @@ impl Waku {
             TranscriptLinkRoute::External => return false,
         }
         true
+    }
+
+    /// Open a path a tool reported, from an activity in the transcript.
+    ///
+    /// Providers name a changed file however they like — absolute, or relative
+    /// to the session's workspace — so resolve it before routing. Inside the
+    /// workspace it opens in the file viewer; anywhere else it goes to the file
+    /// manager, the same split a file link in the transcript takes.
+    pub(super) fn open_activity_file(&mut self, path: &str, cx: &mut Context<Self>) {
+        let path = Path::new(path.trim());
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else if let Some(workspace) = self.selected_workspace_path() {
+            workspace.join(path)
+        } else {
+            return;
+        };
+        self.open_transcript_link(&resolved.to_string_lossy(), cx);
     }
 
     pub(super) fn store_selected_right_panel_state(&mut self) {
@@ -3451,101 +3615,14 @@ impl Waku {
                 .into_any_element(),
             crate::review_diff::LineKind::Context
             | crate::review_diff::LineKind::Addition
-            | crate::review_diff::LineKind::Deletion => {
-                let semantic_body_opacity = if theme.is_dark { 0.20 } else { 0.12 };
-                let semantic_gutter_opacity = if theme.is_dark { 0.15 } else { 0.09 };
-                let (body_background, gutter_background, edge, number_color) = match &line.kind {
-                    crate::review_diff::LineKind::Addition => (
-                        Some(theme.success.opacity(semantic_body_opacity)),
-                        Some(theme.success.opacity(semantic_gutter_opacity)),
-                        Some(theme.success),
-                        theme.success,
-                    ),
-                    crate::review_diff::LineKind::Deletion => (
-                        Some(theme.danger.opacity(semantic_body_opacity)),
-                        Some(theme.danger.opacity(semantic_gutter_opacity)),
-                        Some(theme.danger),
-                        theme.danger,
-                    ),
-                    _ => (None, None, None, theme.text_tertiary),
-                };
-                let shown_line = line.new_line.or(line.old_line);
-                let flat = review_diff_flat_text(line, &theme);
-                let selectable = md::render::selectable_flat_text(
-                    &flat,
-                    crate::md::selection::TextKey::new(
-                        format!(
-                            "review-diff-line-{}-{}-{}-{}",
-                            line.file_index,
-                            match &line.kind {
-                                crate::review_diff::LineKind::Context => "context",
-                                crate::review_diff::LineKind::Addition => "addition",
-                                crate::review_diff::LineKind::Deletion => "deletion",
-                                _ => "other",
-                            },
-                            line.old_line.unwrap_or(0),
-                            line.new_line.unwrap_or(0),
-                        ),
-                        0,
-                    ),
-                    self.right_panel_diff_selection.clone(),
-                    theme.code_wash,
-                    theme.selection,
-                    false,
-                );
-                let gutter = div()
-                    .w(px(52.0))
-                    .h_full()
-                    .flex_none()
-                    .pr(px(9.0))
-                    .flex()
-                    .items_center()
-                    .justify_end()
-                    .border_r_1()
-                    .border_color(theme.border)
-                    .text_color(number_color)
-                    .when_some(gutter_background, |gutter, background| {
-                        gutter.bg(background)
-                    })
-                    .child(shown_line.map(|line| line.to_string()).unwrap_or_default());
-                let body = div()
-                    .h_full()
-                    .min_w_0()
-                    .flex_1()
-                    .pl(px(12.0))
-                    .flex()
-                    .items_center()
-                    .when_some(body_background, |body, background| body.bg(background))
-                    .child(
-                        div()
-                            .id(SharedString::from(format!(
-                                "review-diff-line-content-{index}"
-                            )))
-                            .h_full()
-                            .min_w_0()
-                            .flex_1()
-                            .pr(px(10.0))
-                            .flex()
-                            .items_center()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .child(selectable),
-                    );
-                div()
-                    .id(SharedString::from(format!("review-diff-row-{index}")))
-                    .w_full()
-                    .min_w_0()
-                    .h(px(20.0))
-                    .flex()
-                    .items_center()
-                    .font_family(md::render::MONO_FAMILY)
-                    .text_size(px(10.5))
-                    .line_height(px(20.0))
-                    .when_some(edge, |row, edge| row.border_l_2().border_color(edge))
-                    .child(gutter)
-                    .child(body)
-                    .into_any_element()
-            }
+            | crate::review_diff::LineKind::Deletion => render_diff_code_row(
+                line,
+                index,
+                "review-diff",
+                &self.right_panel_diff_selection,
+                DiffRowStyle::REVIEW,
+                &theme,
+            ),
         }
     }
 

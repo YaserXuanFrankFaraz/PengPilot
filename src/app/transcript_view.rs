@@ -1,3 +1,4 @@
+use super::right_panel::{DiffRowStyle, render_diff_code_row};
 use super::*;
 use base64::Engine as _;
 
@@ -6,6 +7,12 @@ const CHANGED_FILES_PREVIEW_LIMIT: usize = 3;
 /// hundreds of files. The full immutable list remains one click away in the
 /// right panel.
 const CHANGED_FILES_EXPANDED_LIMIT: usize = 12;
+/// An expanded edit stays one transcript row tall; past this the diff scrolls
+/// in place, the same as long command output.
+const ACTIVITY_DIFF_MAX_HEIGHT: f32 = 400.0;
+/// Aligns a hunk separator with the line numbers in the rows below it; see
+/// `DiffRowStyle::ACTIVITY`.
+const ACTIVITY_DIFF_GUTTER_WIDTH: f32 = 52.0;
 
 #[derive(Clone, Debug)]
 struct ConversationNavigationRailSnapshot {
@@ -858,7 +865,73 @@ impl Waku {
         };
         self.toggle_block_disclosure(block_index, cx, |this| {
             this.expanded_activity_items.insert(id, !current);
+            if current {
+                // Collapsed: the rows would only be rebuilt from the same
+                // changes if it reopens, so do not keep them alive for every
+                // edit the session ever made.
+                this.activity_diffs.borrow_mut().remove(&id);
+                this.activity_diff_viewports.borrow_mut().remove(&id);
+            }
         });
+    }
+
+    /// Opens a file a tool changed in the right panel's viewer.
+    ///
+    /// Sits inside a row that toggles on click, so it stops the press from
+    /// reaching that toggle, and answers the keyboard on its own.
+    fn render_activity_open_file_button(
+        &self,
+        id: String,
+        path: String,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let focus = self.transcript_control_focus(id.clone(), cx);
+        let key_path = path.clone();
+        div()
+            .id(SharedString::from(id))
+            .track_focus(&focus)
+            .tab_index(0)
+            .size(px(20.0))
+            .flex_none()
+            .rounded(px(5.0))
+            .flex()
+            .items_center()
+            .justify_center()
+            .cursor_default()
+            .focus_visible(|button| button.bg(theme.overlay_strong))
+            .hover(|button| button.bg(theme.overlay_strong))
+            .child(icon(
+                "icons/file-bottom-left-arrow.svg",
+                14.0,
+                theme.text_ghost,
+            ))
+            .tooltip(Tooltip::text(tr!("activity.open_file")))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(move |this, _, _, cx| {
+                cx.stop_propagation();
+                this.open_activity_file(&path, cx);
+            }))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                    this.open_activity_file(&key_path, cx);
+                    cx.stop_propagation();
+                }
+            }))
+            .into_any_element()
+    }
+
+    /// Diff rows for an expanded file-change activity, built on first sight and
+    /// held until the activity collapses or its changes are replaced.
+    fn activity_diff_rows(&self, activity: &ActivityItem) -> Rc<activity_diff::Diff> {
+        if let Some(diff) = self.activity_diffs.borrow().get(&activity.id) {
+            return diff.clone();
+        }
+        let diff = Rc::new(activity_diff::build(activity));
+        self.activity_diffs
+            .borrow_mut()
+            .insert(activity.id, diff.clone());
+        diff
     }
 
     pub(super) fn toggle_turn_fold(
@@ -1806,9 +1879,25 @@ impl Waku {
                 row_detail = preview;
             }
             let file_change_stats = activity_file_change_stats(activity);
+            // One changed file is unambiguous, so the row itself can offer to
+            // open it. A change touching several names each file in the diff
+            // below, and each of those rows opens its own.
+            let open_file_button = match activity.file_changes.as_slice() {
+                [change] if activity.kind == ActivityKind::FileChange => {
+                    Some(self.render_activity_open_file_button(
+                        format!("activity-open-{id}"),
+                        change.path.clone(),
+                        theme,
+                        cx,
+                    ))
+                }
+                _ => None,
+            };
+            let shows_diff = reasoning.is_none() && activity_shows_diff(activity);
             let has_detail = reasoning
                 .is_some_and(|reasoning| !reasoning.content.trim().is_empty())
-                || !sections.is_empty();
+                || !sections.is_empty()
+                || shows_diff;
             let item_expanded = has_detail
                 && self
                     .expanded_activity_items
@@ -1889,6 +1978,7 @@ impl Waku {
                             )
                         })
                         .children(background_badge)
+                        .children(open_file_button)
                         .when(has_detail, |element| {
                             element.child(icon(
                                 if item_expanded {
@@ -2017,7 +2107,22 @@ impl Waku {
                         .child(activity_scroll_guard(reasoning_viewport, reasoning_live)),
                 );
             }
-            if item_expanded && reasoning.is_none() {
+            if item_expanded && shows_diff {
+                let diff = self.activity_diff_rows(activity);
+                if !diff.is_empty() {
+                    item = item.child(self.render_activity_diff(
+                        id,
+                        &diff,
+                        activity_surface,
+                        theme,
+                        cx,
+                    ));
+                }
+            }
+            if item_expanded
+                && reasoning.is_none()
+                && (!sections.is_empty() || !activity.image_urls.is_empty())
+            {
                 let palette = MarkdownPalette::from_theme(theme);
                 let ctx = self.markdown_ctx(
                     format!("activity-{id}"),
@@ -2294,6 +2399,208 @@ impl Waku {
         }
         *start
     }
+
+    /// The diff for an expanded file-change activity.
+    ///
+    /// Rows bleed to the card's edges so a changed line reads as a band, and
+    /// the whole diff sits in the same capped, faded viewport as command
+    /// output — a large edit stays one transcript row tall.
+    fn render_activity_diff(
+        &self,
+        id: Uuid,
+        diff: &activity_diff::Diff,
+        surface: Hsla,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let viewport = self
+            .activity_diff_viewports
+            .borrow_mut()
+            .entry(id)
+            .or_default()
+            .clone();
+        let wheel_scroll = viewport.scroll_handle.clone();
+        let mut rows = div()
+            .id(SharedString::from(format!("activity-diff-scroll-{id}")))
+            .w_full()
+            .min_w_0()
+            .max_h(px(ACTIVITY_DIFF_MAX_HEIGHT))
+            .overflow_y_scroll()
+            .track_scroll(&viewport.scroll_handle)
+            .flex()
+            .flex_col()
+            .font_family(md::render::MONO_FAMILY)
+            .text_size(px(10.5))
+            .line_height(px(16.0))
+            .on_scroll_wheel(move |_, _, cx| contain_scroll(&wheel_scroll, cx));
+        for (index, line) in diff.snapshot.lines.iter().enumerate() {
+            rows = rows.child(self.render_activity_diff_row(
+                id,
+                index,
+                line,
+                &diff.snapshot,
+                theme,
+                cx,
+            ));
+        }
+        if diff.hidden_rows > 0 {
+            let note = if diff.hidden_rows == 1 {
+                tr!("diff.rows_hidden_one")
+            } else {
+                tr!("diff.rows_hidden", count = diff.hidden_rows)
+            };
+            rows = rows.child(
+                div()
+                    .w_full()
+                    .min_w_0()
+                    .px(px(12.0))
+                    .py(px(4.0))
+                    .text_color(theme.text_tertiary)
+                    .child(SharedString::from(note)),
+            );
+        }
+        div()
+            .w_full()
+            .min_w_0()
+            .relative()
+            .max_h(px(ACTIVITY_DIFF_MAX_HEIGHT))
+            .overflow_hidden()
+            .border_t_1()
+            .border_color(theme.border_strong)
+            .child(rows)
+            .child(activity_scroll_fade(
+                viewport.scroll_handle.clone(),
+                ActivityScrollFadeSide::Top,
+                surface,
+            ))
+            .child(activity_scroll_fade(
+                viewport.scroll_handle.clone(),
+                ActivityScrollFadeSide::Bottom,
+                surface,
+            ))
+            .child(scrollbar::vertical(
+                &viewport.scroll_handle,
+                &viewport.scrollbar,
+            ))
+            .into_any_element()
+    }
+
+    fn render_activity_diff_row(
+        &self,
+        id: Uuid,
+        index: usize,
+        line: &crate::review_diff::Line,
+        snapshot: &crate::review_diff::Snapshot,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        use crate::review_diff::LineKind;
+
+        match &line.kind {
+            LineKind::FileHeader => {
+                let Some(file) = snapshot.files.get(line.file_index) else {
+                    return div().into_any_element();
+                };
+                div()
+                    .w_full()
+                    .min_w_0()
+                    .h(px(24.0))
+                    .pl(px(10.0))
+                    .pr(px(6.0))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(px(6.0))
+                    .bg(theme.overlay)
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .text_color(theme.text_secondary)
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(
+                        div()
+                            .min_w_0()
+                            .flex_1()
+                            .truncate()
+                            .child(SharedString::from(file.path.clone())),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .font_weight(FontWeight::NORMAL)
+                            .text_color(theme.success)
+                            .child(SharedString::from(format!("+{}", file.additions))),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .font_weight(FontWeight::NORMAL)
+                            .text_color(theme.danger)
+                            .child(SharedString::from(format!("-{}", file.deletions))),
+                    )
+                    .child(self.render_activity_open_file_button(
+                        format!("activity-diff-open-{id}-{}", line.file_index),
+                        file.path.clone(),
+                        theme,
+                        cx,
+                    ))
+                    .into_any_element()
+            }
+            // Unchanged lines the provider left out of its patch. Nothing was
+            // withheld locally, so this marks the break rather than offering
+            // to expand it the way the Review panel does.
+            LineKind::Gap(gap) => activity_diff_break_row(
+                Some(tr!("diff.unmodified_lines", count = gap.count())),
+                theme,
+            ),
+            LineKind::HunkHeader | LineKind::Meta => activity_diff_break_row(
+                (!line.content.is_empty()).then(|| line.content.clone()),
+                theme,
+            ),
+            LineKind::Context | LineKind::Addition | LineKind::Deletion => render_diff_code_row(
+                line,
+                index,
+                &format!("activity-diff-{id}"),
+                &self.transcript_selection,
+                DiffRowStyle::ACTIVITY,
+                theme,
+            ),
+        }
+    }
+}
+
+/// The separator between two hunks of the same file.
+fn activity_diff_break_row(label: Option<String>, theme: &Theme) -> AnyElement {
+    div()
+        .w_full()
+        .min_w_0()
+        .h(px(20.0))
+        .flex_none()
+        .flex()
+        .items_center()
+        .font_family(md::render::MONO_FAMILY)
+        .text_size(px(10.5))
+        .bg(theme.overlay)
+        .text_color(theme.text_ghost)
+        .child(
+            div()
+                .w(px(ACTIVITY_DIFF_GUTTER_WIDTH))
+                .flex_none()
+                .self_stretch()
+                .flex()
+                .items_center()
+                .justify_center()
+                .border_r_1()
+                .border_color(theme.border)
+                .child("⋯"),
+        )
+        .children(label.map(|label| {
+            div()
+                .min_w_0()
+                .pl(px(12.0))
+                .truncate()
+                .child(SharedString::from(label))
+        }))
+        .into_any_element()
 }
 
 fn activity_scroll_guard(viewport: ActivityScrollViewport, live: bool) -> impl IntoElement {

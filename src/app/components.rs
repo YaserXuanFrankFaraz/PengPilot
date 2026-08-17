@@ -1238,6 +1238,16 @@ fn activity_path_name(path: &str) -> String {
         .to_owned()
 }
 
+/// Whether this activity's expanded view shows a diff instead of the tool
+/// arguments that produced it.
+pub(super) fn activity_shows_diff(activity: &ActivityItem) -> bool {
+    activity.kind == ActivityKind::FileChange
+        && activity
+            .file_changes
+            .iter()
+            .any(|change| change.diff.is_some())
+}
+
 pub(super) fn activity_file_change_stats(activity: &ActivityItem) -> Option<(u64, u64)> {
     if activity.kind != crate::model::ActivityKind::FileChange
         || !activity.complete
@@ -1328,11 +1338,15 @@ pub(super) fn activity_disclosure_sections(
         }
         return sections;
     }
+    // An edit renders as a diff, which says everything the raw arguments would
+    // and reads. What the tool replied is only worth the room when it failed.
+    let shows_diff = activity_shows_diff(activity);
     if let Some(arguments) = activity
         .arguments
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .filter(|_| !shows_diff)
     {
         sections.push(ActivityDisclosureSection {
             kind: ActivityDisclosureSectionKind::Arguments,
@@ -1344,6 +1358,7 @@ pub(super) fn activity_disclosure_sections(
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .filter(|_| !shows_diff || activity.failed)
     {
         sections.push(ActivityDisclosureSection {
             kind: ActivityDisclosureSectionKind::Output,

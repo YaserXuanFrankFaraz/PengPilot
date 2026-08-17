@@ -136,6 +136,11 @@ fn collect_image_urls(value: &Value, urls: &mut Vec<String>) {
                 collect_image_urls(item, urls);
             }
         }
+        Value::String(text) => {
+            if let Some(path) = image_path_from_json_text(text) {
+                urls.push(path);
+            }
+        }
         Value::Object(object) => {
             if is_image_item(value) {
                 if let Some(url) = object
@@ -171,6 +176,19 @@ fn collect_image_urls(value: &Value, urls: &mut Vec<String>) {
                     urls.push(format!("data:{mime};base64,{data}"));
                 }
             }
+            // Grok Imagine tools return a local file path, not an ACP image
+            // content block: `{ "type": "ImageGen", "path": "/…/images/1.jpg" }`.
+            if is_local_image_tool_output(value)
+                && let Some(path) = object.get("path").and_then(Value::as_str)
+                && looks_like_image_path(path)
+            {
+                urls.push(path.to_owned());
+            }
+            if let Some(path) = object.get("path").and_then(Value::as_str)
+                && looks_like_image_path(path)
+            {
+                urls.push(path.to_owned());
+            }
             for key in ["content", "attachments", "files", "result"] {
                 if let Some(nested) = object.get(key) {
                     collect_image_urls(nested, urls);
@@ -191,6 +209,42 @@ fn is_image_item(value: &Value) -> bool {
         .and_then(Value::as_str);
     matches!(item_type, Some("image" | "inputImage"))
         || (item_type == Some("file") && mime.is_some_and(|mime| mime.starts_with("image/")))
+}
+
+fn is_local_image_tool_output(value: &Value) -> bool {
+    matches!(
+        value.get("type").and_then(Value::as_str),
+        Some("ImageGen" | "ImageEdit" | "image_gen" | "image_edit")
+    )
+}
+
+fn looks_like_image_path(path: &str) -> bool {
+    let path = path.trim();
+    if path.is_empty() {
+        return false;
+    }
+    std::path::Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "tif" | "tiff" | "heic"
+            )
+        })
+}
+
+fn image_path_from_json_text(text: &str) -> Option<String> {
+    let text = text.trim();
+    if !text.starts_with('{') {
+        return None;
+    }
+    let value: Value = serde_json::from_str(text).ok()?;
+    value
+        .get("path")
+        .and_then(Value::as_str)
+        .filter(|path| looks_like_image_path(path))
+        .map(str::to_owned)
 }
 
 fn non_empty_text(value: String) -> Option<String> {
