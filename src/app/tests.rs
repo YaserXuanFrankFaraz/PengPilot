@@ -19,8 +19,9 @@ use super::{
     should_refresh_branch_after_activity, should_show_navigation_rail,
     should_show_scroll_to_bottom, sidebar_material_width, task_id_from_notification_tag,
     task_notification_tag, transcript_anchor_end_space, transcript_navigation_turns,
-    transcript_row_kinds, transcript_row_splice, transcript_rows_fingerprint,
-    widened_panel_width_for_file_editor, widened_panel_width_for_review,
+    transcript_rests_at_tail, transcript_row_kinds, transcript_row_splice,
+    transcript_rows_fingerprint, widened_panel_width_for_file_editor,
+    widened_panel_width_for_review,
 };
 use crate::git_branch::BranchEntry;
 use crate::model::{
@@ -560,57 +561,84 @@ fn anchor_end_space_keeps_a_short_new_turn_at_the_viewport_top() {
 fn scroll_to_bottom_only_appears_while_the_tail_is_below_the_viewport() {
     let viewport_bottom = px(700.0);
 
-    assert!(!should_show_scroll_to_bottom(
-        false,
-        false,
-        true,
-        viewport_bottom,
-        None,
-        Pixels::ZERO,
-    ));
-    assert!(!should_show_scroll_to_bottom(
-        true,
-        true,
-        true,
-        viewport_bottom,
-        Some(px(900.0)),
-        Pixels::ZERO,
-    ));
+    assert_eq!(
+        should_show_scroll_to_bottom(false, false, true, viewport_bottom, None, Pixels::ZERO),
+        Some(false)
+    );
+    assert_eq!(
+        should_show_scroll_to_bottom(
+            true,
+            true,
+            true,
+            viewport_bottom,
+            Some(px(900.0)),
+            Pixels::ZERO,
+        ),
+        Some(false)
+    );
     // Disclosure pinning keeps `is_scrolled` true and a splice can leave the
     // tail temporarily unmeasured, but a collapsed transcript that fits the
     // viewport has nowhere to scroll back to.
-    assert!(!should_show_scroll_to_bottom(
-        true,
-        false,
-        false,
-        viewport_bottom,
-        None,
-        Pixels::ZERO,
-    ));
-    assert!(should_show_scroll_to_bottom(
-        true,
-        false,
-        true,
-        viewport_bottom,
-        None,
-        Pixels::ZERO,
-    ));
-    assert!(should_show_scroll_to_bottom(
-        true,
-        false,
-        true,
-        viewport_bottom,
-        Some(px(701.0)),
-        Pixels::ZERO,
-    ));
-    assert!(!should_show_scroll_to_bottom(
-        true,
-        false,
-        true,
-        viewport_bottom,
-        Some(px(500.0)),
-        px(200.0),
-    ));
+    assert_eq!(
+        should_show_scroll_to_bottom(true, false, false, viewport_bottom, None, Pixels::ZERO),
+        Some(false)
+    );
+    assert_eq!(
+        should_show_scroll_to_bottom(
+            true,
+            false,
+            true,
+            viewport_bottom,
+            Some(px(701.0)),
+            Pixels::ZERO,
+        ),
+        Some(true)
+    );
+    assert_eq!(
+        should_show_scroll_to_bottom(
+            true,
+            false,
+            true,
+            viewport_bottom,
+            Some(px(500.0)),
+            px(200.0),
+        ),
+        Some(false)
+    );
+    // A stream commit remeasures the tail rows, so the frame after each one has
+    // no bounds to read. Answering "show" there strobes the button against the
+    // measured frames between commits; the caller holds its last answer instead.
+    assert_eq!(
+        should_show_scroll_to_bottom(true, false, true, viewport_bottom, None, Pixels::ZERO),
+        None
+    );
+}
+
+#[test]
+fn transcript_tail_recheck_rests_on_measured_tail_bounds() {
+    let viewport_bottom = px(700.0);
+
+    // Landed on the tail: the reply's last row ends at the viewport bottom,
+    // with or without the anchor's reserved end space below it.
+    assert_eq!(
+        transcript_rests_at_tail(viewport_bottom, Some(px(700.0)), Pixels::ZERO),
+        Some(true)
+    );
+    assert_eq!(
+        transcript_rests_at_tail(viewport_bottom, Some(px(500.0)), px(200.0)),
+        Some(true)
+    );
+    // Stopped short of it, so the stream must not reclaim the view.
+    assert_eq!(
+        transcript_rests_at_tail(viewport_bottom, Some(px(701.0)), Pixels::ZERO),
+        Some(false)
+    );
+    // Unmeasured this frame: unknown, not "stopped short" — concluding the
+    // latter would drop the re-engage whenever a scroll settles on a commit.
+    assert_eq!(
+        transcript_rests_at_tail(viewport_bottom, None, Pixels::ZERO),
+        None
+    );
 }
 
 #[test]

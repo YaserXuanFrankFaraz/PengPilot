@@ -1421,7 +1421,21 @@ pub struct Waku {
     transcript_anchor: Cell<Option<TranscriptAnchor>>,
     transcript_anchor_end_space: Rc<Cell<Pixels>>,
     transcript_anchor_following: Rc<Cell<bool>>,
+    /// A wheel scroll has landed and where it came to rest is not classified
+    /// yet. The first frame that can measure the tail consumes this and
+    /// re-engages following when the reader scrolled back onto it; a frame that
+    /// cannot measure the tail leaves it set, so a stream remeasure cannot
+    /// swallow the re-engage.
+    transcript_tail_recheck: Rc<Cell<bool>>,
     transcript_is_scrolled: Rc<Cell<bool>>,
+    /// Last decided visibility of the scroll-to-tail affordance. The tail's
+    /// position is unknowable on the frames a stream commit remeasures it, and
+    /// those arrive at commit cadence — deciding "show" from that silence
+    /// strobes the button against the frames in between.
+    transcript_scroll_to_bottom_visible: Cell<bool>,
+    /// Whether the transcript's scrollbar thumb was held at the last frame, so
+    /// render can notice a drag starting and ending.
+    transcript_scrollbar_dragging: Cell<bool>,
     transcript_layout_width: Cell<Pixels>,
     /// Parsed markdown per assistant message, keeping each response's
     /// incremental parse and flattened blocks alive across frames.
@@ -2022,21 +2036,31 @@ impl Waku {
         let branch_picker_list_state = ListState::new(0, ListAlignment::Top, px(152.0));
         let transcript_is_scrolled = Rc::new(Cell::new(false));
         let transcript_anchor_following = Rc::new(Cell::new(false));
+        let transcript_tail_recheck = Rc::new(Cell::new(false));
+        // A wheel scroll drops tail following and asks the next measured frame
+        // whether it landed back on the tail. GPUI re-engages its own tail pin
+        // when a bottom-aligned list reaches the end — it represents that end as
+        // no logical offset — but a turn renders through the top-aligned
+        // anchored list, whose end is an ordinary offset, so only this can.
         transcript_rows.set_scroll_handler({
             let transcript_is_scrolled = transcript_is_scrolled.clone();
             let transcript_anchor_following = transcript_anchor_following.clone();
+            let transcript_tail_recheck = transcript_tail_recheck.clone();
             move |event, window, _| {
                 transcript_is_scrolled.set(event.is_scrolled);
                 transcript_anchor_following.set(false);
+                transcript_tail_recheck.set(true);
                 window.refresh();
             }
         });
         anchored_transcript_rows.set_scroll_handler({
             let transcript_is_scrolled = transcript_is_scrolled.clone();
             let transcript_anchor_following = transcript_anchor_following.clone();
+            let transcript_tail_recheck = transcript_tail_recheck.clone();
             move |event, window, _| {
                 transcript_is_scrolled.set(event.is_scrolled);
                 transcript_anchor_following.set(false);
+                transcript_tail_recheck.set(true);
                 window.refresh();
             }
         });
@@ -2683,7 +2707,10 @@ impl Waku {
                 transcript_anchor: Cell::new(None),
                 transcript_anchor_end_space: Rc::new(Cell::new(Pixels::ZERO)),
                 transcript_anchor_following,
+                transcript_tail_recheck,
                 transcript_is_scrolled,
+                transcript_scroll_to_bottom_visible: Cell::new(false),
+                transcript_scrollbar_dragging: Cell::new(false),
                 transcript_layout_width: Cell::new(Pixels::ZERO),
                 message_markdown: RefCell::new(HashMap::new()),
                 activity_markdown: RefCell::new(HashMap::new()),

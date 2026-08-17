@@ -168,6 +168,27 @@ impl Waku {
         self.sync_transcript_rows();
         self.sync_transcript_layout_width(window);
         let transcript_rows = self.active_transcript_rows().clone();
+        // A scrollbar drag owns the position for as long as it lasts, and the
+        // bar writes offsets straight into the list rather than through its
+        // scroll handler, so nothing else reports one. Release following as the
+        // thumb is taken — otherwise the pins below haul the view back on every
+        // frame of the drag — and hand back the same question a wheel scroll
+        // asks when the thumb is let go: did the reader come to rest on the
+        // tail?
+        let scrollbar_dragging = self.transcript_scrollbar.is_grabbed();
+        if self
+            .transcript_scrollbar_dragging
+            .replace(scrollbar_dragging)
+            != scrollbar_dragging
+        {
+            if scrollbar_dragging {
+                self.transcript_anchor_following.set(false);
+                self.transcript_is_scrolled.set(true);
+                self.transcript_tail_recheck.set(false);
+            } else {
+                self.transcript_tail_recheck.set(true);
+            }
+        }
         let anchor_end_space = self.update_transcript_anchor_end_space(window);
         if self.transcript_anchor_following.get()
             && anchor_end_space <= Pixels::ZERO
@@ -192,7 +213,23 @@ impl Waku {
             .checked_sub(1)
             .and_then(|last_row| transcript_rows.bounds_for_item(last_row))
             .map(|bounds| bounds.bottom());
-        let scroll_to_bottom = should_show_scroll_to_bottom(
+        // Scrolling back down onto the tail by hand re-engages following, just
+        // as the affordance below does. GPUI re-engages its own tail pin when a
+        // bottom-aligned list reaches the end, but a turn renders through the
+        // top-aligned anchored list and the pin there is ours, so without this
+        // the reader is stranded mid-stream after a round trip up and back —
+        // watching the reply grow past the bottom edge with no way but the
+        // button to rejoin it.
+        if self.transcript_tail_recheck.get()
+            && let Some(rests_at_tail) =
+                transcript_rests_at_tail(viewport_bottom, tail_bottom, anchor_end_space)
+        {
+            self.transcript_tail_recheck.set(false);
+            if rests_at_tail {
+                self.pin_transcript_to_tail();
+            }
+        }
+        let scroll_to_bottom_visible = should_show_scroll_to_bottom(
             self.transcript_is_scrolled.get(),
             self.transcript_anchor_following.get(),
             transcript_scrollable,
@@ -200,7 +237,10 @@ impl Waku {
             tail_bottom,
             anchor_end_space,
         )
-        .then(|| {
+        .unwrap_or_else(|| self.transcript_scroll_to_bottom_visible.get());
+        self.transcript_scroll_to_bottom_visible
+            .set(scroll_to_bottom_visible);
+        let scroll_to_bottom = scroll_to_bottom_visible.then(|| {
             let theme = Theme::current(cx);
             let focus = self.transcript_control_focus("transcript-scroll-to-bottom", cx);
             div()
@@ -315,11 +355,22 @@ impl Waku {
 
     fn scroll_transcript_to_bottom(&mut self, cx: &mut Context<Self>) {
         self.sync_transcript_rows();
+        self.pin_transcript_to_tail();
+        cx.notify();
+    }
+
+    /// Re-engage tail following from wherever the transcript sits now.
+    ///
+    /// What actually survives a growing reply is GPUI's past-the-end anchor,
+    /// not the follow flag: `scroll_to_end` parks the list on `item_count`, and
+    /// the layout walks backwards from there, so the last row's bottom stays
+    /// against the viewport as that row grows. The flag alone only re-pins in
+    /// the phase where the anchor's end space has already collapsed to zero.
+    fn pin_transcript_to_tail(&self) {
         self.transcript_anchor_following
             .set(self.transcript_anchor.get().is_some());
         self.active_transcript_rows().scroll_to_end();
         self.transcript_is_scrolled.set(false);
-        cx.notify();
     }
 
     /// Copy the transcript's text selection.

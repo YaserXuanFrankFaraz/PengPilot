@@ -725,11 +725,18 @@ pub(super) fn transcript_anchor_end_space(
 }
 
 /// Whether the transcript needs an explicit affordance for returning to its
-/// tail. A measured scroll range is required because disclosure pinning can
-/// leave `is_scrolled` set after a collapse removes all overflow. The final
-/// row's bounds then distinguish the tail position for both list alignments:
+/// tail, or `None` when the tail's position is unknowable this frame. A
+/// measured scroll range is required because disclosure pinning can leave
+/// `is_scrolled` set after a collapse removes all overflow. The final row's
+/// bounds then distinguish the tail position for both list alignments:
 /// `ListScrollEvent::is_scrolled` alone stays true at the bottom of the
 /// top-aligned list used while a turn is anchored.
+///
+/// The caller holds the previous answer through `None` rather than resolving
+/// it. Every stream commit remeasures the tail rows, so the frame after each
+/// one has no bounds to read, and answering "show" into that silence blinks the
+/// button against the measured frames in between — at commit cadence, for as
+/// long as the reader sits at the tail without following it.
 pub(super) fn should_show_scroll_to_bottom(
     is_scrolled: bool,
     anchor_following: bool,
@@ -737,12 +744,31 @@ pub(super) fn should_show_scroll_to_bottom(
     viewport_bottom: Pixels,
     tail_bottom: Option<Pixels>,
     end_space: Pixels,
-) -> bool {
+) -> Option<bool> {
     if !is_scrolled || anchor_following || !transcript_scrollable {
-        return false;
+        return Some(false);
     }
 
-    tail_bottom.is_none_or(|tail_bottom| tail_bottom + end_space > viewport_bottom + px(0.5))
+    Some(!transcript_rests_at_tail(
+        viewport_bottom,
+        tail_bottom,
+        end_space,
+    )?)
+}
+
+/// Whether the transcript currently sits at the end of its content, or `None`
+/// while the last row is unmeasured and its position is unknowable.
+///
+/// `None` is not `false`. The stream remeasures the tail on every commit, so a
+/// wheel scroll can easily settle on a frame that cannot answer; a caller
+/// waiting to re-engage tail following has to ask again rather than conclude
+/// the reader stopped short of the tail.
+pub(super) fn transcript_rests_at_tail(
+    viewport_bottom: Pixels,
+    tail_bottom: Option<Pixels>,
+    end_space: Pixels,
+) -> Option<bool> {
+    Some(tail_bottom? + end_space <= viewport_bottom + px(0.5))
 }
 
 pub(super) fn maintain_transcript_anchor(

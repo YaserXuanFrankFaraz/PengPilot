@@ -51,7 +51,10 @@ impl ScrollbarState {
         Rc::new(Self::default())
     }
 
-    fn is_grabbed(&self) -> bool {
+    /// True while the thumb is held. The bar writes offsets straight into the
+    /// surface without going through its scroll handler, so a surface that
+    /// tracks its own scroll intent has no other way to hear about a drag.
+    pub fn is_grabbed(&self) -> bool {
         self.grab_offset.get().is_some()
     }
 
