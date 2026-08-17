@@ -658,6 +658,16 @@ fn parse_omp_models(output: &str) -> Vec<ProviderModel> {
 }
 
 fn discover_kiro_models(binary: &Path) -> Vec<ProviderModel> {
+    // `kiro-cli chat` opens a browser login and blocks when the CLI is not
+    // authenticated, so probe auth first: an unauthenticated discovery
+    // degrades to no models instead of popping a login window at startup.
+    let mut auth = crate::command_env::command(binary);
+    let Ok(auth) = crate::command_env::output(auth.arg("whoami")) else {
+        return Vec::new();
+    };
+    if !auth.status.success() {
+        return Vec::new();
+    }
     let mut command = crate::command_env::command(binary);
     let command = command.args(["chat", "--list-models", "--format", "json"]);
     let Ok(output) = crate::command_env::output(command) else {
