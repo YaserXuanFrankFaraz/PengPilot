@@ -8,7 +8,7 @@ Every provider is reached through the same driver abstraction in
 [src/driver/mod.rs](../src/driver/mod.rs). Settings and the model picker only
 offer the featured catalog (`ProviderKind::FEATURED`: Claude Code, Codex,
 Cursor, OpenCode, Grok Build, Kiro, Trae, DeepSeek Harness, Hermes Agent,
-GitHub Copilot CLI, Pi, Oh My Pi).
+Pi, Oh My Pi).
 Eight transports still cover `ProviderKind::ALL` so existing sessions on other
 CLIs keep running. ACP, RPC, server, and streaming-input drivers keep a resident
 conversation; native print-mode JSON/JSONL CLIs start one process per turn and
@@ -23,7 +23,7 @@ resume when their protocol returns a session id:
 | Claude streaming-input session (NDJSON over stdio) | [src/driver/claude.rs](../src/driver/claude.rs) | Claude Code |
 | Amp streaming-JSON session (NDJSON over stdio) | [src/driver/amp.rs](../src/driver/amp.rs) | Amp |
 | DeepSeek Harness Host (JSON-RPC over stdio) | [src/driver/deepseek.rs](../src/driver/deepseek.rs) | DeepSeek Harness |
-| Native one-shot JSON/JSONL | [src/driver/json_cli.rs](../src/driver/json_cli.rs) | Antigravity, CodeBuddy, GitHub Copilot CLI, DevEco Code, Qwen Code |
+| Native one-shot JSON/JSONL | [src/driver/json_cli.rs](../src/driver/json_cli.rs) | Antigravity, CodeBuddy, DevEco Code, Qwen Code |
 
 ## The driver contract
 

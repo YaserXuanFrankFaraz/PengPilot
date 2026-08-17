@@ -13,7 +13,6 @@ pub enum ProviderKind {
     CodeBuddy,
     #[default]
     Codex,
-    Copilot,
     Cursor,
     DeepSeek,
     DevEco,
@@ -36,7 +35,7 @@ pub enum ProviderKind {
 impl ProviderKind {
     /// Public catalog for new work. Other enum variants remain so older
     /// sessions still deserialize and continue running.
-    pub const FEATURED: [Self; 12] = [
+    pub const FEATURED: [Self; 11] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -46,12 +45,11 @@ impl ProviderKind {
         Self::Trae,
         Self::DeepSeek,
         Self::Hermes,
-        Self::Copilot,
         Self::Pi,
         Self::Omp,
     ];
     /// Runtime integrations retained for current and legacy sessions.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 13] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -61,7 +59,6 @@ impl ProviderKind {
         Self::Trae,
         Self::DeepSeek,
         Self::Hermes,
-        Self::Copilot,
         Self::Kimi,
         Self::Pi,
         Self::Omp,
@@ -87,7 +84,6 @@ impl ProviderKind {
             Self::Claude => "claude",
             Self::CodeBuddy => "codebuddy",
             Self::Codex => "codex",
-            Self::Copilot => "copilot",
             Self::Cursor => "cursor",
             Self::DeepSeek => "deepseek",
             Self::DevEco => "deveco",
@@ -115,7 +111,6 @@ impl ProviderKind {
             Self::Claude => "Claude Code (CLI)",
             Self::CodeBuddy => "CodeBuddy",
             Self::Codex => "Codex (CLI)",
-            Self::Copilot => "GitHub Copilot (CLI)",
             Self::Cursor => "Cursor (CLI)",
             Self::DeepSeek => "DeepSeek Harness",
             Self::DevEco => "DevEco Code",
@@ -143,7 +138,6 @@ impl ProviderKind {
             Self::Claude => "Claude",
             Self::CodeBuddy => "CodeBuddy",
             Self::Codex => "Codex",
-            Self::Copilot => "Copilot",
             Self::Cursor => "Cursor",
             Self::DeepSeek => "DeepSeek",
             Self::DevEco => "DevEco",
@@ -171,7 +165,6 @@ impl ProviderKind {
             Self::Claude => "claude",
             Self::CodeBuddy => "codebuddy",
             Self::Codex => "codex",
-            Self::Copilot => "copilot",
             // Cursor documents `agent` as its primary command, but that name is
             // shared by other CLIs. The backward-compatible alias is unambiguous.
             Self::Cursor => "cursor-agent",
@@ -3305,7 +3298,6 @@ mod tests {
         assert_eq!(ProviderKind::Kiro.command(), "kiro-cli");
         assert_eq!(ProviderKind::Hermes.command(), "hermes");
         assert_eq!(ProviderKind::Prime.command(), "prime-agent");
-        assert_eq!(ProviderKind::Copilot.command(), "copilot");
         assert_eq!(ProviderKind::QoderCn.command(), "qoderclicn");
         assert_eq!(ProviderKind::Trae.command(), "traecli");
     }

@@ -35,8 +35,7 @@ pub fn asset_icon(path: &'static str, size: f32, color: Hsla) -> Div {
     let is_full_color = path.ends_with(".png")
         || matches!(
             path,
-            "icons/provider-copilot.svg"
-                | "icons/provider-cursor.svg"
+            "icons/provider-cursor.svg"
                 | "icons/provider-omp-color.svg"
                 | "icons/provider-pi.svg"
         );
@@ -97,7 +96,6 @@ pub fn provider_color(theme: &Theme, provider: ProviderKind) -> Hsla {
         ProviderKind::Kiro => rgb(0x9046FF).into(),
         ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Prime
@@ -129,7 +127,6 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::Amp => "icons/provider-amp.svg",
         ProviderKind::Claude => "icons/provider-claude.png",
         ProviderKind::Codex => "icons/provider-openai.png",
-        ProviderKind::Copilot => "icons/provider-copilot.svg",
         ProviderKind::Cursor => "icons/provider-cursor.svg",
         ProviderKind::DeepSeek => "icons/provider-deepseek.png",
         ProviderKind::OpenCode => "icons/provider-opencode.png",

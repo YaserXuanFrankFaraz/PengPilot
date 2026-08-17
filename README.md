@@ -58,7 +58,6 @@ claimed as release-verified support.
 | [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` | Not installed; unverified |
 | Trae (CLI) | `traecli` | Not installed; unverified |
 | [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` | Not installed; unverified |
-| GitHub Copilot (CLI) | `copilot` | Not installed; unverified |
 
 Verification means a real authenticated CLI smoke test (detection + a
 streamed turn) passed on the exact release commit. dsh is verified through
@@ -246,7 +245,6 @@ PengPilot 是一款使用 Rust 和
 | [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` | 未安装；未验证 |
 | Trae（CLI） | `traecli` | 未安装；未验证 |
 | [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` | 未安装；未验证 |
-| GitHub Copilot（CLI） | `copilot` | 未安装；未验证 |
 
 验证指在打包的发布提交上通过真实鉴权 CLI 冒烟测试（检测 + 一轮流式回复）。
 dsh 验证到 host 启动（即 PengPilot 驱动的传输层），未跑完整 Harness RPC

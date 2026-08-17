@@ -381,7 +381,6 @@ fn agent_arguments(
         }
         ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Prime
@@ -810,7 +809,6 @@ mod tests {
                 }
                 ProviderKind::Antigravity
                 | ProviderKind::CodeBuddy
-                | ProviderKind::Copilot
                 | ProviderKind::DevEco
                 | ProviderKind::Kimi
                 | ProviderKind::Prime

@@ -83,7 +83,6 @@ pub fn fallback_models(provider: ProviderKind) -> Vec<ProviderModel> {
         }
         ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Qoder
@@ -139,7 +138,6 @@ pub fn discover_catalog(
         ProviderKind::Hermes => (discover_hermes_models(binary), None),
         ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Qoder

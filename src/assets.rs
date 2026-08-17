@@ -161,7 +161,6 @@ const ICONS: &[(&str, &[u8])] = icons![
     "pencil",
     "plus",
     "provider-amp",
-    "provider-copilot",
     "provider-cursor",
     "provider-omp-color",
     "provider-pi",

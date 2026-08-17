@@ -15,6 +15,5 @@ site on 2026-08-15, matching the icon browsers show beside the tab title.
 | Trae | https://www.trae.ai/ | `trae_website/favicon.png` |
 | DeepSeek Harness | https://deepseek.com/harness | `favicon.ico` |
 | Hermes Agent | https://hermes-agent.nousresearch.com/ | `icon.png` |
-| GitHub Copilot | https://github.com/features/copilot | `githubassets.com/favicons/favicon.svg` |
 | Pi | https://pi.dev/ | `favicon.svg` |
 | Oh My Pi | https://omp.sh/ | `favicon.svg` |

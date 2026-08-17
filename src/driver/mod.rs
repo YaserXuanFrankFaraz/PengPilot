@@ -215,7 +215,6 @@ pub fn start(
         | ProviderKind::Trae => Arc::new(acp::AcpDriver::start(provider, options, events)?),
         ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Qwen => {
             Arc::new(json_cli::JsonCliDriver::start(provider, options, events)?)

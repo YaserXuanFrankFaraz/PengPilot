@@ -1508,7 +1508,10 @@ fn session_skeleton(row: SessionColumns) -> Option<AgentSession> {
         auto_title,
         project_id: Uuid::parse_str(&project_id).ok()?,
         workspace: SessionWorkspace::Local,
-        provider: serde_json::from_value(serde_json::Value::String(provider)).ok()?,
+        provider: serde_json::from_value(serde_json::Value::String(provider))
+            // Providers removed from the catalog stay readable: a legacy
+            // session whose provider tag no longer exists opens as Codex.
+            .unwrap_or(ProviderKind::Codex),
         model,
         // Hydration replaces these; the list never reads them.
         runtime_mode: RuntimeMode::default(),

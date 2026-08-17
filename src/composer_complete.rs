@@ -406,7 +406,6 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
         | ProviderKind::Grok
         | ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Qoder

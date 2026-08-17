@@ -280,22 +280,6 @@ fn configure_command(
             }
             return true;
         }
-        ProviderKind::Copilot => {
-            command.args([
-                "-p",
-                prompt,
-                "--output-format",
-                "json",
-                "--allow-all",
-                "--no-ask-user",
-            ]);
-            if let Some(model) = model {
-                command.args(["--model", model]);
-            }
-            if let Some(cursor) = cursor {
-                command.args(["--resume", cursor]);
-            }
-        }
         ProviderKind::DevEco => {
             command.args(["run", "--format", "json", "--dangerously-skip-permissions"]);
             if let Some(cwd) = command.get_current_dir().map(std::path::Path::to_owned) {
@@ -496,36 +480,6 @@ mod tests {
     use super::*;
     use crate::driver::test_event_channel;
 
-    #[test]
-    fn copilot_delta_and_session_are_preserved() {
-        let (events, received) = test_event_channel();
-        let config = Config {
-            provider: ProviderKind::Copilot,
-            binary: "copilot".into(),
-            cwd: ".".into(),
-            model: None,
-            cursor: Mutex::new(None),
-            child: Mutex::new(None),
-            running: AtomicBool::new(false),
-            events,
-        };
-        let mut state = StreamState::default();
-        handle_value(
-            &config,
-            &json!({"type":"session.start","data":{"sessionId":"s1"}}),
-            &mut state,
-        );
-        handle_value(
-            &config,
-            &json!({"type":"assistant.message_delta","data":{"deltaContent":"hi"}}),
-            &mut state,
-        );
-        assert!(matches!(
-            received.recv().unwrap(),
-            DriverEvent::Connected { .. }
-        ));
-        assert!(matches!(received.recv().unwrap(), DriverEvent::TextDelta(text) if text == "hi"));
-    }
 
     #[test]
     fn qwen_content_blocks_keep_reasoning_and_text_order() {
@@ -603,12 +557,6 @@ mod tests {
             codebuddy
                 .windows(2)
                 .any(|pair| pair == ["--output-format", "stream-json"])
-        );
-        assert!(
-            args(ProviderKind::Copilot)
-                .1
-                .windows(2)
-                .any(|pair| pair == ["--output-format", "json"])
         );
         assert!(
             args(ProviderKind::DevEco)

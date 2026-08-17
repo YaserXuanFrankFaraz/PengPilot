@@ -379,7 +379,6 @@ fn perform_provider_rewind(
         | ProviderKind::Hermes
         | ProviderKind::Antigravity
         | ProviderKind::CodeBuddy
-        | ProviderKind::Copilot
         | ProviderKind::DevEco
         | ProviderKind::Kimi
         | ProviderKind::Qoder
@@ -653,7 +652,6 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
             | ProviderKind::Hermes
             | ProviderKind::Antigravity
             | ProviderKind::CodeBuddy
-            | ProviderKind::Copilot
             | ProviderKind::DevEco
             | ProviderKind::Kimi
             | ProviderKind::Qoder

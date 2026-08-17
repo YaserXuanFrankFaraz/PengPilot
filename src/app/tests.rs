@@ -1886,7 +1886,6 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
     let probes = [
         probe(ProviderKind::Claude, true),
         probe(ProviderKind::Codex, true),
-        probe(ProviderKind::Copilot, true),
         probe(ProviderKind::Cursor, true),
         probe(ProviderKind::Hermes, true),
     ];
@@ -1894,17 +1893,16 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
     // Catalog is featured-only, detected first, alphabetical inside each group.
     let provider_order = provider_picker_order(&probes, None);
     assert_eq!(
-        &provider_order[..5],
+        &provider_order[..4],
         &[
             ProviderKind::Claude,
             ProviderKind::Codex,
             ProviderKind::Cursor,
-            ProviderKind::Copilot,
             ProviderKind::Hermes,
         ]
     );
     assert_eq!(
-        &provider_order[5..],
+        &provider_order[4..],
         &[
             ProviderKind::DeepSeek,
             ProviderKind::Grok,
@@ -1924,7 +1922,6 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ModelPickerTab::Provider(ProviderKind::Claude),
             ModelPickerTab::Provider(ProviderKind::Codex),
             ModelPickerTab::Provider(ProviderKind::Cursor),
-            ModelPickerTab::Provider(ProviderKind::Copilot),
             ModelPickerTab::Provider(ProviderKind::Hermes),
         ]
     );
@@ -1936,7 +1933,6 @@ fn tab_cycle_walks_favorites_then_usable_providers_in_rail_order() {
             ModelPickerTab::Favorites,
             ModelPickerTab::Provider(ProviderKind::Codex),
             ModelPickerTab::Provider(ProviderKind::Cursor),
-            ModelPickerTab::Provider(ProviderKind::Copilot),
             ModelPickerTab::Provider(ProviderKind::Hermes),
         ]
     );
