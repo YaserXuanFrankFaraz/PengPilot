@@ -14,6 +14,21 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.18]
+
+### Chrome alignment
+
+- Right-panel toggle and background-work info stay only in the global chrome
+  titlebar, whether the right panel is open or closed. Opening the panel no
+  longer stacks a second toggle under the chrome controls.
+
+### 中文摘要
+
+**顶栏对齐**
+
+- 右栏折叠按钮与后台任务 info 只留在全局顶栏；右栏展开时不再在下方叠第二颗
+  折叠按钮。
+
 ## [0.1.17]
 
 ### App icon refresh

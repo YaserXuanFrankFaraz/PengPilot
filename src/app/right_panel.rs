@@ -2212,7 +2212,7 @@ impl Waku {
         }
     }
 
-    fn render_right_panel_header(&self, window: &Window, cx: &mut Context<Self>) -> Stateful<Div> {
+    fn render_right_panel_header(&self, _window: &Window, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = Theme::current(cx);
         let active_surface = self.right_panel_active_surface;
         let mut tabs = div()
@@ -2415,16 +2415,7 @@ impl Waku {
             );
         }
 
-        self.window_drag_region(
-            header.child(self.render_right_panel_toggle(cx)).children(
-                self.render_client_window_controls(
-                    super::window_chrome::WindowControlSide::Right,
-                    window,
-                    cx,
-                ),
-            ),
-            cx,
-        )
+        self.window_drag_region(header, cx)
     }
 
     fn render_right_panel_chooser(&self, cx: &mut Context<Self>) -> Stateful<Div> {

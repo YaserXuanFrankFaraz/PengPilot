@@ -316,12 +316,10 @@ impl Waku {
                 cx,
             ))
             .child(self.render_background_work_summary(cx))
-            .when(self.fps_counter_visible && !self.right_panel_visible, |bar| {
+            .when(self.fps_counter_visible, |bar| {
                 bar.child(self.render_fps_counter(cx))
             })
-            .when(!self.right_panel_visible, |bar| {
-                bar.child(self.render_right_panel_toggle(cx))
-            })
+            .child(self.render_right_panel_toggle(cx))
             .children(self.render_client_window_controls(
                 super::window_chrome::WindowControlSide::Right,
                 window,
@@ -1530,9 +1528,6 @@ impl Waku {
                     })),
             )
             .child(div().id("header-center").h_full().flex_1())
-            .when(self.right_panel_visible && self.fps_counter_visible, |element| {
-                element.child(self.render_fps_counter(cx))
-            })
     }
 
     // ── Empty states ───────────────────────────────────────────────────────
