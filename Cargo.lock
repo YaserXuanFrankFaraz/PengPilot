@@ -4869,6 +4869,7 @@ dependencies = [
  "objc2-user-notifications",
  "objc2-web-kit",
  "parking_lot",
+ "pengpilot-protocol",
  "pulldown-cmark",
  "raw-window-handle",
  "regex",
@@ -4887,6 +4888,15 @@ dependencies = [
  "url",
  "uuid",
  "wry",
+]
+
+[[package]]
+name = "pengpilot-protocol"
+version = "0.1.19"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
