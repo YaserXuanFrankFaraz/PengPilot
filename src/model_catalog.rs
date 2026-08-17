@@ -76,21 +76,11 @@ pub fn fallback_models(provider: ProviderKind) -> Vec<ProviderModel> {
         // Pi's catalog depends on the user's configured LLM providers. A
         // fabricated fallback would make unavailable models look selectable.
         ProviderKind::Pi => Vec::new(),
-        ProviderKind::Prime => Vec::new(),
         ProviderKind::Omp => Vec::new(),
         ProviderKind::Kiro | ProviderKind::Hermes => {
             vec![ProviderModel::new("default", tr!("model_option.auto")).default()]
         }
-        ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
-        | ProviderKind::Trae => Vec::new(),
+        ProviderKind::Trae => Vec::new(),
     }
 }
 
@@ -132,20 +122,10 @@ pub fn discover_catalog(
         ProviderKind::OpenCode => (discover_opencode_models(binary), None),
         ProviderKind::Grok => (discover_grok_models(binary), None),
         ProviderKind::Pi => (discover_pi_models(binary), None),
-        ProviderKind::Prime => (discover_pi_models(binary), None),
         ProviderKind::Omp => (discover_omp_models(binary), None),
         ProviderKind::Kiro => (discover_kiro_models(binary), None),
         ProviderKind::Hermes => (discover_hermes_models(binary), None),
-        ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
-        | ProviderKind::Trae => (Vec::new(), None),
+        ProviderKind::Trae => (Vec::new(), None),
     };
     let models = if discovered.is_empty() {
         // A failed or empty probe keeps the last successful discovery over

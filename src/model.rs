@@ -8,27 +8,17 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub enum ProviderKind {
     Amp,
-    Antigravity,
     Claude,
-    CodeBuddy,
     #[default]
     Codex,
     Cursor,
     DeepSeek,
-    DevEco,
     OpenCode,
     Grok,
-    Kimi,
     Pi,
-    Prime,
     Omp,
     Kiro,
     Hermes,
-    Qoder,
-    QoderCn,
-    Qwen,
-    QwenPaw,
-    Reasonix,
     Trae,
 }
 
@@ -49,7 +39,7 @@ impl ProviderKind {
         Self::Omp,
     ];
     /// Runtime integrations retained for current and legacy sessions.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 11] = [
         Self::Claude,
         Self::Codex,
         Self::Cursor,
@@ -59,10 +49,8 @@ impl ProviderKind {
         Self::Trae,
         Self::DeepSeek,
         Self::Hermes,
-        Self::Kimi,
         Self::Pi,
         Self::Omp,
-        Self::Prime,
     ];
 
     pub fn is_featured(self) -> bool {
@@ -80,26 +68,16 @@ impl ProviderKind {
     pub fn id(self) -> &'static str {
         match self {
             Self::Amp => "amp",
-            Self::Antigravity => "antigravity",
             Self::Claude => "claude",
-            Self::CodeBuddy => "codebuddy",
             Self::Codex => "codex",
             Self::Cursor => "cursor",
             Self::DeepSeek => "deepseek",
-            Self::DevEco => "deveco",
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
-            Self::Kimi => "kimi",
             Self::Pi => "pi",
-            Self::Prime => "prime",
             Self::Omp => "omp",
             Self::Kiro => "kiro",
             Self::Hermes => "hermes",
-            Self::Qoder => "qoder",
-            Self::QoderCn => "qoder-cn",
-            Self::Qwen => "qwen",
-            Self::QwenPaw => "qwenpaw",
-            Self::Reasonix => "reasonix",
             Self::Trae => "trae",
         }
     }
@@ -107,26 +85,16 @@ impl ProviderKind {
     pub fn display_name(self) -> &'static str {
         match self {
             Self::Amp => "Amp",
-            Self::Antigravity => "Antigravity",
             Self::Claude => "Claude Code (CLI)",
-            Self::CodeBuddy => "CodeBuddy",
             Self::Codex => "Codex (CLI)",
             Self::Cursor => "Cursor (CLI)",
             Self::DeepSeek => "DeepSeek Harness",
-            Self::DevEco => "DevEco Code",
             Self::OpenCode => "OpenCode (CLI)",
             Self::Grok => "Grok Build (CLI)",
-            Self::Kimi => "Kimi Code (CLI)",
             Self::Pi => "Pi (CLI)",
-            Self::Prime => "Prime Agent (CLI)",
             Self::Omp => "Oh My Pi (CLI)",
             Self::Kiro => "Kiro (CLI)",
             Self::Hermes => "Hermes Agent (CLI)",
-            Self::Qoder => "Qoder CLI",
-            Self::QoderCn => "Qoder CLI CN",
-            Self::Qwen => "Qwen Code",
-            Self::QwenPaw => "QwenPaw",
-            Self::Reasonix => "Reasonix",
             Self::Trae => "Trae (CLI)",
         }
     }
@@ -134,26 +102,16 @@ impl ProviderKind {
     pub fn short_name(self) -> &'static str {
         match self {
             Self::Amp => "Amp",
-            Self::Antigravity => "Antigravity",
             Self::Claude => "Claude",
-            Self::CodeBuddy => "CodeBuddy",
             Self::Codex => "Codex",
             Self::Cursor => "Cursor",
             Self::DeepSeek => "DeepSeek",
-            Self::DevEco => "DevEco",
             Self::OpenCode => "OpenCode",
             Self::Grok => "Grok",
-            Self::Kimi => "Kimi Code",
             Self::Pi => "Pi",
-            Self::Prime => "Prime",
             Self::Omp => "OMP",
             Self::Kiro => "Kiro",
             Self::Hermes => "Hermes",
-            Self::Qoder => "Qoder",
-            Self::QoderCn => "Qoder CN",
-            Self::Qwen => "Qwen",
-            Self::QwenPaw => "QwenPaw",
-            Self::Reasonix => "Reasonix",
             Self::Trae => "Trae",
         }
     }
@@ -161,28 +119,18 @@ impl ProviderKind {
     pub fn command(self) -> &'static str {
         match self {
             Self::Amp => "amp",
-            Self::Antigravity => "agy",
             Self::Claude => "claude",
-            Self::CodeBuddy => "codebuddy",
             Self::Codex => "codex",
             // Cursor documents `agent` as its primary command, but that name is
             // shared by other CLIs. The backward-compatible alias is unambiguous.
             Self::Cursor => "cursor-agent",
             Self::DeepSeek => "dsh",
-            Self::DevEco => "deveco",
             Self::OpenCode => "opencode",
             Self::Grok => "grok",
-            Self::Kimi => "kimi",
             Self::Pi => "pi",
-            Self::Prime => "prime-agent",
             Self::Omp => "omp",
             Self::Kiro => "kiro-cli",
             Self::Hermes => "hermes",
-            Self::Qoder => "qodercli",
-            Self::QoderCn => "qoderclicn",
-            Self::Qwen => "qwen",
-            Self::QwenPaw => "qwenpaw",
-            Self::Reasonix => "reasonix",
             Self::Trae => "traecli",
         }
     }
@@ -198,7 +146,6 @@ impl ProviderKind {
                 | Self::OpenCode
                 | Self::Grok
                 | Self::Pi
-                | Self::Prime
         )
     }
 
@@ -213,7 +160,6 @@ impl ProviderKind {
                 | Self::OpenCode
                 | Self::Grok
                 | Self::Pi
-                | Self::Prime
         )
     }
 
@@ -229,7 +175,6 @@ impl ProviderKind {
                 | Self::Omp
                 | Self::Kiro
                 | Self::Hermes
-                | Self::Prime
         )
     }
 }
@@ -3297,24 +3242,12 @@ mod tests {
         assert_eq!(ProviderKind::Omp.command(), "omp");
         assert_eq!(ProviderKind::Kiro.command(), "kiro-cli");
         assert_eq!(ProviderKind::Hermes.command(), "hermes");
-        assert_eq!(ProviderKind::Prime.command(), "prime-agent");
-        assert_eq!(ProviderKind::QoderCn.command(), "qoderclicn");
         assert_eq!(ProviderKind::Trae.command(), "traecli");
-    }
-
-    #[test]
-    fn hidden_providers_remain_runtime_compatible() {
-        assert!(!ProviderKind::Prime.is_featured());
-        assert!(!ProviderKind::Kimi.is_featured());
-        assert!(ProviderKind::ALL.contains(&ProviderKind::Prime));
-        assert!(ProviderKind::ALL.contains(&ProviderKind::Kimi));
     }
 
     #[test]
     fn provider_labels_fit_their_surfaces() {
         assert_eq!(ProviderKind::DeepSeek.display_name(), "DeepSeek Harness");
-        assert_eq!(ProviderKind::Kimi.display_name(), "Kimi Code (CLI)");
-        assert_eq!(ProviderKind::Kimi.short_name(), "Kimi Code");
         for provider in ProviderKind::ALL {
             assert!(!provider.short_name().contains("(CLI)"));
         }
@@ -3331,7 +3264,6 @@ mod tests {
             ProviderKind::OpenCode,
             ProviderKind::Grok,
             ProviderKind::Pi,
-            ProviderKind::Prime,
         ] {
             assert!(provider.supports_conversation_fork());
             assert!(provider.supports_conversation_rollback());
@@ -3357,7 +3289,6 @@ mod tests {
         assert!(ProviderKind::Omp.supports_model_discovery());
         assert!(ProviderKind::Kiro.supports_model_discovery());
         assert!(ProviderKind::Hermes.supports_model_discovery());
-        assert!(ProviderKind::Prime.supports_model_discovery());
     }
 
     #[test]

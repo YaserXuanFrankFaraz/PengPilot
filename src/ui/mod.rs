@@ -94,16 +94,6 @@ pub fn provider_color(theme: &Theme, provider: ProviderKind) -> Hsla {
         ProviderKind::Claude => rgb(0xD97757).into(),
         ProviderKind::DeepSeek => rgb(0x4D6BFE).into(),
         ProviderKind::Kiro => rgb(0x9046FF).into(),
-        ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Prime
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
         | ProviderKind::Trae
         | ProviderKind::Codex
         | ProviderKind::Cursor
@@ -136,16 +126,6 @@ pub fn provider_icon(provider: ProviderKind) -> &'static str {
         ProviderKind::Kiro => "icons/provider-kiro.png",
         ProviderKind::Hermes => "icons/provider-hermes.png",
         ProviderKind::Trae => "icons/provider-trae.png",
-        ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Prime
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix => "icons/terminal-square.svg",
     }
 }
 

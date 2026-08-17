@@ -355,7 +355,7 @@ fn perform_provider_rewind(
             )?;
             Ok((Some(cursor), None, None))
         }
-        ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi | ProviderKind::Prime => {
+        ProviderKind::Codex | ProviderKind::DeepSeek | ProviderKind::Pi => {
             let mut prepared_driver = None;
             let driver = if let Some(driver) = request.driver.as_ref() {
                 driver.clone()
@@ -377,15 +377,6 @@ fn perform_provider_rewind(
         ProviderKind::Omp
         | ProviderKind::Kiro
         | ProviderKind::Hermes
-        | ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
         | ProviderKind::Trae => anyhow::bail!(
             "{} does not support conversation rollback in PengPilot yet",
             provider.display_name()
@@ -634,7 +625,7 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
                     None,
                 ))
             }
-            ProviderKind::Pi | ProviderKind::Prime => {
+            ProviderKind::Pi => {
                 if !matches!(
                     request.source.provider_cursor.as_ref(),
                     Some(ProviderResumeCursor::Pi {
@@ -650,15 +641,6 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
             ProviderKind::Omp
             | ProviderKind::Kiro
             | ProviderKind::Hermes
-            | ProviderKind::Antigravity
-            | ProviderKind::CodeBuddy
-            | ProviderKind::DevEco
-            | ProviderKind::Kimi
-            | ProviderKind::Qoder
-            | ProviderKind::QoderCn
-            | ProviderKind::Qwen
-            | ProviderKind::QwenPaw
-            | ProviderKind::Reasonix
             | ProviderKind::Trae => anyhow::bail!(
                 "{} does not support conversation forks in PengPilot yet",
                 request.source.provider.display_name()

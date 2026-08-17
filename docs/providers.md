@@ -20,13 +20,12 @@ resume when their protocol returns a session id:
 | Transport | File | Providers |
 | --- | --- | --- |
 | Codex app-server (JSON-RPC over stdio) | [src/driver/codex.rs](../src/driver/codex.rs) | Codex CLI |
-| Agent Client Protocol (JSON-RPC over stdio) | [src/driver/acp.rs](../src/driver/acp.rs) | Cursor CLI, Grok Build, Oh My Pi, Kiro CLI, Hermes Agent, Kimi CLI, Qoder CLI, Qoder CLI CN, QwenPaw, Reasonix, Trae CLI |
+| Agent Client Protocol (JSON-RPC over stdio) | [src/driver/acp.rs](../src/driver/acp.rs) | Cursor CLI, Grok Build, Oh My Pi, Kiro CLI, Hermes Agent, Trae CLI |
 | OpenCode server (HTTP + server-sent events) | [src/driver/opencode.rs](../src/driver/opencode.rs) | OpenCode |
-| Pi-compatible RPC mode (NDJSON request/response over stdio) | [src/driver/pi.rs](../src/driver/pi.rs) | Pi, Prime Agent |
+| Pi-compatible RPC mode (NDJSON request/response over stdio) | [src/driver/pi.rs](../src/driver/pi.rs) | Pi |
 | Claude streaming-input session (NDJSON over stdio) | [src/driver/claude.rs](../src/driver/claude.rs) | Claude Code |
 | Amp streaming-JSON session (NDJSON over stdio) | [src/driver/amp.rs](../src/driver/amp.rs) | Amp |
 | DeepSeek Harness Host (JSON-RPC over stdio) | [src/driver/deepseek.rs](../src/driver/deepseek.rs) | DeepSeek Harness |
-| Native one-shot JSON/JSONL | [src/driver/json_cli.rs](../src/driver/json_cli.rs) | Antigravity, CodeBuddy, DevEco Code, Qwen Code |
 
 ## The driver contract
 

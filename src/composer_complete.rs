@@ -362,24 +362,6 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
                 scan_skill_files(&home.join(".pi/agent/skills"), &mut commands);
             }
         }
-        ProviderKind::Prime => {
-            scan_command_files(
-                &project_root.join(".prime/agent/prompts"),
-                CommandScope::Project,
-                true,
-                &mut commands,
-            );
-            scan_skill_files(&project_root.join(".prime/agent/skills"), &mut commands);
-            if let Some(home) = home.as_deref() {
-                scan_command_files(
-                    &home.join(".prime/agent/prompts"),
-                    CommandScope::User,
-                    true,
-                    &mut commands,
-                );
-                scan_skill_files(&home.join(".prime/agent/skills"), &mut commands);
-            }
-        }
         ProviderKind::Omp => {
             if let Some(home) = home.as_deref() {
                 scan_skill_files(&home.join(".omp/agent/skills"), &mut commands);
@@ -404,15 +386,6 @@ pub fn discover_slash_commands(provider: ProviderKind, project_root: &Path) -> V
         // Harness commands are session-scoped and reported live by the Host.
         ProviderKind::DeepSeek
         | ProviderKind::Grok
-        | ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
         | ProviderKind::Trae => {}
     }
     // The cross-tool skill standard, read by Amp and OpenCode among others;

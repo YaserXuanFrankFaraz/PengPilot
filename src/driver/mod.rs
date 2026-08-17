@@ -5,7 +5,6 @@ mod claude;
 mod codex;
 mod computer_use;
 mod deepseek;
-mod json_cli;
 mod opencode;
 mod pi;
 mod support;
@@ -196,7 +195,7 @@ pub fn start(
 ) -> anyhow::Result<DriverHandle> {
     let inner: Arc<dyn DriverControl> = match provider {
         ProviderKind::Codex => Arc::new(codex::CodexDriver::start(options, events)?),
-        ProviderKind::Pi | ProviderKind::Prime => {
+        ProviderKind::Pi => {
             Arc::new(pi::PiDriver::start(provider, options, events)?)
         }
         // These providers serve a long-lived ACP session, which is the only
@@ -207,18 +206,7 @@ pub fn start(
         | ProviderKind::Omp
         | ProviderKind::Kiro
         | ProviderKind::Hermes
-        | ProviderKind::Kimi
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
         | ProviderKind::Trae => Arc::new(acp::AcpDriver::start(provider, options, events)?),
-        ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Qwen => {
-            Arc::new(json_cli::JsonCliDriver::start(provider, options, events)?)
-        }
         ProviderKind::DeepSeek => Arc::new(deepseek::DeepSeekDriver::start(options, events)?),
         // OpenCode's own server is its real API, and it is what exposes
         // interactive permission requests.

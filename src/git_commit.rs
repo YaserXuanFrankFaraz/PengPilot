@@ -379,16 +379,6 @@ fn agent_arguments(
             push(&mut args, "chat");
             push(&mut args, "-q");
         }
-        ProviderKind::Antigravity
-        | ProviderKind::CodeBuddy
-        | ProviderKind::DevEco
-        | ProviderKind::Kimi
-        | ProviderKind::Prime
-        | ProviderKind::Qoder
-        | ProviderKind::QoderCn
-        | ProviderKind::Qwen
-        | ProviderKind::QwenPaw
-        | ProviderKind::Reasonix
         | ProviderKind::Trae => {}
     }
     push(&mut args, prompt);
@@ -807,16 +797,6 @@ mod tests {
                 ProviderKind::Hermes => {
                     assert!(has_pair(&args, "chat", "-q"));
                 }
-                ProviderKind::Antigravity
-                | ProviderKind::CodeBuddy
-                | ProviderKind::DevEco
-                | ProviderKind::Kimi
-                | ProviderKind::Prime
-                | ProviderKind::Qoder
-                | ProviderKind::QoderCn
-                | ProviderKind::Qwen
-                | ProviderKind::QwenPaw
-                | ProviderKind::Reasonix
                 | ProviderKind::Trae => {}
             }
         }

@@ -39,10 +39,10 @@ path. Detected providers appear first, followed by providers not found on
 `PATH`.
 
 The supported catalog is waku's official provider set minus Amp, plus
-OMP, Hermes Agent, Trae CLI, and Kiro CLI — eleven providers in total. The
-remaining provider stubs (Amp, Antigravity, CodeBuddy, DevEco, Kimi, Qoder,
-Qoder CN, Qwen, QwenPaw, Reasonix, Prime) exist only so older sessions stay
-readable; they are outside the supported catalog and are never verified.
+OMP, Hermes Agent, Trae CLI, and Kiro CLI — eleven providers in total. Amp
+is retained in the codebase but hidden from the UI; Antigravity, CodeBuddy,
+DevEco, Kimi, Qoder, Qoder CN, Qwen, QwenPaw, Reasonix, and Prime were
+removed entirely.
 
 Catalog presence means PengPilot can detect and route the CLI; it is not by
 itself a compatibility guarantee. A provider becomes verified only after an
@@ -234,9 +234,9 @@ PengPilot 是一款使用 Rust 和
 已检测到的服务商显示在上方，未在 `PATH` 中检测到的显示在下方。
 
 支持目录以 waku 官方服务商集合为基准，移除 Amp，并增加 OMP、Hermes
-Agent、Trae CLI、Kiro CLI——共 11 家。其余保留的 provider 存根（Amp、
+Agent、Trae CLI、Kiro CLI——共 11 家。Amp 保留代码但不在 UI 中显示；
 Antigravity、CodeBuddy、DevEco、Kimi、Qoder、Qoder CN、Qwen、QwenPaw、
-Reasonix、Prime）仅用于让旧会话保持可读，不在支持目录内，也不做验证。
+Reasonix、Prime 已彻底移除。
 
 进入目录只表示 PengPilot 能检测并路由该 CLI，本身不等于兼容性承诺。只有在目标
 发布提交上通过已登录真实 CLI 的端到端测试，才可称为该版本已验证。PengPilot
