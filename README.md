@@ -54,9 +54,9 @@ claimed as release-verified support.
 | Pi (CLI) | `pi` | ✅ pass (latest, 2026-08-17) |
 | [Oh My Pi (CLI)](https://omp.sh/) | `omp` | ✅ pass (17.3.5, 2026-08-17) |
 | DeepSeek Harness (CLI) | `dsh` | ✅ pass (host startup, 0.1.0-rc.6, 2026-08-17) |
-| OpenCode (CLI) | `opencode` | Not installed; unverified |
-| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` | Not installed; unverified |
-| Trae (CLI) | `traecli` | Not installed; unverified |
+| OpenCode (CLI) | `opencode` | ✅ pass (1.18.18, real turn, 2026-08-17) |
+| [Kiro (CLI)](https://kiro.dev/cli/) | `kiro-cli` | Installed (2.18.1); not authenticated |
+| Trae (CLI) | `traecli` | ✅ pass (0.120.52, real ACP turn, 2026-08-17) |
 | [Hermes Agent (CLI)](https://github.com/NousResearch/hermes-agent) | `hermes` | Not installed; unverified |
 
 Verification means a real authenticated CLI smoke test (detection + a
@@ -241,9 +241,9 @@ PengPilot 是一款使用 Rust 和
 | Pi（CLI） | `pi` | ✅ 通过（最新版，2026-08-17） |
 | [Oh My Pi（CLI）](https://omp.sh/) | `omp` | ✅ 通过（17.3.5，2026-08-17） |
 | DeepSeek Harness（CLI） | `dsh` | ✅ 通过（host 启动，0.1.0-rc.6，2026-08-17） |
-| OpenCode（CLI） | `opencode` | 未安装；未验证 |
-| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` | 未安装；未验证 |
-| Trae（CLI） | `traecli` | 未安装；未验证 |
+| OpenCode（CLI） | `opencode` | ✅ 通过（1.18.18，真实回合，2026-08-17） |
+| [Kiro（CLI）](https://kiro.dev/cli/) | `kiro-cli` | 已安装（2.18.1）；未登录 |
+| Trae（CLI） | `traecli` | ✅ 通过（0.120.52，真实 ACP 回合，2026-08-17） |
 | [Hermes Agent（CLI）](https://github.com/NousResearch/hermes-agent) | `hermes` | 未安装；未验证 |
 
 验证指在打包的发布提交上通过真实鉴权 CLI 冒烟测试（检测 + 一轮流式回复）。

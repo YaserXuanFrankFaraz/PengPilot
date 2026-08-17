@@ -34,12 +34,19 @@ Copilot provider remain readable and open as Codex instead of disappearing.
 | OMP | 17.3.5 | `omp -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
 | Cursor | cursor-agent (latest) | `cursor-agent --trust -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
 | DeepSeek Harness | 0.1.0-rc.6 | `dsh --version` | pass (detection) | 2026-08-17 |
+| OpenCode | 1.18.18 | `opencode run --auto "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Trae (CLI) | 0.120.52 | `traecli acp serve` handshake + `session/prompt` "Reply with exactly: PENG_OK" | pass | 2026-08-17 |
+| Kiro (CLI) | 2.18.1 | `kiro-cli whoami` | installed; not authenticated | 2026-08-17 |
 
 The dsh row covers CLI detection; a full Harness RPC turn was not exercised
-for this build. OpenCode, Amp, and the JSON-CLI providers remain unverified
-for this release (not installed on the build machine). Tool, permission,
-resume, and cancel behavior was not re-exercised end-to-end for this
-dogfooding build.
+for this build. Trae was driven through a real ACP session: initialize,
+session/new (which returns the agent's model configuration), and a
+`session/prompt` turn that completed with `end_turn` and returned the exact
+expected text. Kiro is installed but not logged in, so its turn is pending
+`kiro-cli login`. Amp, Antigravity, CodeBuddy, DevEco, Kimi, Qoder, Qwen,
+Reasonix, Prime, and Hermes Agent are not installed on the build machine.
+Tool, permission, resume, and cancel behavior was not re-exercised
+end-to-end for this dogfooding build.
 
 ### 中文摘要
 
@@ -54,9 +61,13 @@ README 中不再出现该 provider，相关图标与驱动分支一并删除。�
 
 在打包提交上执行的真实 CLI 冒烟测试（检测 + 一轮流式回复）：Claude
 2.1.233、Codex 0.147.0、Grok Build、Pi、OMP 17.3.5、Cursor
-（cursor-agent）全部通过；DeepSeek Harness 0.1.0-rc.6 仅验证 CLI 检测。
-OpenCode、Amp 与 JSON-CLI 系列 provider 本机未安装，仍标注 unverified。
-工具调用、权限、恢复与取消行为未在本版本端到端复测。
+（cursor-agent）、OpenCode 1.18.18 全部通过；Trae 0.120.52 通过完整
+ACP 回合（initialize → session/new 返回模型配置 → session/prompt
+以 end_turn 完成并返回 PENG_OK）；DeepSeek Harness 0.1.0-rc.6 已验证
+CLI 检测；Kiro 2.18.1 已安装但未登录，待 `kiro-cli login` 后补测。
+Amp、Antigravity、CodeBuddy、DevEco、Kimi、Qoder、Qwen、Reasonix、
+Prime、Hermes Agent 本机未安装，仍标注 unverified。工具调用、权限、
+恢复与取消行为未在本版本端到端复测。
 
 ## [0.1.14]
 
@@ -85,12 +96,19 @@ OpenCode、Amp 与 JSON-CLI 系列 provider 本机未安装，仍标注 unverifi
 | OMP | 17.3.5 | `omp -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
 | Cursor | cursor-agent (latest) | `cursor-agent --trust -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
 | DeepSeek Harness | 0.1.0-rc.6 | `dsh --version` | pass (detection) | 2026-08-17 |
+| OpenCode | 1.18.18 | `opencode run --auto "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Trae (CLI) | 0.120.52 | `traecli acp serve` handshake + `session/prompt` "Reply with exactly: PENG_OK" | pass | 2026-08-17 |
+| Kiro (CLI) | 2.18.1 | `kiro-cli whoami` | installed; not authenticated | 2026-08-17 |
 
 The dsh row covers CLI detection; a full Harness RPC turn was not exercised
-for this build. OpenCode, Amp, and the JSON-CLI providers remain unverified
-for this release (not installed on the build machine). Tool, permission,
-resume, and cancel behavior was not re-exercised end-to-end for this
-dogfooding build.
+for this build. Trae was driven through a real ACP session: initialize,
+session/new (which returns the agent's model configuration), and a
+`session/prompt` turn that completed with `end_turn` and returned the exact
+expected text. Kiro is installed but not logged in, so its turn is pending
+`kiro-cli login`. Amp, Antigravity, CodeBuddy, DevEco, Kimi, Qoder, Qwen,
+Reasonix, Prime, and Hermes Agent are not installed on the build machine.
+Tool, permission, resume, and cancel behavior was not re-exercised
+end-to-end for this dogfooding build.
 
 ### 中文摘要
 
@@ -108,9 +126,13 @@ dogfooding build.
 
 在打包提交上执行的真实 CLI 冒烟测试（检测 + 一轮流式回复）：Claude
 2.1.233、Codex 0.147.0、Grok Build、Pi、OMP 17.3.5、Cursor
-（cursor-agent）全部通过；DeepSeek Harness 0.1.0-rc.6 仅验证 CLI 检测。
-OpenCode、Amp 与 JSON-CLI 系列 provider 本机未安装，仍标注 unverified。
-工具调用、权限、恢复与取消行为未在本版本端到端复测。
+（cursor-agent）、OpenCode 1.18.18 全部通过；Trae 0.120.52 通过完整
+ACP 回合（initialize → session/new 返回模型配置 → session/prompt
+以 end_turn 完成并返回 PENG_OK）；DeepSeek Harness 0.1.0-rc.6 已验证
+CLI 检测；Kiro 2.18.1 已安装但未登录，待 `kiro-cli login` 后补测。
+Amp、Antigravity、CodeBuddy、DevEco、Kimi、Qoder、Qwen、Reasonix、
+Prime、Hermes Agent 本机未安装，仍标注 unverified。工具调用、权限、
+恢复与取消行为未在本版本端到端复测。
 
 ## [0.1.13]
 
