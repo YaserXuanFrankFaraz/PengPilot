@@ -196,7 +196,12 @@ and their artifacts must not be attached to a public PengPilot release.
    counter. Prerelease versions (`-beta.1`) are refused for publishing — the
    appcast serves one stable channel.
 3. **Write the release notes** — add a `## [<version>]` section at the top of
-   [`CHANGELOG.md`](CHANGELOG.md).
+   [`CHANGELOG.md`](CHANGELOG.md). Release notes are **bilingual
+   (English + 中文)**: keep the structured English bullets (what changed,
+   provider verification table, caveats), then append a `### 中文摘要`
+   section summarizing the same points in Chinese. `scripts/release.ts`
+   extracts the section verbatim into the GitHub release notes, so the
+   bilingual content ships automatically.
 4. **Run it:**
    ```sh
    bun run release

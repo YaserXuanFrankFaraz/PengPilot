@@ -52,6 +52,28 @@ remain unverified for this release (not installed on the build machine). Tool,
 permission, resume, and cancel behavior was not re-exercised end-to-end for
 this dogfooding build.
 
+### 中文摘要
+
+**收件箱（Inbox）修复**
+
+- 「旗标」标签页不再显示从未加旗标的对话：侧栏行快照缓存现在追踪当前
+  标签页、每个会话的流程状态与旗标状态，切换标签或切换旗标会立即移动
+  对应行，不再展示过期列表。
+- 会话右键菜单感知旗标状态：已旗标的对话显示「去掉旗标」，未旗标的显示
+  「加旗标」；去掉旗标后对话从「旗标」标签页回到 Open 列表。
+- 删除对话前增加二次确认：确认卡片显示会话标题，提示对话及其检查点将被
+  永久删除，需明确点击「移除」（或按回车），Escape 或「取消」可关闭——
+  不再有一次点击误删的风险。
+
+**Provider 验证（临时自用 dogfooding 版本）**
+
+在打包提交上执行的真实 CLI 冒烟测试（检测 + 一轮流式回复）：Claude
+2.1.233、Codex 0.147.0、Grok Build、Pi、OMP 17.3.5、Cursor
+（cursor-agent）全部通过；DeepSeek Harness 0.1.0-rc.6 验证到 host 启动与
+HTTP 200（完整 RPC 回合未跑）。OpenCode、Amp 与 JSON-CLI 系列 provider 本
+机未安装，仍标注 unverified。工具调用、权限、恢复与取消行为未在本版本
+端到端复测。
+
 ## [0.1.11]
 
 Syncs the shared codebase with the latest upstream Waku and ports its
