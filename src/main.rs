@@ -237,7 +237,15 @@ fn main() {
                 KeyBinding::new("escape", BrowserAddressCancel, Some("BrowserAddress")),
             ]);
 
-            cx.on_action(|_: &Quit, cx| cx.quit());
+            cx.on_action(|_: &Quit, cx| {
+                // A transparent, blurred window flashes black on the whole
+                // screen while GPUI tears it down. Hide the app first so the
+                // window leaves the screen before its surface is destroyed;
+                // the quit save handlers below still run.
+                #[cfg(target_os = "macos")]
+                cx.hide();
+                cx.quit();
+            });
 
             // Unlike AppKit, Linux has no Dock activation path that can
             // restore a hidden last window. Follow Zed's GPUI precedent and

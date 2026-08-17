@@ -590,7 +590,6 @@ struct PreparedDriver {
     events: Receiver<DriverEvent>,
 }
 
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct EscapeStopTarget {
     session_id: Uuid,
@@ -687,7 +686,10 @@ impl WakuPane {
         content: fn(&mut Waku, &mut Window, &mut Context<Waku>) -> AnyElement,
         cx: &mut App,
     ) -> Entity<Self> {
-        cx.new(|_| Self { waku: None, content })
+        cx.new(|_| Self {
+            waku: None,
+            content,
+        })
     }
 
     fn bind(&mut self, waku: &Entity<Waku>, cx: &mut Context<Self>) {
@@ -1086,7 +1088,8 @@ pub struct Waku {
     /// scanned from provider transcripts off-thread. Frames read only this.
     usage_history: Option<crate::usage_history::UsageHistory>,
     /// Shared in-memory rate table, revalidated against its disk TTL hourly.
-    usage_rate_table: std::sync::Arc<std::sync::Mutex<Option<(Instant, crate::usage_history::RateTable)>>>,
+    usage_rate_table:
+        std::sync::Arc<std::sync::Mutex<Option<(Instant, crate::usage_history::RateTable)>>>,
     /// Directory for the usage rate table's disk cache.
     usage_rates_dir: PathBuf,
     /// File-memoized transcript scan cache, shared across window switches.
@@ -2209,7 +2212,16 @@ impl Waku {
                     .background_executor()
                     .spawn(async move { store.save(drafts, generation) });
                 async move {
-                    let _ = save.await;
+                    // The window is already hidden at this point; never let a
+                    // stuck save leave a black screen with a live process.
+                    let _ = smol::future::or(
+                        save,
+                        async {
+                            smol::Timer::after(std::time::Duration::from_secs(2)).await;
+                            Ok(())
+                        },
+                    )
+                    .await;
                 }
             })
             .detach();
@@ -2440,7 +2452,6 @@ impl Waku {
             };
 
             Self {
-
                 state,
                 store,
                 home_directory,
