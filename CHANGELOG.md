@@ -14,6 +14,60 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.14]
+
+### Stability fixes
+
+- Quitting no longer flashes the whole screen black. PengPilot's window is
+  transparent and blurred, and tearing it down used to leave a full-screen
+  black flash on exit; the app now hides its window before teardown, and the
+  final draft-save that runs during quit is bounded to two seconds so a
+  stalled save can never hold the app on a dead screen.
+- Starting the app no longer pops a browser window asking you to sign in to
+  Kiro CLI. Model discovery for Kiro now probes `kiro-cli whoami` first: when
+  the CLI is not authenticated, discovery degrades to the fallback model list
+  instead of launching `kiro-cli chat`, which opens a browser login and
+  blocks. The sign-in prompt still appears at the moment you actually start a
+  Kiro session, where it belongs.
+
+### Provider verification (ad-hoc dogfooding release)
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Claude | 2.1.233 | `claude -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Codex | 0.147.0 | `codex exec --skip-git-repo-check "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Grok Build | latest | `grok -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Pi | latest | `pi "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| OMP | 17.3.5 | `omp -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| Cursor | cursor-agent (latest) | `cursor-agent --trust -p "Reply with exactly: PENG_OK"` | pass | 2026-08-17 |
+| DeepSeek Harness | 0.1.0-rc.6 | `dsh --version` | pass (detection) | 2026-08-17 |
+
+The dsh row covers CLI detection; a full Harness RPC turn was not exercised
+for this build. OpenCode, Amp, and the JSON-CLI providers remain unverified
+for this release (not installed on the build machine). Tool, permission,
+resume, and cancel behavior was not re-exercised end-to-end for this
+dogfooding build.
+
+### 中文摘要
+
+**稳定性修复**
+
+- 退出应用不再出现整屏黑闪。PengPilot 的窗口是透明+模糊的，退出销毁
+  窗口表面时会在全屏闪过黑色；现在退出前先隐藏窗口再销毁，同时退出时
+  的草稿保存限制在 2 秒内——保存卡住也不会让应用停在黑屏上。
+- 启动应用不再自动弹出浏览器要求登录 Kiro CLI。Kiro 的模型发现现在
+  先探测 `kiro-cli whoami`：CLI 未登录时直接回退到内置模型列表，不再
+  执行 `kiro-cli chat`（它会打开浏览器登录页并阻塞等待）。登录提示只
+  会在你真正开始 Kiro 会话时出现。
+
+**Provider 验证（临时自用 dogfooding 版本）**
+
+在打包提交上执行的真实 CLI 冒烟测试（检测 + 一轮流式回复）：Claude
+2.1.233、Codex 0.147.0、Grok Build、Pi、OMP 17.3.5、Cursor
+（cursor-agent）全部通过；DeepSeek Harness 0.1.0-rc.6 仅验证 CLI 检测。
+OpenCode、Amp 与 JSON-CLI 系列 provider 本机未安装，仍标注 unverified。
+工具调用、权限、恢复与取消行为未在本版本端到端复测。
+
 ## [0.1.13]
 
 ### App icon refresh
