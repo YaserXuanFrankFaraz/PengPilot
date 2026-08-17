@@ -251,6 +251,84 @@ impl Waku {
                 }
             }))
     }
+
+    /// Full-width chrome above every column. Traffic lights and drag live
+    /// here so column borders never bisect the macOS window controls.
+    pub(super) fn render_app_chrome_titlebar(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = Theme::current(cx);
+        div()
+            .id("app-chrome-titlebar")
+            .h(px(TITLEBAR_HEIGHT))
+            .w_full()
+            .flex_none()
+            .flex()
+            .items_center()
+            .bg(theme.sidebar)
+            .border_b_1()
+            .border_color(theme.sidebar_border)
+            .children(self.render_client_window_controls(
+                super::window_chrome::WindowControlSide::Left,
+                window,
+                cx,
+            ))
+            .child(self.window_drag_region(
+                div()
+                    .id("app-chrome-traffic-light-clearance")
+                    .w(px(TRAFFIC_LIGHT_CLEARANCE))
+                    .h_full()
+                    .flex_none(),
+                cx,
+            ))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(4.0))
+                    .pr(px(8.0))
+                    .child(self.render_sidebar_toggle(cx))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(2.0))
+                            .child(self.render_history_button(
+                                "chrome-navigate-back",
+                                "icons/arrow-left.svg",
+                                !self.session_navigation.back.is_empty(),
+                                true,
+                                cx,
+                            ))
+                            .child(self.render_history_button(
+                                "chrome-navigate-forward",
+                                "icons/arrow-right.svg",
+                                !self.session_navigation.forward.is_empty(),
+                                false,
+                                cx,
+                            )),
+                    ),
+            )
+            .child(self.window_drag_region(
+                div().id("app-chrome-titlebar-drag").h_full().flex_1(),
+                cx,
+            ))
+            .when(self.fps_counter_visible && !self.right_panel_visible, |bar| {
+                bar.child(self.render_fps_counter(cx))
+            })
+            .when(!self.right_panel_visible, |bar| {
+                bar.child(self.render_right_panel_toggle(cx))
+            })
+            .children(self.render_client_window_controls(
+                super::window_chrome::WindowControlSide::Right,
+                window,
+                cx,
+            ))
+            .pr(px(10.0))
+    }
+
     // ── Sidebar ────────────────────────────────────────────────────────────
 
     fn render_fps_counter(&self, cx: &mut Context<Self>) -> Div {
@@ -344,56 +422,6 @@ impl Waku {
                     }))
             })
             .child(icon(icon_path, 14.0, theme.text_tertiary))
-    }
-
-    fn render_sidebar_titlebar(&self, window: &Window, cx: &mut Context<Self>) -> Stateful<Div> {
-        div()
-            .id("sidebar-titlebar")
-            .h(px(48.0))
-            .flex_none()
-            .flex()
-            .items_center()
-            .children(self.render_client_window_controls(
-                super::window_chrome::WindowControlSide::Left,
-                window,
-                cx,
-            ))
-            .child(
-                self.window_drag_region(
-                    div()
-                        .id("sidebar-traffic-light-drag-region")
-                        .w(px(leftover_traffic_light_clearance(true)))
-                        .h_full()
-                        .flex_none(),
-                    cx,
-                ),
-            )
-            .child(self.render_sidebar_toggle(cx))
-            .child(
-                div()
-                    .ml(px(6.0))
-                    .flex()
-                    .items_center()
-                    .gap(px(2.0))
-                    .child(self.render_history_button(
-                        "navigate-back",
-                        "icons/arrow-left.svg",
-                        !self.session_navigation.back.is_empty(),
-                        true,
-                        cx,
-                    ))
-                    .child(self.render_history_button(
-                        "navigate-forward",
-                        "icons/arrow-right.svg",
-                        !self.session_navigation.forward.is_empty(),
-                        false,
-                        cx,
-                    )),
-            )
-            .child(self.window_drag_region(
-                div().id("sidebar-titlebar-drag-region").h_full().flex_1(),
-                cx,
-            ))
     }
 
     fn render_sidebar_project_action(&self, cx: &mut Context<Self>) -> Div {
@@ -745,7 +773,7 @@ impl Waku {
     pub(super) fn render_sidebar(
         &self,
         width: f32,
-        window: &Window,
+        _window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
         let theme = Theme::current(cx);
@@ -770,11 +798,11 @@ impl Waku {
             } else {
                 theme.sidebar
             })
-            .child(self.render_sidebar_titlebar(window, cx))
             .child(
                 div()
                     .flex_none()
                     .px(px(10.0))
+                    .pt(px(8.0))
                     .flex()
                     .items_center()
                     .gap(px(4.0))
@@ -1456,137 +1484,56 @@ impl Waku {
         let agent_preset_label = session
             .filter(|session| session.provider == ProviderKind::DeepSeek && session.has_started())
             .and_then(|session| self.agent_preset_label_for_session(session));
-        let left_window_controls = (!self.sidebar_visible)
-            .then(|| {
-                self.render_client_window_controls(
-                    super::window_chrome::WindowControlSide::Left,
-                    window,
-                    cx,
-                )
-            })
-            .flatten();
-        let right_window_controls = (!self.right_panel_visible)
-            .then(|| {
-                self.render_client_window_controls(
-                    super::window_chrome::WindowControlSide::Right,
-                    window,
-                    cx,
-                )
-            })
-            .flatten();
+        let _ = window;
         div()
             .id("window-header")
-            .h(px(48.0))
+            .h(px(40.0))
             .flex_none()
             .flex()
             .items_center()
             .gap(px(8.0))
-            .children(left_window_controls)
-            // The header starts where the sidebar ends, so until the sidebar
-            // is wide enough to host the traffic lights itself the header has
-            // to clear them. Steady state with the sidebar open adds nothing;
-            // a sidebar sliding in shrinks the inset as it takes the lights
-            // over, which is what keeps the title from passing under them.
-            .pl(if self.sidebar_visible {
-                px(14.0 + (TRAFFIC_LIGHT_CLEARANCE - self.sidebar_rendered_width).max(0.0))
-            } else {
-                px(0.0)
-            })
-            .pr(px(14.0))
-            .when(!self.sidebar_visible, |element| {
-                element
-                    .child(
-                        self.window_drag_region(
-                            div()
-                                .id("header-traffic-light-drag-region")
-                                .w(px(TRAFFIC_LIGHT_CLEARANCE - 8.0))
-                                .h_full()
-                                .flex_none(),
-                            cx,
-                        ),
-                    )
+            .px(px(14.0))
+            .child(
+                div()
+                    .id("header-title")
+                    .h_full()
+                    .min_w_0()
+                    .flex_shrink(1.0)
+                    .flex()
+                    .items_center()
+                    .gap(px(7.0))
                     .child(
                         div()
+                            .min_w_0()
+                            .truncate()
+                            .text_size(px(13.0))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.text)
+                            .child(SharedString::from(title)),
+                    )
+                    .children(agent_preset_label.map(|label| {
+                        div()
+                            .h(px(22.0))
+                            .max_w(px(180.0))
+                            .px(px(6.0))
+                            .rounded(px(6.0))
+                            .flex_none()
                             .flex()
                             .items_center()
-                            .gap(px(6.0))
-                            .child(self.render_sidebar_toggle(cx))
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap(px(2.0))
-                                    .child(self.render_history_button(
-                                        "navigate-back",
-                                        "icons/arrow-left.svg",
-                                        !self.session_navigation.back.is_empty(),
-                                        true,
-                                        cx,
-                                    ))
-                                    .child(self.render_history_button(
-                                        "navigate-forward",
-                                        "icons/arrow-right.svg",
-                                        !self.session_navigation.forward.is_empty(),
-                                        false,
-                                        cx,
-                                    )),
-                            ),
-                    )
-            })
-            .child(
-                self.window_drag_region(
-                    div()
-                        .id("header-title-drag-region")
-                        .h_full()
-                        .min_w_0()
-                        .flex_shrink(1.0)
-                        .flex()
-                        .items_center()
-                        .gap(px(7.0))
-                        .child(
-                            div()
-                                .min_w_0()
-                                .truncate()
-                                .text_size(px(13.0))
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(theme.text)
-                                .child(SharedString::from(title)),
-                        )
-                        .children(agent_preset_label.map(|label| {
-                            div()
-                                .h(px(22.0))
-                                .max_w(px(180.0))
-                                .px(px(6.0))
-                                .rounded(px(6.0))
-                                .flex_none()
-                                .flex()
-                                .items_center()
-                                .gap(px(4.0))
-                                .bg(theme.overlay)
-                                .text_size(px(11.0))
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(theme.text_secondary)
-                                .child(icon("icons/bot.svg", 10.5, theme.text_tertiary))
-                                .child(div().min_w_0().truncate().child(SharedString::from(label)))
-                        })),
-                    cx,
-                ),
+                            .gap(px(4.0))
+                            .bg(theme.overlay)
+                            .text_size(px(11.0))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.text_secondary)
+                            .child(icon("icons/bot.svg", 10.5, theme.text_tertiary))
+                            .child(div().min_w_0().truncate().child(SharedString::from(label)))
+                    })),
             )
-            .child(
-                self.window_drag_region(
-                    div().id("header-center-drag-region").h_full().flex_1(),
-                    cx,
-                ),
-            )
+            .child(div().id("header-center").h_full().flex_1())
             .child(self.render_background_work_summary(cx))
-            .when(!self.right_panel_visible, |element| {
-                element
-                    .when(self.fps_counter_visible, |element| {
-                        element.child(self.render_fps_counter(cx))
-                    })
-                    .child(self.render_right_panel_toggle(cx))
+            .when(self.right_panel_visible && self.fps_counter_visible, |element| {
+                element.child(self.render_fps_counter(cx))
             })
-            .children(right_window_controls)
     }
 
     // ── Empty states ───────────────────────────────────────────────────────

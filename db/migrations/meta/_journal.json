@@ -29,6 +29,13 @@
       "when": 1786751000112,
       "tag": "0003_striped_sleepwalker",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786987000825,
+      "tag": "0004_perpetual_miek",
+      "breakpoints": true
     }
   ]
 }

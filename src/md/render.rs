@@ -53,6 +53,10 @@ pub type TranscriptSelection = SelectionState<TextGeometry>;
 /// markdown view continues to use GPUI's ordinary URL opener.
 pub type LinkHandler = Rc<dyn Fn(&str, &mut Window, &mut gpui::App)>;
 
+/// Opens a markdown image URL (path, `data:`, or `waku-blob:`) in the app
+/// preview. Same separation of concerns as [`LinkHandler`].
+pub type ImageHandler = Rc<dyn Fn(&str, &mut Window, &mut gpui::App)>;
+
 // ── Layout metrics ─────────────────────────────────────────────────────────
 //
 // Everything in this block participates in measurement, so these are the only
@@ -468,6 +472,7 @@ pub struct Ctx<'a> {
     metrics: Metrics,
     selection: TranscriptSelection,
     link_handler: Option<LinkHandler>,
+    image_handler: Option<ImageHandler>,
     /// Cross-frame flatten cache, when this render has one to consult.
     cache: Option<&'a MarkdownView>,
     next_ordinal: Cell<usize>,
@@ -475,6 +480,8 @@ pub struct Ctx<'a> {
     starts_block: Cell<bool>,
     animate_streaming: bool,
     now: Instant,
+    /// Base directory for relative markdown images (e.g. Grok `images/1.jpg`).
+    media_root: Option<std::path::PathBuf>,
 }
 
 impl<'a> Ctx<'a> {
@@ -490,11 +497,13 @@ impl<'a> Ctx<'a> {
             metrics,
             selection,
             link_handler: None,
+            image_handler: None,
             cache: None,
             next_ordinal: Cell::new(0),
             starts_block: Cell::new(true),
             animate_streaming: true,
             now: Instant::now(),
+            media_root: None,
         }
     }
 
@@ -507,8 +516,18 @@ impl<'a> Ctx<'a> {
         self
     }
 
+    pub fn with_image_handler(mut self, handler: ImageHandler) -> Self {
+        self.image_handler = Some(handler);
+        self
+    }
+
     pub fn with_streaming_animation(mut self, animate: bool) -> Self {
         self.animate_streaming = animate;
+        self
+    }
+
+    pub fn with_media_root(mut self, root: Option<std::path::PathBuf>) -> Self {
+        self.media_root = root;
         self
     }
 
@@ -519,11 +538,13 @@ impl<'a> Ctx<'a> {
             metrics: self.metrics,
             selection: self.selection.clone(),
             link_handler: self.link_handler.clone(),
+            image_handler: self.image_handler.clone(),
             cache: Some(view),
             next_ordinal: Cell::new(self.next_ordinal.get()),
             starts_block: Cell::new(self.starts_block.get()),
             animate_streaming: self.animate_streaming,
             now: Instant::now(),
+            media_root: self.media_root.clone(),
         }
     }
 
@@ -1198,18 +1219,32 @@ fn checkbox(checked: bool, ctx: &Ctx) -> AnyElement {
         .into_any_element()
 }
 
-/// An inline image. Data URLs decode in place; anything else is handed to GPUI
-/// to load. The alt text renders beneath as a caption when there is one, so a
-/// failed or slow load still says what it was.
+/// An inline image. Data URLs decode in place; absolute paths and http(s)
+/// URLs go to GPUI; relative paths resolve against [`Ctx::media_root`] when
+/// set (Grok Imagine writes `![…](images/1.jpg)` against the session folder).
+/// Click opens the app image preview when an [`ImageHandler`] is installed.
 fn render_image(url: &str, alt: &str, ctx: &Ctx) -> AnyElement {
     const MAX_HEIGHT: f32 = 320.0;
 
     let key = ctx.next_key();
     let id = SharedString::from(format!("image-{}-{}", key.row, key.index));
-    let image = match decode_data_url(url) {
-        Some(decoded) => img(decoded).id(id),
-        None => img(url.to_owned()).id(id),
+    let resolved = resolve_markdown_image_url(url, ctx.media_root.as_deref());
+    let image = match decode_data_url(&resolved) {
+        Some(decoded) => img(decoded).id(id.clone()),
+        None => match crate::blob_store::shared_path_for(&resolved) {
+            Some(path) => img(path).id(id.clone()),
+            None => {
+                let path = std::path::Path::new(&resolved);
+                if path.is_absolute() {
+                    img(path.to_path_buf()).id(id.clone())
+                } else {
+                    img(resolved.clone()).id(id.clone())
+                }
+            }
+        },
     };
+    let image_handler = ctx.image_handler.clone();
+    let click_url = resolved.clone();
     div()
         .w_full()
         .min_w_0()
@@ -1217,11 +1252,23 @@ fn render_image(url: &str, alt: &str, ctx: &Ctx) -> AnyElement {
         .flex_col()
         .gap(px(4.0))
         .child(
-            image
-                .max_w(relative(1.0))
-                .max_h(px(MAX_HEIGHT))
-                .rounded(px(6.0))
-                .object_fit(gpui::ObjectFit::ScaleDown),
+            div()
+                .id(SharedString::from(format!("{id}-hit")))
+                .w_full()
+                .cursor_pointer()
+                .when_some(image_handler, |element, handler| {
+                    element.on_click(move |_, window, cx| {
+                        handler(&click_url, window, cx);
+                        cx.stop_propagation();
+                    })
+                })
+                .child(
+                    image
+                        .max_w(relative(1.0))
+                        .max_h(px(MAX_HEIGHT))
+                        .rounded(px(6.0))
+                        .object_fit(gpui::ObjectFit::ScaleDown),
+                ),
         )
         .when(!alt.trim().is_empty(), |element| {
             element.child(
@@ -1233,6 +1280,23 @@ fn render_image(url: &str, alt: &str, ctx: &Ctx) -> AnyElement {
             )
         })
         .into_any_element()
+}
+
+fn resolve_markdown_image_url(url: &str, media_root: Option<&std::path::Path>) -> String {
+    if url.starts_with("data:")
+        || url.starts_with("http://")
+        || url.starts_with("https://")
+        || url.starts_with("file:")
+        || crate::blob_store::is_blob_reference(url)
+        || std::path::Path::new(url).is_absolute()
+    {
+        return url.to_owned();
+    }
+    media_root
+        .map(|root| root.join(url))
+        .filter(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|| url.to_owned())
 }
 
 const CODE_COPY_FEEDBACK_DURATION: Duration = Duration::from_secs(3);

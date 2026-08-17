@@ -99,6 +99,39 @@ fn find_session_directory(session_id: &str) -> anyhow::Result<PathBuf> {
     find_session_directory_in(&grok_home_directory()?, session_id)
 }
 
+/// On-disk directory for a Grok session (`…/sessions/<cwd>/<id>/`), used to
+/// resolve relative Imagine markdown like `images/1.jpg`.
+pub fn session_directory(session_id: &str) -> anyhow::Result<PathBuf> {
+    find_session_directory(session_id)
+}
+
+/// Rewrite Grok Imagine markdown so the transcript shows the image inline.
+///
+/// Grok often emits a clickable path link (`[images/1.jpg](images/1.jpg)`)
+/// instead of an image embed (`![…](images/1.jpg)`). Both forms are rewritten
+/// to `![…](/absolute/session/images/1.jpg)` when the file exists.
+pub fn expand_imagine_markdown(text: &str, media_root: &Path) -> String {
+    static PATTERN: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let pattern = PATTERN.get_or_init(|| {
+        regex::Regex::new(
+            r"(!)?\[([^\]]*)\]\((images/[^)\s]+\.(?i:png|jpe?g|gif|webp|bmp|tiff?|heic))\)",
+        )
+        .expect("imagine markdown pattern")
+    });
+    pattern
+        .replace_all(text, |caps: &regex::Captures| {
+            let alt = caps.get(2).map(|m| m.as_str()).unwrap_or("");
+            let relative = caps.get(3).map(|m| m.as_str()).unwrap_or("");
+            let absolute = media_root.join(relative);
+            if absolute.is_file() {
+                format!("![{alt}]({})", absolute.display())
+            } else {
+                caps.get(0).map(|m| m.as_str()).unwrap_or("").to_owned()
+            }
+        })
+        .into_owned()
+}
+
 fn grok_home_directory() -> anyhow::Result<PathBuf> {
     std::env::var_os("GROK_HOME")
         .filter(|value| !value.is_empty())
@@ -380,6 +413,36 @@ mod tests {
             generated_title_in(&root, &session_id).unwrap().as_deref(),
             Some("Fix provider task titles")
         );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn expand_imagine_markdown_promotes_path_links_to_inline_images() {
+        let root = std::env::temp_dir().join(format!("waku-grok-imagine-{}", Uuid::new_v4()));
+        let images = root.join("images");
+        fs::create_dir_all(&images).unwrap();
+        let image = images.join("1.jpg");
+        fs::write(&image, b"fake").unwrap();
+
+        let expanded = expand_imagine_markdown(
+            "Done: [images/1.jpg](images/1.jpg)\n\n![kept](images/1.jpg)",
+            &root,
+        );
+        let expected = format!(
+            "Done: ![images/1.jpg]({})\n\n![kept]({})",
+            image.display(),
+            image.display()
+        );
+        assert_eq!(expanded, expected);
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn expand_imagine_markdown_leaves_missing_files_alone() {
+        let root = std::env::temp_dir().join(format!("waku-grok-imagine-miss-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let source = "see [images/missing.jpg](images/missing.jpg)";
+        assert_eq!(expand_imagine_markdown(source, &root), source);
         fs::remove_dir_all(root).ok();
     }
 }

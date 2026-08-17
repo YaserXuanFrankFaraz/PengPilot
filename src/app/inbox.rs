@@ -50,7 +50,7 @@ impl Render for BoardCardDrag {
 
 impl Waku {
     pub(super) fn list_pane_visible(&self) -> bool {
-        !self.board_visible
+        !self.board_visible && !self.library_page
     }
 
     pub(super) fn session_matches_collection(&self, session: &AgentSession) -> bool {
@@ -65,6 +65,7 @@ impl Waku {
     ) {
         self.inbox_collection = collection;
         self.board_visible = false;
+        self.library_page = false;
         cx.notify();
     }
 
@@ -102,6 +103,7 @@ impl Waku {
         cx: &mut Context<Self>,
     ) {
         self.board_visible = true;
+        self.library_page = false;
         self.inbox_collection = InboxCollection::Unfinished;
         cx.notify();
     }
@@ -124,6 +126,7 @@ impl Waku {
     ) {
         self.focus_zone = FocusZone::List;
         self.board_visible = false;
+        self.library_page = false;
         cx.notify();
     }
 
@@ -211,6 +214,7 @@ impl Waku {
     pub(super) fn render_nav_rail(&self, window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = Theme::current(cx);
         let focused = self.focus_zone == FocusZone::Nav;
+        let _ = window;
         div()
             .w(px(INBOX_NAV_RAIL_WIDTH))
             .h_full()
@@ -218,29 +222,18 @@ impl Waku {
             .flex()
             .flex_col()
             .items_center()
-            .pt(px(if cfg!(target_os = "macos") {
-                TITLEBAR_HEIGHT
-            } else {
-                8.0
-            }))
+            .pt(px(10.0))
             .pb(px(10.0))
             .gap(px(4.0))
             .bg(theme.sidebar)
             .border_r_1()
             .border_color(theme.sidebar_border)
             .when(focused, |rail| rail.border_color(theme.accent))
-            .when(self.board_visible, |rail| {
-                rail.children(self.render_client_window_controls(
-                    super::window_chrome::WindowControlSide::Left,
-                    window,
-                    cx,
-                ))
-            })
             .child(self.nav_button(
                 "nav-unfinished",
                 "icons/list.svg",
                 tr!("inbox.all_tasks_board"),
-                !self.board_visible,
+                !self.board_visible && !self.library_page,
                 cx.listener(|this, _, window, cx| {
                     this.show_unfinished_action(&ShowUnfinished, window, cx);
                 }),
@@ -250,9 +243,19 @@ impl Waku {
                 "nav-board",
                 "icons/quadrants.svg",
                 tr!("inbox.quadrant_board"),
-                self.board_visible,
+                self.board_visible && !self.library_page,
                 cx.listener(|this, _, window, cx| {
                     this.show_board_action(&ShowBoard, window, cx);
+                }),
+                cx,
+            ))
+            .child(self.nav_button(
+                "nav-library",
+                "icons/package.svg",
+                tr!("library.title"),
+                self.library_page,
+                cx.listener(|this, _, _, cx| {
+                    this.open_library_page(cx);
                 }),
                 cx,
             ))
@@ -305,7 +308,7 @@ impl Waku {
             .on_click(on_click)
     }
 
-    pub(super) fn render_quadrant_board(&self, window: &Window, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_quadrant_board(&self, _window: &Window, cx: &mut Context<Self>) -> Div {
         let theme = Theme::current(cx);
         div()
             .flex_1()
@@ -317,29 +320,12 @@ impl Waku {
             .child(
                 div()
                     .id("board-titlebar")
-                    .h(px(TITLEBAR_HEIGHT))
+                    .h(px(40.0))
                     .flex_none()
                     .flex()
                     .items_center()
                     .border_b_1()
                     .border_color(theme.border)
-                    .when(!self.sidebar_visible, |header| {
-                        header.children(self.render_client_window_controls(
-                            super::window_chrome::WindowControlSide::Left,
-                            window,
-                            cx,
-                        ))
-                    })
-                    .child(
-                        self.window_drag_region(
-                            div()
-                                .id("board-traffic-light-drag-region")
-                                .w(px(leftover_traffic_light_clearance(self.sidebar_visible)))
-                                .h_full()
-                                .flex_none(),
-                            cx,
-                        ),
-                    )
                     .child(
                         div()
                             .pl(px(16.0))
@@ -369,11 +355,7 @@ impl Waku {
                                         tr!("inbox.completed_or_archived")
                                     )),
                             ),
-                    )
-                    .child(self.window_drag_region(
-                        div().id("board-titlebar-drag-region").h_full().flex_1(),
-                        cx,
-                    )),
+                    ),
             )
             .child(
                 div().flex_1().min_h_0().p(px(10.0)).child(

@@ -505,15 +505,9 @@ fn sidebar_material_covers_nav_and_list() {
 }
 
 #[test]
-fn board_header_clears_the_uncovered_traffic_lights() {
-    assert_eq!(
-        leftover_traffic_light_clearance(true),
-        (TRAFFIC_LIGHT_CLEARANCE - INBOX_NAV_RAIL_WIDTH).max(0.0)
-    );
-    assert_eq!(
-        leftover_traffic_light_clearance(false),
-        TRAFFIC_LIGHT_CLEARANCE
-    );
+fn chrome_titlebar_always_clears_full_traffic_lights() {
+    assert_eq!(leftover_traffic_light_clearance(true), TRAFFIC_LIGHT_CLEARANCE);
+    assert_eq!(leftover_traffic_light_clearance(false), TRAFFIC_LIGHT_CLEARANCE);
 }
 
 #[test]

@@ -435,6 +435,7 @@ impl Waku {
         cx: &mut Context<Self>,
     ) {
         self.settings_page = None;
+        self.library_page = false;
         if let Some(session_id) = self
             .session_navigation
             .remembered_new_task(&self.state.sessions)
@@ -467,6 +468,7 @@ impl Waku {
         cx: &mut Context<Self>,
     ) {
         self.settings_page = Some(SettingsPage::General);
+        self.library_page = false;
         self.settings_scroll.set_offset(gpui::Point::default());
         // Sparkle owns this value and its consent prompt can flip it outside
         // the settings UI, so re-mirror it each time settings opens.
@@ -706,6 +708,16 @@ impl Waku {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.library_page {
+            if self.library_detail_id.is_some() {
+                self.close_library_detail(cx);
+                return;
+            }
+            self.close_library_page(cx);
+            let focus_handle = self.composer_focus(cx);
+            window.focus(&focus_handle, cx);
+            return;
+        }
         if self.settings_page.take().is_some() {
             let focus_handle = self.composer_focus(cx);
             window.focus(&focus_handle, cx);
@@ -718,6 +730,8 @@ impl Waku {
         };
         if let Some(target) = self.session_navigation.go_back(current) {
             self.settings_page = None;
+            self.library_page = false;
+            self.library_detail_id = None;
             self.activate_session(target, cx);
         }
     }
@@ -728,7 +742,7 @@ impl Waku {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.settings_page.is_some() {
+        if self.settings_page.is_some() || self.library_page {
             return;
         }
 
@@ -767,6 +781,7 @@ impl Waku {
         cx: &mut Context<Self>,
     ) {
         self.settings_page = None;
+        self.library_page = false;
         let focus_handle = self.composer_focus(cx);
         window.focus(&focus_handle, cx);
         cx.notify();
@@ -778,6 +793,16 @@ impl Waku {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.library_page {
+            if self.library_detail_id.is_some() {
+                self.close_library_detail(cx);
+                return;
+            }
+            self.close_library_page(cx);
+            let focus_handle = self.composer_focus(cx);
+            window.focus(&focus_handle, cx);
+            return;
+        }
         if self.settings_page.take().is_some() {
             let focus_handle = self.composer_focus(cx);
             window.focus(&focus_handle, cx);

@@ -14,6 +14,51 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.16]
+
+### Media library and Grok Imagine
+
+- Generated Grok Imagine images show inline in the transcript (including final
+  replies), open in the image preview on click, and can be saved manually into a
+  **Media Library** when you like them. Saves copy files into owned app storage
+  so they survive Grok session cleanup.
+- Media Library lives on the left nav rail (below All Tasks and Quadrants):
+  adaptive waterfall grid, newest/oldest sort, click-for-detail, right-click to
+  reveal or delete. Tags, favorites, and non-image kinds stay out of this build.
+
+### Global chrome titlebar
+
+- The home shell now uses a full-width top chrome bar for the macOS traffic
+  lights, window dragging, sidebar toggle, back/forward, and right-panel
+  toggle. Column borders start below that bar, so the traffic lights are no
+  longer bisected by the rail/list divider.
+
+### Provider verification (ad-hoc dogfooding release)
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Grok Build | latest | Imagine + inline image display / library save (manual UI) | pass | 2026-08-18 |
+| Other featured providers | — | not re-run for this build | unverified | 2026-08-18 |
+
+This is an ad-hoc dogfooding package (ad-hoc signed; not Developer ID notarized).
+Full provider matrix from 0.1.15 was not re-exercised.
+
+### 中文摘要
+
+**媒体素材库 + Grok Imagine**
+
+- Grok Imagine 生成图可在对话中内联显示、点击预览，并在满意时手动「保存到素材库」；文件拷入应用自有目录，不随 Grok session 消失。
+- 左轨第三项进入媒体素材库：瀑布流、排序、详情、右键显示/删除。标签与收藏本版不做。
+
+**全局顶栏**
+
+- 首页改为全宽顶栏容纳红绿灯与常用控件；列分割线从顶栏下方开始，不再切开红黄绿。
+
+**发布说明**
+
+本版为 ad-hoc 签名的 dogfooding 包（未走 Developer ID 公证）。除 Grok Imagine
+相关 UI 冒烟外，其余 provider 矩阵未在本提交复测。
+
 ## [0.1.15]
 
 ### Provider removal: GitHub Copilot CLI

@@ -89,6 +89,47 @@ mod tests {
             Some("Verify Grok bridge")
         );
     }
+
+    #[test]
+    fn grok_imagine_raw_output_path_becomes_image_url() {
+        let item = tool_activity(
+            Some("call-1".into()),
+            ActivityKind::Tool,
+            "image_gen".into(),
+            None,
+            Some(&serde_json::json!({
+                "type": "ImageGen",
+                "path": "/tmp/session/images/1.jpg",
+                "filename": "1.jpg",
+                "session_folder": "images"
+            })),
+            None,
+            false,
+            true,
+        );
+        assert_eq!(item.image_urls, vec!["/tmp/session/images/1.jpg"]);
+    }
+
+    #[test]
+    fn grok_imagine_text_content_json_path_becomes_image_url() {
+        let item = tool_activity(
+            Some("call-1".into()),
+            ActivityKind::Tool,
+            "image_gen".into(),
+            None,
+            Some(&serde_json::json!([{
+                "type": "content",
+                "content": {
+                    "type": "text",
+                    "text": "{\"path\":\"/tmp/session/images/2.png\",\"filename\":\"2.png\"}"
+                }
+            }])),
+            None,
+            false,
+            true,
+        );
+        assert_eq!(item.image_urls, vec!["/tmp/session/images/2.png"]);
+    }
 }
 
 pub(super) fn format_json(value: &Value) -> Option<String> {
@@ -178,16 +219,15 @@ fn collect_image_urls(value: &Value, urls: &mut Vec<String>) {
             }
             // Grok Imagine tools return a local file path, not an ACP image
             // content block: `{ "type": "ImageGen", "path": "/…/images/1.jpg" }`.
-            if is_local_image_tool_output(value)
-                && let Some(path) = object.get("path").and_then(Value::as_str)
-                && looks_like_image_path(path)
-            {
-                urls.push(path.to_owned());
-            }
             if let Some(path) = object.get("path").and_then(Value::as_str)
                 && looks_like_image_path(path)
             {
                 urls.push(path.to_owned());
+            }
+            if let Some(text) = object.get("text").and_then(Value::as_str)
+                && let Some(path) = image_path_from_json_text(text)
+            {
+                urls.push(path);
             }
             for key in ["content", "attachments", "files", "result"] {
                 if let Some(nested) = object.get(key) {
@@ -209,13 +249,6 @@ fn is_image_item(value: &Value) -> bool {
         .and_then(Value::as_str);
     matches!(item_type, Some("image" | "inputImage"))
         || (item_type == Some("file") && mime.is_some_and(|mime| mime.starts_with("image/")))
-}
-
-fn is_local_image_tool_output(value: &Value) -> bool {
-    matches!(
-        value.get("type").and_then(Value::as_str),
-        Some("ImageGen" | "ImageEdit" | "image_gen" | "image_edit")
-    )
 }
 
 fn looks_like_image_path(path: &str) -> bool {

@@ -1699,3 +1699,29 @@ inbox.remove_confirm_body:
   en: The conversation and its checkpoints will be deleted permanently. This cannot be undone.
 inbox.remove_confirm_action:
   en: Remove
+library.title:
+  en: Media Library
+library.save:
+  en: Save to Library
+library.already_saved:
+  en: Saved
+library.saved:
+  en: Saved to Library
+library.deleted:
+  en: Removed from Library
+library.empty:
+  en: No assets yet. Save a generated image from preview when you like it.
+library.count:
+  en: "%{count} items"
+library.delete:
+  en: Delete
+library.save_needs_file:
+  en: Only local image files can be saved
+library.sort_newest:
+  en: Newest first
+library.sort_oldest:
+  en: Oldest first
+library.prompt:
+  en: Prompt
+library.created:
+  en: Saved

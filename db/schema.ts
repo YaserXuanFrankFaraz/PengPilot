@@ -167,3 +167,24 @@ export const squadMembers = sqliteTable(
   },
   (table) => [index("squad_members_by_squad").on(table.squadId, table.position)],
 );
+
+/**
+ * User-saved media from Imagine (and later other producers). Files live under
+ * the app data `library/` directory; this table is the index.
+ */
+export const libraryAssets = sqliteTable(
+  "library_assets",
+  {
+    id: text("id").primaryKey(),
+    /** Filename under the library root, e.g. `{id}.jpg`. */
+    filename: text("filename").notNull(),
+    prompt: text("prompt"),
+    /** Absolute path copied from, for provenance. */
+    sourcePath: text("source_path"),
+    sessionId: text("session_id"),
+    provider: text("provider"),
+    model: text("model"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("library_assets_by_created_at").on(table.createdAt)],
+);

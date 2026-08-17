@@ -517,12 +517,10 @@ fn fitted_panel_widths(
 }
 
 /// How much of the native traffic-light row is still uncovered after the nav.
-fn leftover_traffic_light_clearance(sidebar_visible: bool) -> f32 {
-    if sidebar_visible {
-        (TRAFFIC_LIGHT_CLEARANCE - INBOX_NAV_RAIL_WIDTH).max(0.0)
-    } else {
-        TRAFFIC_LIGHT_CLEARANCE
-    }
+fn leftover_traffic_light_clearance(_sidebar_visible: bool) -> f32 {
+    // Global chrome titlebar always owns the full clearance; columns no longer
+    // carve leftover space beside the nav rail.
+    TRAFFIC_LIGHT_CLEARANCE
 }
 
 /// Full left chrome, not the session-list width.
@@ -1336,6 +1334,11 @@ pub struct Waku {
     /// swapping in frozen page pixels while an overlay is open.
     scene_overlay_enabled: bool,
     settings_page: Option<SettingsPage>,
+    /// Full-page Library browser (user-saved Imagine assets).
+    library_page: bool,
+    library_assets: Vec<crate::library::LibraryAsset>,
+    library_sort_newest: bool,
+    library_detail_id: Option<String>,
     /// The Skills page's library snapshot, scanned off-thread. Frames read
     /// only this; `None` means the first scan has not landed yet.
     skills_catalog: Option<Rc<crate::skills::SkillsCatalog>>,
@@ -1483,6 +1486,7 @@ pub struct Waku {
     /// callback knows about the active workspace; the renderer deliberately
     /// does not.
     markdown_link_handler: md::render::LinkHandler,
+    markdown_image_handler: md::render::ImageHandler,
     /// Transcript-wide text selection, spanning messages and tool output.
     transcript_selection: TranscriptSelection,
     /// Independent selection for the transient toast message. Keeping it out
@@ -1522,6 +1526,7 @@ mod drafts;
 mod file_search;
 mod image_preview;
 mod inbox;
+mod library_page;
 mod render;
 mod right_panel;
 mod runtime;
@@ -2503,6 +2508,14 @@ impl Waku {
                     }
                 })
             };
+            let markdown_image_handler: md::render::ImageHandler = {
+                let waku = cx.entity().downgrade();
+                Rc::new(move |url, window, cx| {
+                    let _ = waku.update(cx, |waku, cx| {
+                        waku.open_image_url(url, window, cx);
+                    });
+                })
+            };
 
             Self {
                 state,
@@ -2693,6 +2706,10 @@ impl Waku {
                 right_panel_pending_browser_focus: None,
                 scene_overlay_enabled,
                 settings_page: None,
+                library_page: false,
+                library_assets: Vec::new(),
+                library_sort_newest: true,
+                library_detail_id: None,
                 skills_catalog: None,
                 skills_scan_generation: 0,
                 skills_scan_pending: false,
@@ -2765,6 +2782,7 @@ impl Waku {
                 activity_diffs: RefCell::new(HashMap::new()),
                 activity_diff_viewports: RefCell::new(HashMap::new()),
                 markdown_link_handler,
+                markdown_image_handler,
                 transcript_selection: TranscriptSelection::default(),
                 toast_selection: TranscriptSelection::default(),
                 transcript_scrollbar: ScrollbarState::new(),

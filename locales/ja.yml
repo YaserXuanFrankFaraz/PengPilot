@@ -847,3 +847,16 @@ usage_error.curl_did_not_finish: curl がリクエストを完了しませんで
 usage_error.curl_failed: "curl に失敗しました：%{error}"
 usage_error.unknown_error: 不明なエラー
 usage_error.curl_no_status: curl から HTTP ステータス行が返されませんでした
+library.title: メディア素材ライブラリ
+library.save: 素材ライブラリに保存
+library.already_saved: 保存済み
+library.saved: 素材ライブラリに保存しました
+library.deleted: 素材ライブラリから削除しました
+library.empty: まだ素材がありません。プレビューで「保存」を押してください。
+library.count: "%{count} 件"
+library.delete: 削除
+library.save_needs_file: ローカルファイルの画像のみ保存できます
+library.sort_newest: 新しい順
+library.sort_oldest: 古い順
+library.prompt: プロンプト
+library.created: 保存日時

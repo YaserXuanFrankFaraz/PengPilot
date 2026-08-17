@@ -990,6 +990,36 @@ impl StateStore {
         Arc::clone(&self.blobs)
     }
 
+    pub fn library_root(&self) -> PathBuf {
+        crate::library::library_root_for_db(&self.path)
+    }
+
+    pub fn list_library_assets(&self) -> io::Result<Vec<crate::library::LibraryAsset>> {
+        let connection = self.open()?;
+        crate::library::list_assets(&connection)
+    }
+
+    pub fn save_library_asset(
+        &self,
+        request: crate::library::SaveLibraryAsset,
+    ) -> io::Result<crate::library::LibraryAsset> {
+        let connection = self.open()?;
+        crate::library::save_asset(&connection, &self.library_root(), request)
+    }
+
+    pub fn delete_library_asset(&self, id: &str) -> io::Result<()> {
+        let connection = self.open()?;
+        crate::library::delete_asset(&connection, &self.library_root(), id)
+    }
+
+    pub fn library_asset_saved_for_source(
+        &self,
+        source_path: &Path,
+    ) -> io::Result<Option<crate::library::LibraryAsset>> {
+        let connection = self.open()?;
+        crate::library::find_by_source_path(&connection, source_path)
+    }
+
     fn open(&self) -> io::Result<Connection> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;

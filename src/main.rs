@@ -39,6 +39,7 @@ mod grok_session;
 mod i18n;
 mod identity;
 mod input;
+mod library;
 mod md;
 mod model;
 mod model_catalog;

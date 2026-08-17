@@ -24,6 +24,10 @@ pub fn init(cx: &mut App) {
 pub(super) struct ImagePreviewState {
     image: Arc<gpui::Image>,
     name: SharedString,
+    /// Absolute path when the preview came from a file (Imagine / library).
+    /// Needed to copy into the asset library; `None` for in-memory blobs.
+    pub(super) source_path: Option<PathBuf>,
+    pub(super) prompt: Option<String>,
     focus: FocusHandle,
     close_focus: FocusHandle,
     previous_focus: Option<FocusHandle>,
@@ -58,11 +62,52 @@ pub(super) fn attachment_menu_items(path: PathBuf, _can_reveal: bool) -> Vec<Men
     ]
 }
 
+fn preview_image_path(url: &str) -> Option<PathBuf> {
+    if let Some(path) = crate::blob_store::shared_path_for(url) {
+        return path.is_file().then_some(path);
+    }
+    let path = Path::new(url);
+    path.is_absolute()
+        .then(|| path.to_path_buf())
+        .filter(|path| path.is_file())
+}
+
+fn load_preview_image(url: &str) -> Option<(Arc<gpui::Image>, SharedString)> {
+    if let Some(decoded) = crate::md::render::decode_data_url(url) {
+        return Some((decoded, SharedString::from("image")));
+    }
+    let path = preview_image_path(url)?;
+    let format = image_format_for_name(path.to_str()?)?;
+    let bytes = std::fs::read(&path).ok()?;
+    (!bytes.is_empty()).then(|| {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("image");
+        (
+            Arc::new(gpui::Image::from_bytes(format, bytes)),
+            SharedString::from(name.to_owned()),
+        )
+    })
+}
+
 impl Waku {
     pub(super) fn open_image_preview(
         &mut self,
         image: Arc<gpui::Image>,
         name: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_image_preview_with_source(image, name, None, None, window, cx);
+    }
+
+    pub(super) fn open_image_preview_with_source(
+        &mut self,
+        image: Arc<gpui::Image>,
+        name: SharedString,
+        source_path: Option<PathBuf>,
+        prompt: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -72,6 +117,8 @@ impl Waku {
         self.image_preview = Some(ImagePreviewState {
             image,
             name,
+            source_path,
+            prompt,
             focus: focus.clone(),
             close_focus: cx.focus_handle(),
             previous_focus: window.focused(cx),
@@ -99,6 +146,30 @@ impl Waku {
         cx.notify();
     }
 
+    /// Open a transcript image URL in the modal preview. Accepts `data:`,
+    /// `waku-blob:`, and absolute filesystem paths (Grok Imagine output).
+    pub(super) fn open_image_url(
+        &mut self,
+        url: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((image, name)) = load_preview_image(url) else {
+            if let Some(path) = preview_image_path(url) {
+                crate::platform::reveal_in_file_manager(&path, cx);
+            }
+            return;
+        };
+        self.open_image_preview_with_source(
+            image,
+            name,
+            preview_image_path(url),
+            None,
+            window,
+            cx,
+        );
+    }
+
     fn close_image_preview(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(preview) = self.image_preview.take() else {
             return;
@@ -118,6 +189,12 @@ impl Waku {
         let theme = Theme::current(cx);
         let image_source = preview.image.clone();
         let name = preview.name.clone();
+        let can_save = preview.source_path.is_some();
+        let already_saved = preview
+            .source_path
+            .as_ref()
+            .and_then(|path| self.store.library_asset_saved_for_source(path).ok().flatten())
+            .is_some();
         let focus = preview.focus.clone();
         let close_focus = preview.close_focus.clone();
         let generation = preview.generation;
@@ -188,15 +265,51 @@ impl Waku {
             .child(div().w_full().flex_1().min_h_0().child(image))
             .child(
                 div()
-                    .max_w(px(560.0))
-                    .px(px(11.0))
-                    .py(px(5.0))
-                    .rounded_full()
-                    .bg(gpui::hsla(0.0, 0.0, 0.0, 0.48))
-                    .text_size(px(11.5))
-                    .text_color(gpui::white().opacity(0.9))
-                    .truncate()
-                    .child(name),
+                    .flex()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .max_w(px(420.0))
+                            .px(px(11.0))
+                            .py(px(5.0))
+                            .rounded_full()
+                            .bg(gpui::hsla(0.0, 0.0, 0.0, 0.48))
+                            .text_size(px(11.5))
+                            .text_color(gpui::white().opacity(0.9))
+                            .truncate()
+                            .child(name),
+                    )
+                    .when(can_save, |row| {
+                        row.child(
+                            div()
+                                .id("image-preview-save-library")
+                                .px(px(12.0))
+                                .py(px(5.0))
+                                .rounded_full()
+                                .bg(if already_saved {
+                                    gpui::hsla(0.0, 0.0, 0.0, 0.32)
+                                } else {
+                                    theme.accent
+                                })
+                                .text_size(px(11.5))
+                                .text_color(gpui::white())
+                                .cursor_pointer()
+                                .hover(|style| style.opacity(0.88))
+                                .child(if already_saved {
+                                    tr!("library.already_saved")
+                                } else {
+                                    tr!("library.save")
+                                })
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                    cx.stop_propagation();
+                                })
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.save_current_preview_to_library(window, cx);
+                                    cx.stop_propagation();
+                                })),
+                        )
+                    }),
             )
             .child(close);
 

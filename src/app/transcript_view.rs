@@ -1115,7 +1115,21 @@ impl Waku {
     ) -> MarkdownCtx<'a> {
         MarkdownCtx::new(row, palette, metrics, self.transcript_selection.clone())
             .with_link_handler(self.markdown_link_handler.clone())
+            .with_image_handler(self.markdown_image_handler.clone())
             .with_streaming_animation(animate_streaming)
+            .with_media_root(self.selected_session_media_root())
+    }
+
+    /// Grok Imagine embeds relative markdown images (`images/1.jpg`) against
+    /// the on-disk session folder. Other providers leave this unset.
+    fn selected_session_media_root(&self) -> Option<std::path::PathBuf> {
+        let session = self.selected_session()?;
+        match session.provider_cursor.as_ref()? {
+            ProviderResumeCursor::Grok { session_id } => {
+                crate::grok_session::session_directory(session_id).ok()
+            }
+            _ => None,
+        }
     }
 
     /// The menu handle for `id`, created on first use.
@@ -1239,6 +1253,7 @@ impl Waku {
                         MarkdownMetrics::BODY
                     };
                     let animate_streaming = message.streaming && !cx.reduce_motion();
+                    let media_root = self.selected_session_media_root();
                     let ctx = self.markdown_ctx(
                         format!("message-{}", message.id),
                         &palette,
@@ -1252,7 +1267,13 @@ impl Waku {
                     let view = matches!(message.role, MessageRole::User | MessageRole::Assistant)
                         .then(|| {
                             let view = markdown.entry(message.id).or_default();
-                            view.set_text(message.visible_content(), message.streaming);
+                            let raw = message.visible_content();
+                            let expanded = media_root.as_ref().and_then(|root| {
+                                (message.role == MessageRole::Assistant).then(|| {
+                                    crate::grok_session::expand_imagine_markdown(raw, root)
+                                })
+                            });
+                            view.set_text(expanded.as_deref().unwrap_or(raw), message.streaming);
                             &*view
                         });
                     let rendered = render_message(
@@ -1903,7 +1924,7 @@ impl Waku {
                     .expanded_activity_items
                     .get(&id)
                     .copied()
-                    .unwrap_or(reasoning_live);
+                    .unwrap_or(reasoning_live || !activity.image_urls.is_empty());
             let item_focus = self.transcript_control_focus(format!("activity-item-{id}"), cx);
             let mut item = div()
                 .w_full()
@@ -2303,8 +2324,12 @@ impl Waku {
                     detail_card = detail_card.child(section_view);
                 }
                 for (image_index, image_url) in activity.image_urls.iter().enumerate() {
-                    detail_card =
-                        detail_card.child(render_activity_image(image_url, id, image_index));
+                    detail_card = detail_card.child(render_activity_image(
+                        image_url,
+                        id,
+                        image_index,
+                        cx.entity().downgrade(),
+                    ));
                 }
                 item = item.child(detail_card);
             }
@@ -2681,17 +2706,30 @@ fn activity_scroll_fade(
     })
 }
 
-fn render_activity_image(image_url: &str, activity_id: Uuid, image_index: usize) -> AnyElement {
+fn render_activity_image(
+    image_url: &str,
+    activity_id: Uuid,
+    image_index: usize,
+    waku: gpui::WeakEntity<Waku>,
+) -> AnyElement {
     // Stored blobs go through GPUI's asset cache, which reads and decodes the
     // file once off the UI thread. Only legacy inline data URLs still pay a
-    // per-render base64 decode.
+    // per-render base64 decode. Grok Imagine returns absolute filesystem paths.
     let element = match crate::blob_store::shared_path_for(image_url) {
         Some(path) => img(path),
         None => match decode_activity_image(image_url) {
             Some(image) => img(image),
-            None => img(image_url.to_owned()),
+            None => {
+                let path = std::path::Path::new(image_url);
+                if path.is_absolute() {
+                    img(path.to_path_buf())
+                } else {
+                    img(image_url.to_owned())
+                }
+            }
         },
     };
+    let preview_url = image_url.to_owned();
     element
         .id(SharedString::from(format!(
             "activity-image-{activity_id}-{image_index}"
@@ -2702,6 +2740,13 @@ fn render_activity_image(image_url: &str, activity_id: Uuid, image_index: usize)
         .mt(px(8.0))
         .rounded(px(4.0))
         .object_fit(ObjectFit::Contain)
+        .cursor_pointer()
+        .on_click(move |_, window, cx| {
+            let _ = waku.update(cx, |this, cx| {
+                this.open_image_url(&preview_url, window, cx);
+            });
+            cx.stop_propagation();
+        })
         .into_any_element()
 }
 

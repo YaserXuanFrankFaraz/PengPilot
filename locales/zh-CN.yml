@@ -800,3 +800,17 @@ usage_error.curl_did_not_finish: curl 未能完成请求
 usage_error.curl_failed: "curl 失败：%{error}"
 usage_error.unknown_error: 未知错误
 usage_error.curl_no_status: curl 未返回 HTTP 状态行
+
+library.title: 媒体素材库
+library.save: 保存到素材库
+library.already_saved: 已保存
+library.saved: 已保存到素材库
+library.deleted: 已从素材库删除
+library.empty: 还没有素材。预览满意图时点「保存到素材库」。
+library.count: "%{count} 项"
+library.delete: 删除
+library.save_needs_file: 只能保存本地文件图片
+library.sort_newest: 最新优先
+library.sort_oldest: 最早优先
+library.prompt: 提示词
+library.created: 保存于
