@@ -14,6 +14,21 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.19]
+
+### Brand polish
+
+- Shifted the PengPilot Prime app mark slightly upward in the icon canvas so
+  Dock, Finder, and in-app empty states read optically centered.
+- Added the product slogan to the README: *Pilot every harness from one deck.*
+
+### 中文摘要
+
+**品牌微调**
+
+- 应用图标整体上移，Dock / Finder / 应用内空状态的光学重心更居中。
+- README 增加口号：*Pilot every harness from one deck.*（从同一驾驶台，驾驭你所有的 harness。）
+
 ## [0.1.18]
 
 ### Chrome alignment

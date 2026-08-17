@@ -5,6 +5,11 @@
 </p>
 
 <p align="center">
+  <strong>Pilot every harness from one deck.</strong><br>
+  从同一驾驶台，驾驭你所有的 harness。
+</p>
+
+<p align="center">
   A fast native desktop control plane for local coding agents.<br>
   面向本地编程智能体的高性能原生桌面控制台。
 </p>
