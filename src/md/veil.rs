@@ -10,9 +10,9 @@ use std::time::Instant;
 
 use gpui::TextRun;
 
-pub const VEIL_EMA_SEED_MS: f32 = 160.0;
-pub const VEIL_MIN_FADE_MS: f32 = 120.0;
-pub const VEIL_MAX_FADE_MS: f32 = 400.0;
+pub const VEIL_EMA_SEED_MS: f32 = 120.0;
+pub const VEIL_MIN_FADE_MS: f32 = 80.0;
+pub const VEIL_MAX_FADE_MS: f32 = 280.0;
 pub const VEIL_CURVE_POW: f32 = 1.6;
 const VEIL_GAP_CLAMP_MS: f32 = 1_000.0;
 
@@ -300,8 +300,8 @@ mod tests {
 
     #[test]
     fn cadence_curve_matches_comet() {
-        assert_eq!(veil_duration_ms(160.0), 400.0);
-        assert_eq!(veil_duration_ms(30.0), 120.0);
+        assert_eq!(veil_duration_ms(120.0), 280.0);
+        assert_eq!(veil_duration_ms(30.0), 90.0);
         assert_eq!(veil_boost(2), 1.0);
         assert!((veil_boost(3) - 1.3).abs() < f32::EPSILON);
         assert_eq!(veil_opacity(0.0), 0.0);
