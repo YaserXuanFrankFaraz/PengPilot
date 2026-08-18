@@ -300,3 +300,245 @@ impl ProviderResumeCursor {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeMode {
+    /// Legacy combined mode. State migration moves this to `interaction_mode`.
+    Plan,
+    Ask,
+    AutoAcceptEdits,
+    Auto,
+    #[default]
+    FullAccess,
+}
+
+impl RuntimeMode {
+    pub const ACCESS_OPTIONS: [Self; 4] = [
+        Self::Ask,
+        Self::AutoAcceptEdits,
+        Self::Auto,
+        Self::FullAccess,
+    ];
+
+    pub fn label(self) -> String {
+        match self {
+            Self::Plan => tr!("mode.plan"),
+            Self::Ask => tr!("mode.supervised"),
+            Self::AutoAcceptEdits => tr!("mode.auto_accept_edits"),
+            Self::Auto => tr!("mode.auto"),
+            Self::FullAccess => tr!("mode.full_access"),
+        }
+    }
+
+    pub fn description(self) -> String {
+        match self {
+            Self::Plan => tr!("mode.plan_description"),
+            Self::Ask => tr!("mode.supervised_description"),
+            Self::AutoAcceptEdits => tr!("mode.auto_accept_edits_description"),
+            Self::Auto => tr!("mode.auto_description"),
+            Self::FullAccess => tr!("mode.full_access_description"),
+        }
+    }
+
+    pub fn icon(self) -> &'static str {
+        match self {
+            Self::Plan | Self::Ask => "icons/lock.svg",
+            Self::AutoAcceptEdits => "icons/pencil.svg",
+            Self::Auto => "icons/sparkle.svg",
+            Self::FullAccess => "icons/lock-open.svg",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InteractionMode {
+    #[default]
+    Build,
+    Plan,
+}
+
+impl InteractionMode {
+    pub fn label(self) -> String {
+        match self {
+            Self::Build => tr!("mode.build"),
+            Self::Plan => tr!("mode.plan"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderModelOption {
+    pub id: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+impl ProviderModelOption {
+    pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            description: None,
+        }
+    }
+
+    pub fn description(mut self, description: impl Into<String>) -> Self {
+        let description = description.into();
+        if !description.trim().is_empty() {
+            self.description = Some(description);
+        }
+        self
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderModel {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_provider: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
+    #[serde(default)]
+    pub reasoning_efforts: Vec<ProviderModelOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_reasoning_effort: Option<String>,
+    #[serde(default)]
+    pub service_tiers: Vec<ProviderModelOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_service_tier: Option<String>,
+    /// Context window sizes the provider exposes as a per-session choice.
+    /// Claude Code keeps its 1M window opt-in behind a model-id suffix, so the
+    /// window is a trait of the session rather than of the model.
+    #[serde(default)]
+    pub context_windows: Vec<ProviderModelOption>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_context_window: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FavoriteModel {
+    pub provider: ProviderKind,
+    pub model: String,
+}
+
+/// One provider-owned agent composition available when a task starts.
+///
+/// DeepSeek Harness calls these agent presets. They are intentionally kept
+/// separate from [`InteractionMode`]: a preset chooses the tools and prompt
+/// composition, while Build/Plan controls what that composition should do.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderAgentPreset {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
+    #[serde(default)]
+    pub is_custom: bool,
+}
+
+impl ProviderAgentPreset {
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: None,
+            is_default: false,
+            is_custom: false,
+        }
+    }
+
+    pub fn description(mut self, description: impl Into<String>) -> Self {
+        let description = description.into();
+        if !description.trim().is_empty() {
+            self.description = Some(description);
+        }
+        self
+    }
+
+    pub fn default(mut self) -> Self {
+        self.is_default = true;
+        self
+    }
+
+    /// Harness localizes its four shipped presets in the Web client rather
+    /// than in the Host roster, whose metadata may use the install language.
+    /// Mirror that boundary while leaving user-authored metadata untouched.
+    pub fn display_name(&self) -> String {
+        if !self.is_custom {
+            match self.id.as_str() {
+                "standard" => return tr!("agent_preset.standard"),
+                "code" => return tr!("agent_preset.code"),
+                "minimal" => return tr!("agent_preset.minimal"),
+                "cordis" => return tr!("agent_preset.creator"),
+                _ => {}
+            }
+        }
+        self.name.clone()
+    }
+
+    pub fn display_description(&self) -> Option<String> {
+        if !self.is_custom {
+            match self.id.as_str() {
+                "standard" => return Some(tr!("agent_preset.standard_description")),
+                "code" => return Some(tr!("agent_preset.code_description")),
+                "minimal" => return Some(tr!("agent_preset.minimal_description")),
+                "cordis" => return Some(tr!("agent_preset.creator_description")),
+                _ => {}
+            }
+        }
+        self.description.clone()
+    }
+}
+
+impl ProviderModel {
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            sub_provider: None,
+            is_default: false,
+            reasoning_efforts: Vec::new(),
+            default_reasoning_effort: None,
+            service_tiers: Vec::new(),
+            default_service_tier: None,
+            context_windows: Vec::new(),
+            default_context_window: None,
+        }
+    }
+
+    pub fn default(mut self) -> Self {
+        self.is_default = true;
+        self
+    }
+
+    pub fn sub_provider(mut self, sub_provider: impl Into<String>) -> Self {
+        self.sub_provider = Some(sub_provider.into());
+        self
+    }
+
+    pub fn reasoning(
+        mut self,
+        efforts: impl IntoIterator<Item = ProviderModelOption>,
+        default: impl Into<String>,
+    ) -> Self {
+        self.reasoning_efforts = efforts.into_iter().collect();
+        self.default_reasoning_effort = Some(default.into());
+        self
+    }
+
+    pub fn service_tiers(
+        mut self,
+        tiers: impl IntoIterator<Item = ProviderModelOption>,
+        default: impl Into<String>,
+    ) -> Self {
+        self.service_tiers = tiers.into_iter().collect();
+        self.default_service_tier = Some(default.into());
+        self
+    }
+}
