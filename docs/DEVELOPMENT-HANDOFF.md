@@ -197,10 +197,11 @@ placeholder.
   Start does not leak the daemon provider process.
 - Task catalog save: UI `Waku::save` writes desktop files on this thread and
   enqueues `SaveTaskState` on a worker. Dirty sessions clear only after a
-  matching `TaskStateSaved` ack (save sequence + dirty generation). Startup
-  `StateStore::save` still blocks. SQLite `busy_timeout` is 5s (daemon + app
-  still dual-open WAL). Unimplemented `AttachSession` / PTY /
-  fork-from-response commands error instead of `Ack`.
+  matching `TaskStateSaved` ack (save sequence + dirty generation). Quit and
+  startup still call blocking `StateStore::save`, which serializes with the
+  worker so a slower request cannot overwrite a newer snapshot. SQLite
+  `busy_timeout` is 5s (daemon + app still dual-open WAL). Unimplemented
+  `AttachSession` / PTY / fork-from-response commands error instead of `Ack`.
 - Plan meters + Computer Use permissions: desktop `usage_meter` /
   `request_computer_permissions` call `FetchPlanUsage` /
   `ProbeComputerPermissions`. Backend errors for providers with no fetcher

@@ -1017,14 +1017,19 @@ impl Waku {
 
     pub(super) fn save(&mut self) {
         self.last_stream_save = Instant::now();
-        if let Some(error) = self.store.take_save_acks(&mut self.state) {
-            self.show_toast(tr!("errors.save_local_state", error = error));
+        match self.store.take_save_acks(&mut self.state) {
+            crate::persistence::SaveAckDrain::Failed(error) => {
+                self.show_toast(tr!("errors.save_local_state", error = error));
+                self.stream_state_dirty = true;
+            }
+            crate::persistence::SaveAckDrain::Retry => self.stream_state_dirty = true,
+            crate::persistence::SaveAckDrain::Saved => self.stream_state_dirty = false,
+            crate::persistence::SaveAckDrain::None => {}
         }
         if let Err(error) = self.store.save_async(&mut self.state, self.event_wake_tx.clone())
         {
             self.show_toast(tr!("errors.save_local_state", error = error));
-        } else {
-            self.stream_state_dirty = false;
+            self.stream_state_dirty = true;
         }
     }
 
@@ -2634,7 +2639,22 @@ impl Waku {
         {
             cx.notify();
         }
-        if let Some(error) = self.store.take_save_acks(&mut self.state) {
+        if let Some(error) = match self.store.take_save_acks(&mut self.state) {
+            crate::persistence::SaveAckDrain::Failed(error) => {
+                self.stream_state_dirty = true;
+                Some(error)
+            }
+            crate::persistence::SaveAckDrain::Retry => {
+                self.stream_state_dirty = true;
+                self.save();
+                None
+            }
+            crate::persistence::SaveAckDrain::Saved => {
+                self.stream_state_dirty = false;
+                None
+            }
+            crate::persistence::SaveAckDrain::None => None,
+        } {
             self.show_toast(tr!("errors.save_local_state", error = error));
         }
         if std::mem::take(&mut self.workspace_queries_stale) {
