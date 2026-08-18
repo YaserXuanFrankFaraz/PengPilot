@@ -18,7 +18,11 @@ macro_rules! tr {
 }
 
 pub mod agent;
+pub mod computer_use;
+pub mod i18n;
+pub mod identity;
 pub mod model;
 pub mod projectless;
 pub mod session;
+pub mod theme;
 pub mod work;

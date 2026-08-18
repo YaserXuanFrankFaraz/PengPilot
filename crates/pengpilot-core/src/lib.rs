@@ -6,11 +6,13 @@
 //! while the engine moves out of the UI process.
 //!
 //! Phase 2 in-process backend: no WebSocket yet. `pengpilot-daemon` and RPC
-//! land once persistence and drivers follow these modules.
+//! land once drivers follow these modules.
 
 pub mod blob_store;
 pub mod checkpoint;
 pub mod command_env;
 pub mod git_branch;
 pub mod git_commit;
+pub mod library;
+pub mod persistence;
 pub mod worktree;

@@ -4899,7 +4899,9 @@ dependencies = [
  "base64",
  "dirs",
  "libc",
+ "parking_lot",
  "pengpilot-protocol",
+ "rusqlite",
  "serde",
  "serde_json",
  "uuid",
@@ -4910,6 +4912,7 @@ name = "pengpilot-protocol"
 version = "0.1.20"
 dependencies = [
  "dirs",
+ "objc2-foundation 0.3.2",
  "rust-i18n",
  "serde",
  "serde_json",

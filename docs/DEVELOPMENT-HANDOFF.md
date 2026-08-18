@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + session leaf types (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + persistence in pengpilot-core (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **627 green** (`pengpilot` 543+10, `pengpilot-core` 33, `pengpilot-protocol` 41) |
+| Tests | **627 green** (`pengpilot` 482+10, `pengpilot-core` 86, `pengpilot-protocol` 49) |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -30,17 +30,20 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
 ### Today: app + protocol crate + young core crate
 
 - Cargo workspace: `pengpilot` + `pengpilot-protocol` + `pengpilot-core`.
-  `pengpilot-core` holds git/blob/command_env/worktree/checkpoint. The app
-  re-exports those modules. Drivers, persistence, and UI stay in the app.
+  `pengpilot-core` holds git/blob/command_env/worktree/checkpoint, plus
+  SQLite `persistence` and the media `library`. The app re-exports those
+  modules. Drivers, catalog/pools, and UI stay in the app.
 - `crates/pengpilot-protocol` (`pengpilot-protocol`, v0.1.20): serde-only wire
   value types, no I/O. Carries its own `rust_i18n::i18n!("../../locales")` +
   an equivalent `tr!` macro (shares the process-global locale with the app).
-  Modules: `model` (ProviderKind, ProviderResumeCursor, RuntimeMode,
-  InteractionMode, ProviderModel/Option, FavoriteModel, ProviderAgentPreset),
-  `work` (WorkflowStatus, Quadrant, FocusZone, InboxCollection).
+  Modules: `model`, `work`, `session`, `agent`, `projectless`, plus settings
+  values `identity`, `i18n` (`AppLanguage`), `theme` (`ThemePreference`),
+  and `computer_use` (`ComputerAppGrant` only — GPUI computer-use stays in
+  the app).
 - `src/model.rs` re-exports the protocol types so every `crate::model::X` path
   keeps working (no call-site churn). This is the deliberate "re-export bridge"
-  pattern from waku's `src/lib.rs`.
+  pattern from waku's `src/lib.rs`. `src/i18n.rs` / `src/identity.rs` are the
+  same kind of re-export (inline modules in `src/main.rs`).
 
 ### Target: waku's daemon + WebSocket RPC layout
 
@@ -79,7 +82,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | --- | --- | --- |
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
 | 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | ✅ value types done; `DriverEvent` waits for Phase 3 |
-| 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | **In progress** (core crate + git/blob/command_env/worktree/checkpoint) |
+| 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | **In progress** (core + persistence/library; daemon binary not yet) |
 | 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | ⬜ |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
 | 5 | Re-align to waku mainline; maintain provider verification | ⬜ |
@@ -130,13 +133,18 @@ placeholder.
 
 - `pengpilot-core` crate: `command_env`, `git_commit`, `git_branch`,
   `blob_store`, `worktree`, `checkpoint`. App re-exports keep `crate::*` paths.
-  Persistence, drivers, usage, and the daemon binary are still app-side.
+- Persistence cluster: protocol gained `identity`, `AppLanguage`,
+  `ThemePreference`, and `ComputerAppGrant`. `library.rs` + `persistence.rs`
+  + core `build.rs` (drizzle migrations) live in `pengpilot-core`. App
+  `build.rs` only watches `locales`. `remember_model_traits` /
+  `model_traits_for` are `pub` because glob re-exports cannot leak
+  `pub(crate)`. GPUI `Theme` and computer-use helpers stay in the app.
 
 ### Phase 2 remaining
 
-Move `persistence`, `model_catalog`, pools, session adapters, then drivers
-(except computer-use GPUI). Add `pengpilot-daemon` as a thin in-process
-`Backend` seam (no WebSocket until Phase 3).
+Move `model_catalog`, pools, session adapters, then drivers (except
+computer-use GPUI). Add `pengpilot-daemon` as a thin in-process `Backend`
+seam (no WebSocket until Phase 3).
 
 ### Phase 2–5 starting notes (from the waku map)
 
@@ -232,7 +240,7 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Continue **Phase 2**: move persistence / model_catalog / pools into core,
-   then add `pengpilot-daemon` (in-process Backend, no WS). Then Phase 3–5.
+1. Continue **Phase 2**: move model_catalog / pools / session adapters into
+   core, then add `pengpilot-daemon` (in-process Backend, no WS). Then Phase 3–5.
 2. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).

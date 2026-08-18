@@ -46,16 +46,24 @@ mod git_commit {
     pub use pengpilot_core::git_commit::*;
 }
 mod grok_session;
-mod i18n;
-mod identity;
+mod i18n {
+    pub use pengpilot_protocol::i18n::*;
+}
+mod identity {
+    pub use pengpilot_protocol::identity::*;
+}
 mod input;
-mod library;
+mod library {
+    pub use pengpilot_core::library::*;
+}
 mod md;
 mod model;
 mod model_catalog;
 mod opencode_pool;
 mod opencode_session;
-mod persistence;
+mod persistence {
+    pub use pengpilot_core::persistence::*;
+}
 mod platform;
 mod projectless;
 mod query;
