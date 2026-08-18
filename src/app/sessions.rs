@@ -883,6 +883,7 @@ impl Waku {
     pub(super) fn reset_session_runtime(&mut self, session_id: Uuid) {
         if let Some(runtime) = self.runtimes.remove(&session_id) {
             runtime.driver.cancel();
+            runtime.driver.close();
             self.mark_background_work_lost(session_id);
         }
     }
@@ -1224,6 +1225,8 @@ impl Waku {
             && let Some(runtime) = runtime
         {
             self.runtimes.insert(session_id, runtime);
+        } else if let Some(runtime) = runtime {
+            runtime.driver.close();
         }
         self.remeasure_transcript_tail();
         self.save();

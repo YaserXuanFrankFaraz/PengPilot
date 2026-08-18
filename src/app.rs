@@ -576,9 +576,11 @@ struct PreparedSubmission {
 /// is still on the UI thread. `cwd` is replaced with the materialized
 /// worktree path by the background preparation task.
 struct DriverStartRequest {
+    session_id: Uuid,
     provider: ProviderKind,
     options: DriverStartOptions,
     event_wake: smol::channel::Sender<()>,
+    daemon_client: pengpilot_client::DaemonClient,
 }
 
 /// A provider process that has started off-thread but is not installed into

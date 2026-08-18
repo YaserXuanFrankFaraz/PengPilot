@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + task catalog over RPC (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + driver sessions over RPC (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **656 green** (`pengpilot` 305+10, `pengpilot-core` 277, `pengpilot-protocol` 57, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
+| Tests | **658 green** (`pengpilot` 305+10, `pengpilot-core` 278, `pengpilot-protocol` 58, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -27,7 +27,7 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
 
 ## 2. Architecture — today and the target
 
-### Today: app spawns daemon; task catalog over RPC
+### Today: app spawns daemon; task catalog and driver sessions over RPC
 
 - Cargo workspace: `pengpilot` + `pengpilot-protocol` + `pengpilot-core` +
   `pengpilot-daemon` + `pengpilot-client`. `pengpilot-core` holds the headless
@@ -36,16 +36,18 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
   `pengpilot-daemon` before the window opens. `src/persistence.rs`
   `StateStore::remote` loads/saves/hydrates the task catalog over RPC.
   Settings/`state.json`, composer drafts, library, and blobs stay local.
-  Drivers still start in-process. UI, md, transcript assembly, and the GPUI
-  `terminal` widget stay in the app.
-- RPC paths so far: `ProbeProvider` and `LoadTaskState` / `SaveTaskState` /
-  `HydrateSession` / `RemoveSession`. Everything else still calls core
-  directly.
+  Provider processes start in the daemon via `Command::Start`; the app holds
+  `RemoteDriverControl` (`src/driver.rs`). UI, md, transcript assembly, and
+  the GPUI `terminal` widget stay in the app.
+- RPC paths so far: `ProbeProvider`, `LoadTaskState` / `SaveTaskState` /
+  `HydrateSession` / `RemoveSession`, and the driver session surface
+  (`Start` / `Prompt` / `Steer` / `Cancel` / … / `CloseSession`). Workspace,
+  drafts, library, and daemon PTY still call core from the app or Ack.
 - `crates/pengpilot-protocol`: serde-only wire value types, no I/O. Envelope
   types (`ClientMessage` / `ServerMessage` / `ReplayCursor` /
-  `WireDriverEvent`, `PROTOCOL_VERSION=3`). `Command` covers session runtime
-  + probe/task-state; settings / attachments / workspace / drafts wait until
-  those value types live here.
+  `WireDriverEvent`, `PROTOCOL_VERSION=3`). `event_to_wire` / `event_from_wire`
+  live here. `Command` covers session runtime + probe/task-state; settings /
+  attachments / workspace / drafts wait until those value types live here.
 - `crates/pengpilot-daemon`: binds loopback, requires `PENGPILOT_DAEMON_TOKEN`,
   prints `DaemonReady` JSON on stdout, serves `PengPilotBackend`.
 - `crates/pengpilot-client`: `DaemonClient` + `DaemonProcess` /
@@ -98,7 +100,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
 | 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | ✅ including `DriverEvent` (image_url, not GPUI) |
 | 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | ✅ engine + in-process daemon; GPUI `terminal.rs` stays in app |
-| 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | **In progress** (spawn + ProbeProvider + task-catalog RPC; drivers still in-process) |
+| 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | **In progress** (spawn + ProbeProvider + task-catalog RPC + RemoteDriverControl) |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | **Partial** (`bundle.sh`/`dev.ts` build daemon; release copies it into `.app`) |
 | 5 | Re-align to waku mainline; maintain provider verification | ⬜ |
 | — | Package-hygiene pass (after daemonization): shrink DMG/ZIP/App | ⬜ |
@@ -139,8 +141,8 @@ Value types are extracted. `src/model.rs` is the re-export bridge.
 migration stay in `src/projectless.rs`. Do not rebuild the deleted Box::leak
 placeholder.
 
-**`DriverEvent`**: extracted. Phase 3 still needs waku's `WireDriverEvent` /
-`event_to_wire` for JSON-RPC (the in-process enum is not the wire envelope).
+**`DriverEvent`**: extracted. `event_to_wire` / `event_from_wire` live in
+`pengpilot-protocol`. Daemon Start forwards in-process events onto the WS hub.
 
 ### Phase 2 commits
 
@@ -184,12 +186,16 @@ placeholder.
   `SaveTaskState` / `HydrateSession` / `RemoveSession`. Desktop
   `StateStore::remote` refuses to save until `LoadTaskState` succeeded.
   Library/blob calls still open SQLite from the app (WAL dual-open).
+- Driver RPC: `PengPilotBackend` owns a session map of local `DriverHandle`s.
+  `Start` spawns `driver::start` and forwards `event_to_wire` through
+  `EventSink`. Desktop `src/driver.rs` `start_remote` / `RemoteDriverControl`
+  talk JSON-RPC; `Drop` unsubscribes, `close()` sends `CloseSession`. Skip
+  `attach_remote` until a second client needs to rejoin a live runtime.
 
 ### Phase 3 remaining
 
-`runtime.rs` / streaming as RPC (`RemoteDriverControl`). Port remaining
-`Command` types (settings, attachments, workspace, drafts, skills/usage-history
-catalogs). Daemon PTY.
+Remaining `Command` types (settings, attachments, workspace, drafts,
+skills/usage-history catalogs). Daemon PTY. Live-verify Debug.app spawn.
 
 ### Phase 2–5 starting notes (from the waku map)
 
@@ -290,11 +296,11 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Continue **Phase 3**: route `runtime.rs` / streaming through RPC
-   (`RemoteDriverControl`). Live-verify Debug.app actually spawns
-   `pengpilot-daemon` (quit the running watcher first). Do **not** cut a
-   GitHub release until that spawn is confirmed. `v0.1.20` remains the
-   fallback.
-2. Remaining Command types, then daemon PTY, then Phase 4 size gates.
+1. Continue **Phase 3**: remaining Command types (settings, attachments,
+   workspace, drafts, skills/usage catalogs), then daemon PTY. Live-verify
+   Debug.app actually spawns `pengpilot-daemon` (quit the running watcher
+   first). Do **not** cut a GitHub release until that spawn is confirmed.
+   `v0.1.20` remains the fallback.
+2. Then Phase 4 size gates.
 3. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).

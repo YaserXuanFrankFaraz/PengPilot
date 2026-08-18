@@ -1,13 +1,17 @@
 //! Provider backend for `pengpilot-daemon`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
-use anyhow::Context as _;
+use anyhow::{Context as _, anyhow, bail};
 use parking_lot::Mutex;
-use pengpilot_protocol::{Command, Request, ResponsePayload};
+use pengpilot_protocol::{
+    Command, Request, ResponsePayload, WireDriverEvent, decode_enum, event_to_wire,
+};
+use serde_json::Value;
 use uuid::Uuid;
 
+use crate::driver::{self, DriverHandle, DriverStartOptions, SessionOptions};
 use crate::model::{AgentSession, Project};
 use crate::persistence::{PersistedState, StateStore};
 use crate::server::{Backend, EventSink};
@@ -16,6 +20,7 @@ pub struct PengPilotBackend {
     task_store: StateStore,
     task_state: Mutex<PersistedState>,
     removed_session_ids: Mutex<HashSet<Uuid>>,
+    sessions: Mutex<HashMap<Uuid, (Uuid, DriverHandle)>>,
     default_cwd: std::path::PathBuf,
 }
 
@@ -28,14 +33,16 @@ impl PengPilotBackend {
             task_store,
             task_state: Mutex::new(task_state),
             removed_session_ids: Mutex::new(HashSet::new()),
+            sessions: Mutex::new(HashMap::new()),
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         })
     }
 }
 
 impl Backend for PengPilotBackend {
-    fn handle(&self, request: Request, _events: EventSink) -> anyhow::Result<ResponsePayload> {
+    fn handle(&self, request: Request, events: EventSink) -> anyhow::Result<ResponsePayload> {
         let session_id = request.session_id;
+        let runtime_id = request.runtime_id;
         match request.command {
             Command::LoadTaskState => {
                 let state = self.task_state.lock();
@@ -206,9 +213,169 @@ impl Backend for PengPilotBackend {
                 let permissions = crate::computer_use::probe_permissions(prompt)?;
                 Ok(ResponsePayload::ComputerPermissions { permissions })
             }
+            Command::Start { options } => {
+                let previous = self.sessions.lock().remove(&session_id);
+                drop(previous);
+                let provider = decode_enum(&options.provider)?;
+                let options = DriverStartOptions {
+                    binary: options.binary,
+                    cwd: options.cwd,
+                    mode: decode_enum(&options.mode)?,
+                    interaction_mode: decode_enum(&options.interaction_mode)?,
+                    model: options.model,
+                    reasoning_effort: options.reasoning_effort,
+                    service_tier: options.service_tier,
+                    // ponytail: wire has context_window; local DriverStartOptions does not.
+                    agent_preset: options.agent_preset,
+                    computer_use_enabled: options.computer_use_enabled,
+                    provider_cursor: options
+                        .provider_cursor
+                        .map(serde_json::from_value)
+                        .transpose()
+                        .context("daemon received an invalid provider cursor")?,
+                };
+                let (wake, _wake_events) = smol::channel::bounded(1);
+                let (event_sender, event_receiver) = driver::event_channel(wake);
+                let handle = driver::start(provider, options, event_sender)?;
+                let supports_steer = handle.supports_steer();
+                std::thread::Builder::new()
+                    .name(format!("pengpilot-daemon-events-{session_id}"))
+                    .spawn(move || {
+                        while let Ok(event) = event_receiver.recv() {
+                            let wire = event_to_wire(event).unwrap_or_else(|error| {
+                                WireDriverEvent::new(
+                                    "error",
+                                    Value::String(format!(
+                                        "could not encode daemon event: {error}"
+                                    )),
+                                )
+                            });
+                            if events.send(wire).is_err() {
+                                break;
+                            }
+                        }
+                    })
+                    .context("could not start daemon event forwarding thread")?;
+                self.sessions
+                    .lock()
+                    .insert(session_id, (runtime_id, handle));
+                Ok(ResponsePayload::Started { supports_steer })
+            }
+            Command::CloseSession => {
+                let removed = {
+                    let mut sessions = self.sessions.lock();
+                    sessions
+                        .get(&session_id)
+                        .is_some_and(|(active_runtime_id, _)| *active_runtime_id == runtime_id)
+                        .then(|| sessions.remove(&session_id))
+                        .flatten()
+                };
+                drop(removed);
+                Ok(ResponsePayload::Ack)
+            }
+            command @ (Command::Prompt { .. }
+            | Command::Steer { .. }
+            | Command::Cancel
+            | Command::CancelComputerUse
+            | Command::RefreshBackgroundWork
+            | Command::StopBackgroundWork { .. }
+            | Command::Respond { .. }
+            | Command::RespondUserInput { .. }
+            | Command::RunComputerTool { .. }
+            | Command::RejectComputerTool { .. }
+            | Command::ApplyOptions { .. }
+            | Command::Rollback { .. }
+            | Command::Fork { .. }) => {
+                let driver = {
+                    let sessions = self.sessions.lock();
+                    let (active_runtime_id, driver) = sessions
+                        .get(&session_id)
+                        .ok_or_else(|| anyhow!("daemon session {session_id} is not running"))?;
+                    if *active_runtime_id != runtime_id {
+                        bail!(
+                            "daemon session {session_id} belongs to runtime {active_runtime_id}, not {runtime_id}"
+                        );
+                    }
+                    driver.clone()
+                };
+                handle_driver_command(&driver, command)
+            }
             _ => Ok(ResponsePayload::Ack),
         }
     }
+
+    fn shutdown(&self) {
+        let sessions = std::mem::take(&mut *self.sessions.lock());
+        drop(sessions);
+    }
+}
+
+fn handle_driver_command(
+    driver: &DriverHandle,
+    command: Command,
+) -> anyhow::Result<ResponsePayload> {
+    match command {
+        Command::Prompt { prompt } => driver.prompt(prompt),
+        Command::Steer { prompt } => driver.steer(prompt),
+        Command::Cancel => driver.cancel(),
+        Command::CancelComputerUse => driver.cancel_computer_use(),
+        Command::RefreshBackgroundWork => driver.refresh_background_work(),
+        Command::StopBackgroundWork { key, control_id } => {
+            driver.stop_background_work(
+                serde_json::from_value(key).context("invalid background-work key")?,
+                control_id,
+            );
+        }
+        Command::Respond {
+            request_id,
+            option_id,
+        } => driver.respond(request_id, option_id),
+        Command::RespondUserInput {
+            request_id,
+            answers,
+        } => driver.respond_user_input(request_id, answers),
+        Command::RunComputerTool { request } => {
+            driver.run_computer_tool(crate::computer_use::ComputerToolRequest {
+                call_id: request.call_id,
+                tool: request.tool,
+                arguments: request.arguments,
+            });
+        }
+        Command::RejectComputerTool { request, reason } => {
+            driver.reject_computer_tool(
+                crate::computer_use::ComputerToolRequest {
+                    call_id: request.call_id,
+                    tool: request.tool,
+                    arguments: request.arguments,
+                },
+                reason,
+            );
+        }
+        Command::ApplyOptions { options } => {
+            return Ok(ResponsePayload::OptionsApplied {
+                applied: driver.apply_options(SessionOptions {
+                    mode: decode_enum(&options.mode)?,
+                    interaction_mode: decode_enum(&options.interaction_mode)?,
+                    model: options.model,
+                    reasoning_effort: options.reasoning_effort,
+                    service_tier: options.service_tier,
+                }),
+            });
+        }
+        Command::Rollback { turns } => {
+            let cursor = driver
+                .rollback(turns)?
+                .map(serde_json::to_value)
+                .transpose()?;
+            return Ok(ResponsePayload::Cursor { cursor });
+        }
+        Command::Fork { turns_to_remove } => {
+            let cursor = Some(serde_json::to_value(driver.fork(turns_to_remove)?)?);
+            return Ok(ResponsePayload::Cursor { cursor });
+        }
+        _ => bail!("daemon received a command in the wrong dispatch path"),
+    }
+    Ok(ResponsePayload::Ack)
 }
 
 fn ensure_shell_environment() {
@@ -377,6 +544,24 @@ mod tests {
             panic!("expected task state");
         };
         assert!(sessions.is_empty());
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn prompt_without_a_session_errors() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-prompt-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let error = backend
+            .handle(
+                request(Command::Prompt {
+                    prompt: "hello".into(),
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("is not running"));
         let _ = std::fs::remove_dir_all(directory);
     }
 }

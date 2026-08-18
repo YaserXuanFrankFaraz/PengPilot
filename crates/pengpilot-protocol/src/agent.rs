@@ -625,14 +625,16 @@ fn strip_legacy_codex_citations(text: &str) -> String {
     output
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum BackgroundWorkKind {
     Process,
     Monitor,
     Subagent,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum BackgroundWorkStatus {
     Starting,
     Running,
@@ -657,7 +659,8 @@ impl BackgroundWorkStatus {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackgroundWorkKey {
     pub kind: BackgroundWorkKind,
     pub provider_id: String,
@@ -672,7 +675,8 @@ impl BackgroundWorkKey {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackgroundWorkItem {
     pub key: BackgroundWorkKey,
     pub title: String,
@@ -730,7 +734,8 @@ impl BackgroundWorkItem {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum BackgroundWorkEvent {
     Upsert(BackgroundWorkItem),
     OutputDelta {
@@ -790,7 +795,8 @@ impl From<ReportedCommandRepr> for ReportedCommand {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PermissionOption {
     pub id: String,
     pub label: String,

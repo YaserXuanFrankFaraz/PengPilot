@@ -3,7 +3,13 @@ use super::*;
 fn start_driver(mut request: DriverStartRequest, cwd: PathBuf) -> anyhow::Result<PreparedDriver> {
     request.options.cwd = cwd;
     let (event_tx, events) = driver::event_channel(request.event_wake);
-    let handle = driver::start(request.provider, request.options, event_tx)?;
+    let handle = driver::start_remote(
+        request.daemon_client,
+        request.session_id,
+        request.provider,
+        request.options,
+        event_tx,
+    )?;
     Ok(PreparedDriver { handle, events })
 }
 
@@ -1341,7 +1347,9 @@ impl Waku {
                     // A failed restore after Pi creates a fork can leave the
                     // resident RPC process on that fork. Recreate it lazily
                     // from the source cursor on its next prompt.
-                    self.runtimes.remove(&session_id);
+                    if let Some(runtime) = self.runtimes.remove(&session_id) {
+                        runtime.driver.close();
+                    }
                 }
                 self.drain_queued_message(session_id, cx);
                 self.show_toast(error);
@@ -1875,7 +1883,9 @@ impl Waku {
         {
             // Headless drivers retain their original native session ID. Recreate
             // them lazily so the next prompt resumes the fork instead.
-            self.runtimes.remove(&session_id);
+            if let Some(runtime) = self.runtimes.remove(&session_id) {
+                runtime.driver.close();
+            }
             self.mark_background_work_lost(session_id);
         } else if let Some(runtime) = self.runtimes.get_mut(&session_id) {
             runtime
@@ -1999,10 +2009,12 @@ impl Waku {
             .map(|(session_id, _)| *session_id)
             .collect::<Vec<_>>();
         for session_id in idle {
-            // Dropping the runtime is the release: it closes the transport, and
-            // the driver's own `Drop` takes the process tree with it. No cancel,
-            // because there is no turn to cancel.
-            self.runtimes.remove(&session_id);
+            // Idle reaping is an explicit daemon-runtime release. Merely
+            // dropping a client attachment must not stop work observed by a
+            // second desktop or browser client.
+            if let Some(runtime) = self.runtimes.remove(&session_id) {
+                runtime.driver.close();
+            }
         }
     }
 
@@ -2069,6 +2081,7 @@ impl Waku {
             service_tier,
         } = self.session_options(&session);
         Ok(DriverStartRequest {
+            session_id: session.id,
             provider: session.provider,
             options: DriverStartOptions {
                 binary,
@@ -2083,6 +2096,7 @@ impl Waku {
                 provider_cursor: session.provider_cursor.clone(),
             },
             event_wake: self.event_wake_tx.clone(),
+            daemon_client: self.daemon.client(),
         })
     }
 

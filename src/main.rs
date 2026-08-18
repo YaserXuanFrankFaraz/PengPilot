@@ -53,9 +53,7 @@ mod deepseek_pool {
 mod deepseek_session {
     pub use pengpilot_core::deepseek_session::*;
 }
-mod driver {
-    pub use pengpilot_core::driver::*;
-}
+mod driver;
 mod git_branch {
     pub use pengpilot_core::git_branch::*;
 }

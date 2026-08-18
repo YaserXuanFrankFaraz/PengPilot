@@ -7,7 +7,8 @@
 //!
 //! `pengpilot-daemon` binds a loopback WebSocket and serves
 //! [`PengPilotBackend`] through [`serve`]. The desktop loads the task catalog
-//! over RPC; driver sessions still start in-process until `RemoteDriverControl`.
+//! over RPC and starts provider sessions through `Command::Start`. UI, md,
+//! and transcript assembly stay in the app.
 
 #![recursion_limit = "256"]
 
