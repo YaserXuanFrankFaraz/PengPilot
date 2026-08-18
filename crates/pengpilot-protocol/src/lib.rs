@@ -23,6 +23,7 @@ mod driver_wire;
 pub mod i18n;
 pub mod identity;
 pub mod model;
+pub mod persistence;
 pub mod projectless;
 pub mod protocol;
 pub mod session;

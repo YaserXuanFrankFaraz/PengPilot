@@ -1,5 +1,6 @@
 //! Desktop persistence: app files stay local, task data crosses RPC.
 
+use std::collections::HashMap;
 use std::io;
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -10,9 +11,9 @@ use parking_lot::Mutex;
 use uuid::Uuid;
 
 pub use pengpilot_core::persistence::{
-    ComposerDraft, ComposerDraftAttachment, ComposerDraftKey, ComposerDraftStore, ComposerDrafts,
-    DEFAULT_RIGHT_PANEL_WIDTH, DEFAULT_SIDEBAR_WIDTH, PersistedState, PersistedWindowState,
-    SessionMessageMatch,
+    ComposerDraft, ComposerDraftAttachment, ComposerDraftChange, ComposerDraftKey,
+    ComposerDraftTarget, ComposerDrafts, DEFAULT_RIGHT_PANEL_WIDTH, DEFAULT_SIDEBAR_WIDTH,
+    PersistedState, PersistedWindowState, SessionMessageMatch,
 };
 
 use crate::model::{AgentSession, Project};
@@ -327,4 +328,123 @@ fn save_command(state: &PersistedState) -> pengpilot_client::Command {
 
 fn to_io_error(error: anyhow::Error) -> io::Error {
     io::Error::other(error)
+}
+
+/// Remote composer-draft proxy. Draft bytes stay daemon-owned; the desktop
+/// keeps an in-memory editing snapshot.
+#[derive(Clone)]
+pub struct ComposerDraftStore {
+    daemon: pengpilot_client::DaemonSupervisor,
+    save_state: Arc<Mutex<ComposerDraftSaveState>>,
+}
+
+#[derive(Default)]
+struct ComposerDraftSaveState {
+    snapshot: ComposerDrafts,
+    latest_generation: u64,
+}
+
+impl ComposerDraftStore {
+    pub fn remote(daemon: pengpilot_client::DaemonSupervisor) -> Self {
+        Self {
+            daemon,
+            save_state: Arc::new(Mutex::new(ComposerDraftSaveState::default())),
+        }
+    }
+
+    pub fn load(&self) -> io::Result<ComposerDrafts> {
+        match self
+            .daemon
+            .client()
+            .request(
+                Uuid::nil(),
+                Uuid::nil(),
+                pengpilot_client::Command::LoadComposerDrafts,
+            )
+            .map_err(to_io_error)?
+        {
+            pengpilot_client::ResponsePayload::ComposerDrafts { drafts } => {
+                self.save_state.lock().snapshot = drafts.clone();
+                Ok(drafts)
+            }
+            _ => Err(io::Error::other(
+                "PengPilot daemon returned an invalid composer-drafts response",
+            )),
+        }
+    }
+
+    pub fn save(&self, drafts: ComposerDrafts, generation: u64) -> io::Result<()> {
+        let mut state = self.save_state.lock();
+        if generation < state.latest_generation {
+            return Ok(());
+        }
+        let changes = composer_draft_changes(&state.snapshot, &drafts);
+        if changes.is_empty() {
+            state.latest_generation = generation;
+            return Ok(());
+        }
+        match self
+            .daemon
+            .client()
+            .request(
+                Uuid::nil(),
+                Uuid::nil(),
+                pengpilot_client::Command::ApplyComposerDraftChanges { changes },
+            )
+            .map_err(to_io_error)?
+        {
+            pengpilot_client::ResponsePayload::Ack => {
+                state.snapshot = drafts;
+                state.latest_generation = generation;
+                Ok(())
+            }
+            _ => Err(io::Error::other(
+                "PengPilot daemon returned an invalid composer-drafts save response",
+            )),
+        }
+    }
+}
+
+fn composer_draft_changes(
+    previous: &ComposerDrafts,
+    next: &ComposerDrafts,
+) -> Vec<ComposerDraftChange> {
+    let mut changes = Vec::new();
+    collect_composer_draft_changes(
+        &previous.new_sessions,
+        &next.new_sessions,
+        |project_id| ComposerDraftTarget::NewSession { project_id },
+        &mut changes,
+    );
+    collect_composer_draft_changes(
+        &previous.sessions,
+        &next.sessions,
+        |session_id| ComposerDraftTarget::Session { session_id },
+        &mut changes,
+    );
+    changes
+}
+
+fn collect_composer_draft_changes(
+    previous: &HashMap<Uuid, ComposerDraft>,
+    next: &HashMap<Uuid, ComposerDraft>,
+    target: impl Fn(Uuid) -> ComposerDraftTarget,
+    changes: &mut Vec<ComposerDraftChange>,
+) {
+    for (id, draft) in next {
+        if previous.get(id) != Some(draft) {
+            changes.push(ComposerDraftChange {
+                target: target(*id),
+                draft: Some(draft.clone()),
+            });
+        }
+    }
+    for id in previous.keys() {
+        if !next.contains_key(id) {
+            changes.push(ComposerDraftChange {
+                target: target(*id),
+                draft: None,
+            });
+        }
+    }
 }

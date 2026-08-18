@@ -1853,9 +1853,8 @@ impl Waku {
     ) -> Entity<Self> {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let home_directory = dirs::home_dir();
-        let state_path = StateStore::default_path();
         let store = StateStore::remote(daemon.clone());
-        let composer_draft_store = ComposerDraftStore::for_state_path(&state_path);
+        let composer_draft_store = ComposerDraftStore::remote(daemon.clone());
         let composer_drafts = composer_draft_store.load().unwrap_or_default();
         let mut state = store.load_or_fresh(cwd);
         crate::i18n::set_language(state.language);

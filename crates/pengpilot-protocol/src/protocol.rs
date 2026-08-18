@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::agent::{AgentSession, UserInputAnswer};
 use crate::computer_use::ComputerPermissions;
 use crate::model::{ProviderKind, ProviderProbe};
+use crate::persistence::{ComposerDraftChange, ComposerDrafts};
 use crate::session::Project;
 use crate::skills::SkillsCatalog;
 use crate::usage::PlanUsage;
@@ -62,7 +63,7 @@ pub struct ReplayCursor {
     pub sequence: u64,
 }
 
-/// JSON-RPC command surface. Settings / attachments / workspace / drafts wait
+/// JSON-RPC command surface. Settings / attachments / workspace wait
 /// until those value types live in this crate.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(
@@ -149,6 +150,14 @@ pub enum Command {
     RemoveSession,
     HydrateSession {
         session_id: Uuid,
+    },
+    LoadComposerDrafts,
+    SaveComposerDrafts {
+        drafts: ComposerDrafts,
+        generation: u64,
+    },
+    ApplyComposerDraftChanges {
+        changes: Vec<ComposerDraftChange>,
     },
     ForkSessionFromResponse {
         turn_count: usize,
@@ -321,6 +330,9 @@ pub enum ResponsePayload {
     Session {
         session: Option<AgentSession>,
     },
+    ComposerDrafts {
+        drafts: ComposerDrafts,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -406,6 +418,21 @@ mod tests {
         let json = serde_json::to_value(Command::RewindSessionToMessage { turn_count: 4 }).unwrap();
         assert_eq!(json["type"], "rewindSessionToMessage");
         assert_eq!(json["turnCount"], 4);
+    }
+
+    #[test]
+    fn composer_draft_changes_use_stable_camel_case_fields() {
+        let json = serde_json::to_value(Command::ApplyComposerDraftChanges {
+            changes: vec![ComposerDraftChange {
+                target: crate::persistence::ComposerDraftTarget::Session {
+                    session_id: Uuid::nil(),
+                },
+                draft: None,
+            }],
+        })
+        .unwrap();
+        assert_eq!(json["type"], "applyComposerDraftChanges");
+        assert_eq!(json["changes"][0]["target"]["type"], "session");
     }
 
     #[test]

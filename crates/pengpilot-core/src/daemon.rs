@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::driver::{self, DriverHandle, DriverStartOptions, SessionOptions};
 use crate::model::{AgentSession, Project};
-use crate::persistence::{PersistedState, StateStore};
+use crate::persistence::{ComposerDraftStore, PersistedState, StateStore};
 use crate::server::{Backend, EventSink};
 use crate::usage_history::ScanCache;
 
@@ -25,6 +25,7 @@ pub struct PengPilotBackend {
     sessions: Mutex<HashMap<Uuid, (Uuid, DriverHandle)>>,
     usage_scan_cache: Mutex<ScanCache>,
     usage_rates_dir: PathBuf,
+    composer_drafts: ComposerDraftStore,
     default_cwd: std::path::PathBuf,
 }
 
@@ -38,6 +39,7 @@ impl PengPilotBackend {
             .parent()
             .unwrap_or_else(|| std::path::Path::new("."))
             .to_owned();
+        let composer_drafts = ComposerDraftStore::for_state_path(task_store.path());
         Ok(Self {
             task_store,
             task_state: Mutex::new(task_state),
@@ -45,6 +47,7 @@ impl PengPilotBackend {
             sessions: Mutex::new(HashMap::new()),
             usage_scan_cache: Mutex::new(HashMap::new()),
             usage_rates_dir,
+            composer_drafts,
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         })
     }
@@ -253,6 +256,17 @@ impl Backend for PengPilotBackend {
                     &project_roots,
                 );
                 Ok(ResponsePayload::UsageHistory { history })
+            }
+            Command::LoadComposerDrafts => Ok(ResponsePayload::ComposerDrafts {
+                drafts: self.composer_drafts.load()?,
+            }),
+            Command::SaveComposerDrafts { drafts, generation } => {
+                self.composer_drafts.save(drafts, generation)?;
+                Ok(ResponsePayload::Ack)
+            }
+            Command::ApplyComposerDraftChanges { changes } => {
+                self.composer_drafts.apply_changes(changes)?;
+                Ok(ResponsePayload::Ack)
             }
             Command::Start { options } => {
                 let previous = self.sessions.lock().remove(&session_id);
@@ -652,6 +666,43 @@ mod tests {
             panic!("expected skills catalog");
         };
         let _ = catalog.skills.len();
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn composer_drafts_round_trip_over_the_backend() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-drafts-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let mut drafts = pengpilot_protocol::persistence::ComposerDrafts::default();
+        let session_id = Uuid::new_v4();
+        drafts.sessions.insert(
+            session_id,
+            pengpilot_protocol::persistence::ComposerDraft {
+                text: "unsent".into(),
+                attachments: Vec::new(),
+            },
+        );
+        backend
+            .handle(
+                request(Command::SaveComposerDrafts {
+                    drafts: drafts.clone(),
+                    generation: 1,
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap();
+        let ResponsePayload::ComposerDrafts { drafts: loaded } = backend
+            .handle(
+                request(Command::LoadComposerDrafts),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected composer drafts");
+        };
+        assert_eq!(loaded.sessions.get(&session_id).unwrap().text, "unsent");
         let _ = std::fs::remove_dir_all(directory);
     }
 
