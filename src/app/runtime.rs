@@ -10,7 +10,7 @@ fn start_driver(mut request: DriverStartRequest, cwd: PathBuf) -> anyhow::Result
         request.options,
         event_tx,
     )?;
-    Ok(PreparedDriver { handle, events })
+    Ok(PreparedDriver::new(handle, events))
 }
 
 /// Perform every blocking operation between accepting a submission and
@@ -373,7 +373,7 @@ fn perform_provider_rewind(
                     ))
                 })?;
                 let prepared = start_driver(start, request.project_path.clone())?;
-                let driver = prepared.handle.clone();
+                let driver = prepared.handle().clone();
                 prepared_driver = Some(prepared);
                 driver
             };
@@ -465,7 +465,7 @@ fn fork_response_with_driver(
             ))
         })?;
         let prepared = start_driver(start, request.source_workspace_path.clone())?;
-        let driver = prepared.handle.clone();
+        let driver = prepared.handle().clone();
         prepared_driver = Some(prepared);
         driver
     };
@@ -1865,7 +1865,7 @@ impl Waku {
             // Startup announces the source cursor before a cold driver-backed
             // rollback finishes. It is stale now; do not let it overwrite the
             // rewound cursor after this driver is installed.
-            while prepared.events.try_recv().is_ok() {}
+            prepared.discard_buffered_events();
         }
         if let Some(prepared) = prepared_driver {
             self.install_prepared_driver(session_id, prepared);
@@ -2105,13 +2105,14 @@ impl Waku {
         session_id: Uuid,
         prepared: PreparedDriver,
     ) -> DriverHandle {
-        let handle = prepared.handle.clone();
+        let (handle, events) = prepared.take();
+        let installed = handle.clone();
         self.runtimes.insert(
             session_id,
             SessionRuntime {
-                driver: prepared.handle,
+                driver: handle,
                 options_generation: 0,
-                events: prepared.events,
+                events,
                 pending_events: VecDeque::new(),
                 pending_steers: VecDeque::new(),
                 stream_phase: None,
@@ -2132,7 +2133,7 @@ impl Waku {
         // the runtime map. Wake once after installation so those buffered
         // events cannot be stranded behind an already-consumed edge.
         signal_event_pump(&self.event_wake_tx);
-        handle
+        installed
     }
 
     pub(super) fn submit_composer_submission(

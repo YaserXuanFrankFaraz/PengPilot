@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + plan usage / computer-use permissions over RPC (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + review P1 fixes (PreparedDriver close, save ack)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **659 green** (`pengpilot` 305+10, `pengpilot-core` 279, `pengpilot-protocol` 58, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
+| Tests | **660 green** (`pengpilot` 305+10, `pengpilot-core` 280, `pengpilot-protocol` 58, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -193,6 +193,12 @@ placeholder.
   `EventSink`. Desktop `src/driver.rs` `start_remote` / `RemoteDriverControl`
   talk JSON-RPC; `Drop` unsubscribes, `close()` sends `CloseSession`. Skip
   `attach_remote` until a second client needs to rejoin a live runtime.
+  Discarded `PreparedDriver` (never installed) `close()`s on Drop so a cancelled
+  Start does not leak the daemon provider process.
+- Task catalog save uses `request` and only `clear_dirty_sessions` after
+  `TaskStateSaved`. SQLite `busy_timeout` is 5s (daemon + app still dual-open
+  WAL). Unimplemented `AttachSession` / PTY / fork-from-response commands
+  error instead of `Ack`.
 - Plan meters + Computer Use permissions: desktop `usage_meter` /
   `request_computer_permissions` call `FetchPlanUsage` /
   `ProbeComputerPermissions`. Backend errors for providers with no fetcher

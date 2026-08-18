@@ -586,8 +586,44 @@ struct DriverStartRequest {
 /// A provider process that has started off-thread but is not installed into
 /// Waku's runtime map yet. Its event receiver safely buffers early events.
 struct PreparedDriver {
-    handle: DriverHandle,
-    events: Receiver<DriverEvent>,
+    handle: Option<DriverHandle>,
+    events: Option<Receiver<DriverEvent>>,
+}
+
+impl PreparedDriver {
+    fn new(handle: DriverHandle, events: Receiver<DriverEvent>) -> Self {
+        Self {
+            handle: Some(handle),
+            events: Some(events),
+        }
+    }
+
+    fn handle(&self) -> &DriverHandle {
+        self.handle.as_ref().expect("prepared driver already taken")
+    }
+
+    fn discard_buffered_events(&self) {
+        if let Some(events) = &self.events {
+            while events.try_recv().is_ok() {}
+        }
+    }
+
+    fn take(mut self) -> (DriverHandle, Receiver<DriverEvent>) {
+        (
+            self.handle.take().expect("prepared driver already taken"),
+            self.events.take().expect("prepared driver already taken"),
+        )
+    }
+}
+
+impl Drop for PreparedDriver {
+    fn drop(&mut self) {
+        // RemoteDriverControl Drop only unsubscribes. A discarded Start must
+        // CloseSession or the daemon keeps the provider process.
+        if let Some(handle) = self.handle.take() {
+            handle.close();
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

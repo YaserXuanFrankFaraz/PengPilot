@@ -1035,6 +1035,9 @@ impl StateStore {
             fs::create_dir_all(parent)?;
         }
         let connection = Connection::open(&self.path).map_err(to_io_error)?;
+        connection
+            .busy_timeout(std::time::Duration::from_millis(5_000))
+            .map_err(to_io_error)?;
         // WAL keeps a streaming save from blocking on readers, and NORMAL
         // sync is the right durability trade for per-second UI state.
         connection

@@ -159,10 +159,10 @@ impl StateStore {
             .cloned()
             .collect();
         let live_session_ids = state.sessions.iter().map(|session| session.id).collect();
-        // ponytail: fire-and-forget like waku; quit still races a disk flush.
-        self.daemon
+        match self
+            .daemon
             .client()
-            .notify(
+            .request(
                 Uuid::nil(),
                 Uuid::nil(),
                 pengpilot_client::Command::SaveTaskState {
@@ -171,9 +171,16 @@ impl StateStore {
                     sessions,
                 },
             )
-            .map_err(to_io_error)?;
-        state.clear_dirty_sessions();
-        Ok(())
+            .map_err(to_io_error)?
+        {
+            pengpilot_client::ResponsePayload::TaskStateSaved { .. } => {
+                state.clear_dirty_sessions();
+                Ok(())
+            }
+            _ => Err(io::Error::other(
+                "PengPilot daemon returned an invalid task-state save response",
+            )),
+        }
     }
 
     pub fn remove_session(&self, session_id: Uuid) -> io::Result<()> {

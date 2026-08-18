@@ -300,7 +300,15 @@ impl Backend for PengPilotBackend {
                 };
                 handle_driver_command(&driver, command)
             }
-            _ => Ok(ResponsePayload::Ack),
+            Command::AttachSession
+            | Command::ForkSessionFromResponse { .. }
+            | Command::RewindSessionToMessage { .. }
+            | Command::OpenTerminal { .. }
+            | Command::WriteTerminal { .. }
+            | Command::ResizeTerminal { .. }
+            | Command::CloseTerminal => {
+                bail!("daemon command is not implemented yet")
+            }
         }
     }
 
@@ -582,6 +590,19 @@ mod tests {
             )
             .unwrap_err();
         assert!(error.to_string().contains("no plan usage fetcher"));
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn unimplemented_commands_error_instead_of_ack() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-unimpl-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let error = backend
+            .handle(request(Command::AttachSession), EventSink::discarded())
+            .unwrap_err();
+        assert!(error.to_string().contains("not implemented"));
         let _ = std::fs::remove_dir_all(directory);
     }
 }
