@@ -27,8 +27,7 @@ use std::path::{Path, PathBuf};
 
 use crate::model::ProviderKind;
 
-pub const SKILL_FILE: &str = "SKILL.md";
-pub const DISABLED_SKILL_FILE: &str = "SKILL.md.disabled";
+pub use pengpilot_protocol::skills::*;
 
 /// Upper bound on scanned skill directories; past this the library is
 /// best-effort.
@@ -38,149 +37,6 @@ const SKILL_FILE_MAX_BYTES: u64 = 256 * 1024;
 /// rather than stall the scan; the sizes shown degrade to "at least this".
 const DIR_WALK_MAX_DEPTH: usize = 6;
 const DIR_WALK_MAX_FILES: usize = 500;
-
-/// Which ecosystem's skill tree an install lives in.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum SkillSource {
-    /// The cross-tool `.agents/skills` standard, listed for every provider.
-    Shared,
-    Provider(ProviderKind),
-}
-
-impl SkillSource {
-    pub fn label(self) -> String {
-        match self {
-            Self::Shared => tr!("skills.source_shared"),
-            Self::Provider(provider) => provider.short_name().to_owned(),
-        }
-    }
-
-    pub fn icon(self) -> &'static str {
-        match self {
-            Self::Shared => "icons/package.svg",
-            Self::Provider(provider) => provider_icon_path(provider),
-        }
-    }
-}
-
-fn provider_icon_path(provider: ProviderKind) -> &'static str {
-    match provider {
-        ProviderKind::Amp => "icons/provider-amp.svg",
-        ProviderKind::Claude => "icons/provider-claude.png",
-        ProviderKind::Codex => "icons/provider-openai.png",
-        ProviderKind::Cursor => "icons/provider-cursor.svg",
-        ProviderKind::DeepSeek => "icons/provider-deepseek.png",
-        ProviderKind::OpenCode => "icons/provider-opencode.png",
-        ProviderKind::Grok => "icons/provider-grok.png",
-        ProviderKind::Pi => "icons/provider-pi.svg",
-        ProviderKind::Omp => "icons/provider-omp-color.svg",
-        ProviderKind::Kiro => "icons/provider-kiro.png",
-        ProviderKind::Hermes => "icons/provider-hermes.png",
-        ProviderKind::Trae => "icons/provider-trae.png",
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum SkillScope {
-    User,
-    Project,
-}
-
-/// One directory skills live in: an ecosystem root at user or project scope.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SkillLocation {
-    pub source: SkillSource,
-    pub scope: SkillScope,
-    pub root: PathBuf,
-    /// Project display name when `scope` is [`SkillScope::Project`].
-    pub project: Option<String>,
-}
-
-/// One concrete copy of a skill on disk.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SkillInstall {
-    pub source: SkillSource,
-    /// The skill directory.
-    pub dir: PathBuf,
-    /// The `SKILL.md` (or `SKILL.md.disabled`) inside it.
-    pub skill_file: PathBuf,
-    pub enabled: bool,
-}
-
-/// One skill as the library lists it, with everything the page renders
-/// precomputed so frames never touch the filesystem.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SkillEntry {
-    /// Frontmatter `name`, falling back to the directory name.
-    pub name: String,
-    pub description: String,
-    pub scope: SkillScope,
-    /// Project display name when `scope` is [`SkillScope::Project`].
-    pub project: Option<String>,
-    /// Every copy of this skill in this scope group, scan order (Shared
-    /// first, then per provider). Never empty.
-    pub installs: Vec<SkillInstall>,
-    /// Whether any copy is live. Toggling converges all copies.
-    pub enabled: bool,
-    /// Frontmatter `allowed-tools`, verbatim, from the first copy naming it.
-    pub allowed_tools: Option<String>,
-    /// The document below the frontmatter, from the first copy carrying one,
-    /// capped at [`BODY_PREVIEW_MAX_BYTES`] — the detail pane renders this.
-    pub body: String,
-    /// Files beside the skill file itself, from the primary copy.
-    pub supporting_files: usize,
-    /// Total bytes across the primary copy's directory.
-    pub total_bytes: u64,
-    /// Latest skill-file mtime across copies, unix seconds.
-    pub modified_at: Option<u64>,
-    /// How many entries in *other* scope groups share this name. Collisions
-    /// resolve most-specific-first at invocation, so shadowing is worth a
-    /// note.
-    pub duplicates: usize,
-    /// Stable identity for row diffing: every copy's directory plus enabled
-    /// state.
-    pub row_key: u64,
-}
-
-impl SkillEntry {
-    /// The copy actions default to: the first found in scan order.
-    pub fn primary(&self) -> &SkillInstall {
-        &self.installs[0]
-    }
-
-    /// A single-source skill wears its ecosystem's mark; one installed in
-    /// several roots wears the shared package mark.
-    pub fn icon(&self) -> &'static str {
-        if self.installs.len() > 1 {
-            "icons/package.svg"
-        } else {
-            self.primary().source.icon()
-        }
-    }
-
-    /// "Codex · Cursor · OpenCode" — every ecosystem this skill is
-    /// installed in, scan order.
-    pub fn sources_label(&self) -> String {
-        self.installs
-            .iter()
-            .map(|install| install.source.label())
-            .collect::<Vec<_>>()
-            .join(" · ")
-    }
-}
-
-/// The scan result the page renders from.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct SkillsCatalog {
-    /// Sorted user-scope first, then by project name, then by skill name.
-    pub skills: Vec<SkillEntry>,
-}
-
-impl SkillsCatalog {
-    pub fn disabled_count(&self) -> usize {
-        self.skills.iter().filter(|skill| !skill.enabled).count()
-    }
-}
 
 /// Every user-scope skill root, present on disk or not. Path joins only — no
 /// filesystem access — so this is safe to call while building a frame.
@@ -550,6 +406,14 @@ pub fn set_skill_enabled(dir: &Path, enabled: bool) -> Result<(), String> {
         // `rename` replaces any stale `.disabled` leftover; the live file wins.
         std::fs::rename(&live, &disabled).map_err(|error| error.to_string())
     }
+}
+
+/// Move each concrete skill install to the daemon host's Trash.
+pub fn trash_skills(dirs: &[PathBuf]) -> Result<(), String> {
+    for dir in dirs {
+        trash::delete(dir).map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

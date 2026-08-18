@@ -87,12 +87,19 @@ impl Waku {
         self.skills_scan_generation += 1;
         let generation = self.skills_scan_generation;
         let projects = self.skill_scan_projects();
+        let daemon = self.daemon.client();
         cx.spawn(async move |this, cx| {
             let catalog = cx
                 .background_executor()
                 .spawn(async move {
-                    let locations = crate::skills::skill_locations(&projects);
-                    crate::skills::scan_skills(&locations)
+                    match daemon.request(
+                        Uuid::nil(),
+                        Uuid::nil(),
+                        pengpilot_client::Command::LoadSkills { projects },
+                    )? {
+                        pengpilot_client::ResponsePayload::SkillsCatalog { catalog } => Ok(catalog),
+                        _ => anyhow::bail!("the daemon returned an invalid skills response"),
+                    }
                 })
                 .await;
             let _ = this.update(cx, |this, cx| {
@@ -102,8 +109,13 @@ impl Waku {
                     return;
                 }
                 this.skills_scan_pending = false;
-                this.skills_catalog = Some(Rc::new(catalog));
-                this.skills_scanned_at = Some(Instant::now());
+                match catalog {
+                    Ok(catalog) => {
+                        this.skills_catalog = Some(Rc::new(catalog));
+                        this.skills_scanned_at = Some(Instant::now());
+                    }
+                    Err(error) => this.show_toast(error.to_string()),
+                }
                 cx.notify();
             });
         })
@@ -178,12 +190,16 @@ impl Waku {
         }
         self.skills_scan_generation += 1;
         self.skills_scan_pending = false;
+        let daemon = self.daemon.client();
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_executor()
                 .spawn(async move {
-                    dirs.iter()
-                        .try_for_each(|dir| crate::skills::set_skill_enabled(dir, enabled))
+                    daemon.request(
+                        Uuid::nil(),
+                        Uuid::nil(),
+                        pengpilot_client::Command::SetSkillsEnabled { dirs, enabled },
+                    )
                 })
                 .await;
             let _ = this.update(cx, |this, cx| {
@@ -238,30 +254,29 @@ impl Waku {
         self.skills_delete_arming = None;
         self.skills_scan_generation += 1;
         self.skills_scan_pending = false;
-        let mut failure = None;
-        for dir in &dirs {
-            if let Err(error) = crate::platform::trash_item(dir) {
-                failure = Some(error);
-                break;
-            }
-        }
-        match failure {
-            None => {
-                if self.skills_selected.as_ref() == Some(&primary_dir) {
-                    self.skills_selected = None;
+        let daemon = self.daemon.client();
+        cx.spawn(async move |this, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move {
+                    daemon.request(
+                        Uuid::nil(),
+                        Uuid::nil(),
+                        pengpilot_client::Command::TrashSkills { dirs },
+                    )
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                match result {
+                    Ok(_) => this.show_success_toast(tr!("skills.deleted_toast", name = name)),
+                    Err(error) => {
+                        this.show_toast(tr!("skills.delete_failed", error = error));
+                    }
                 }
-                if let Some(catalog) = self.skills_catalog.as_ref() {
-                    let mut updated = catalog.as_ref().clone();
-                    updated
-                        .skills
-                        .retain(|skill| skill.primary().dir != primary_dir);
-                    self.skills_catalog = Some(Rc::new(updated));
-                }
-                self.show_success_toast(tr!("skills.deleted_toast", name = name));
-            }
-            Some(error) => self.show_toast(tr!("skills.delete_failed", error = error)),
-        }
-        self.invalidate_skills_catalog(cx);
+                this.invalidate_skills_catalog(cx);
+            });
+        })
+        .detach();
         cx.notify();
     }
 

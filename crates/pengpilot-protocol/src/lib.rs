@@ -26,6 +26,7 @@ pub mod model;
 pub mod projectless;
 pub mod protocol;
 pub mod session;
+pub mod skills;
 pub mod theme;
 pub mod usage;
 pub mod work;

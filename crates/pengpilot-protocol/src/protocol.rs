@@ -8,6 +8,7 @@ use crate::agent::{AgentSession, UserInputAnswer};
 use crate::computer_use::ComputerPermissions;
 use crate::model::{ProviderKind, ProviderProbe};
 use crate::session::Project;
+use crate::skills::SkillsCatalog;
 use crate::usage::PlanUsage;
 
 pub const PROTOCOL_VERSION: u32 = 3;
@@ -123,6 +124,16 @@ pub enum Command {
     },
     ProbeComputerPermissions {
         prompt: bool,
+    },
+    LoadSkills {
+        projects: Vec<(String, PathBuf)>,
+    },
+    SetSkillsEnabled {
+        dirs: Vec<PathBuf>,
+        enabled: bool,
+    },
+    TrashSkills {
+        dirs: Vec<PathBuf>,
     },
     LoadTaskState,
     SaveTaskState {
@@ -286,6 +297,9 @@ pub enum ResponsePayload {
     },
     ComputerPermissions {
         permissions: ComputerPermissions,
+    },
+    SkillsCatalog {
+        catalog: SkillsCatalog,
     },
     TaskState {
         projects: Vec<Project>,

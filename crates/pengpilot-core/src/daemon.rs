@@ -213,6 +213,23 @@ impl Backend for PengPilotBackend {
                 let permissions = crate::computer_use::probe_permissions(prompt)?;
                 Ok(ResponsePayload::ComputerPermissions { permissions })
             }
+            Command::LoadSkills { projects } => {
+                let locations = crate::skills::skill_locations(&projects);
+                Ok(ResponsePayload::SkillsCatalog {
+                    catalog: crate::skills::scan_skills(&locations),
+                })
+            }
+            Command::SetSkillsEnabled { dirs, enabled } => {
+                for dir in dirs {
+                    crate::skills::set_skill_enabled(&dir, enabled)
+                        .map_err(|error| anyhow!(error))?;
+                }
+                Ok(ResponsePayload::Ack)
+            }
+            Command::TrashSkills { dirs } => {
+                crate::skills::trash_skills(&dirs).map_err(|error| anyhow!(error))?;
+                Ok(ResponsePayload::Ack)
+            }
             Command::Start { options } => {
                 let previous = self.sessions.lock().remove(&session_id);
                 drop(previous);
@@ -590,6 +607,27 @@ mod tests {
             )
             .unwrap_err();
         assert!(error.to_string().contains("no plan usage fetcher"));
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn load_skills_returns_a_catalog() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-skills-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let ResponsePayload::SkillsCatalog { catalog } = backend
+            .handle(
+                request(Command::LoadSkills {
+                    projects: Vec::new(),
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected skills catalog");
+        };
+        let _ = catalog.skills.len();
         let _ = std::fs::remove_dir_all(directory);
     }
 
