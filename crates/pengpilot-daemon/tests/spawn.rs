@@ -13,4 +13,9 @@ fn spawns_and_serves_load_task_state() {
         .request(Uuid::nil(), Uuid::nil(), Command::LoadTaskState)
         .expect("LoadTaskState");
     assert!(matches!(payload, ResponsePayload::TaskState { .. }));
+    let payload = process
+        .client()
+        .request(Uuid::nil(), Uuid::nil(), Command::GetSettings)
+        .expect("GetSettings");
+    assert!(matches!(payload, ResponsePayload::Settings { .. }));
 }

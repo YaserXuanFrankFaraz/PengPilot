@@ -1017,6 +1017,11 @@ impl Waku {
 
     pub(super) fn save(&mut self) {
         self.last_stream_save = Instant::now();
+        let daemon_error = self
+            .daemon
+            .update_settings(self.state.daemon_settings())
+            .err()
+            .map(|error| error.to_string());
         match self.store.take_save_acks(&mut self.state) {
             crate::persistence::SaveAckDrain::Failed(error) => {
                 self.show_toast(tr!("errors.save_local_state", error = error));
@@ -1025,6 +1030,10 @@ impl Waku {
             crate::persistence::SaveAckDrain::Retry => self.stream_state_dirty = true,
             crate::persistence::SaveAckDrain::Saved => self.stream_state_dirty = false,
             crate::persistence::SaveAckDrain::None => {}
+        }
+        if let Some(error) = daemon_error {
+            self.show_toast(tr!("errors.save_local_state", error = error));
+            self.stream_state_dirty = true;
         }
         if let Err(error) = self.store.save_async(&mut self.state, self.event_wake_tx.clone())
         {

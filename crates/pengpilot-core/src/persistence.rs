@@ -1,9 +1,10 @@
 //! Local state storage.
 //!
 //! Sessions and projects live in SQLite (`app.db`), app-managed UI state in
-//! `state.json`, user settings in a readable `settings.json`, and binary
-//! payloads in [`crate::blob_store`]. Debug builds keep both JSON files beside
-//! the database; release settings live at `~/.pengpilot/settings.json`.
+//! `state.json`, desktop preferences in `temp/app.json` for Debug or
+//! `~/.pengpilot/app.json` for Release, daemon preferences in
+//! `~/.pengpilot/settings.json`, and binary payloads in [`crate::blob_store`].
+//! Debug builds keep app files beside the database.
 //!
 //! A save writes only the rows whose contents changed, so a streaming turn
 //! costs a few kilobytes no matter how much history exists. Fields the sidebar
@@ -11,7 +12,7 @@
 //! deserialize a transcript. The schema is defined in `db/schema.ts` and
 //! applied by [`apply_migrations`].
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -169,26 +170,18 @@ impl ComposerDraftStore {
     }
 }
 
-/// User-owned configuration.
+/// Desktop-owned, user-editable configuration.
 ///
 /// This deliberately excludes navigation, panel geometry, and other values
-/// that the app changes as a side effect of ordinary use. Release builds keep
-/// this at `~/.pengpilot/settings.json` so it can become a Zed-style editable config
-/// file without exposing app-managed state.
+/// that the app changes as a side effect of ordinary use. Both builds keep it
+/// at `~/.pengpilot/app.json` without exposing app-managed state or daemon-owned
+/// provider policy.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct AppSettings {
     pub favorite_models: Vec<FavoriteModel>,
     pub theme: ThemePreference,
     pub language: AppLanguage,
-    pub computer_use_enabled: bool,
-    pub computer_use_allowed_apps: Vec<ComputerAppGrant>,
-    /// Providers switched off for new sessions in the Providers settings.
-    pub disabled_providers: Vec<ProviderKind>,
-    /// Per-provider binary overrides from the Providers settings; empty means
-    /// detect from PATH.
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub provider_binary_overrides: HashMap<ProviderKind, String>,
 }
 
 impl Default for AppSettings {
@@ -197,10 +190,6 @@ impl Default for AppSettings {
             favorite_models: Vec::new(),
             theme: ThemePreference::System,
             language: AppLanguage::default(),
-            computer_use_enabled: default_computer_use_enabled(),
-            computer_use_allowed_apps: Vec::new(),
-            disabled_providers: Vec::new(),
-            provider_binary_overrides: HashMap::new(),
         }
     }
 }
@@ -299,6 +288,9 @@ pub struct PersistedState {
     /// detect from PATH.
     #[serde(default)]
     pub provider_binary_overrides: HashMap<ProviderKind, String>,
+    /// Unknown daemon settings survive edits made by this desktop version.
+    #[serde(skip)]
+    daemon_settings_extra: BTreeMap<String, serde_json::Value>,
     /// Sessions changed since the last save.
     ///
     /// The app knows what it touched, so it says so rather than making the
@@ -377,6 +369,7 @@ impl PersistedState {
             computer_use_allowed_apps: Vec::new(),
             disabled_providers: Vec::new(),
             provider_binary_overrides: HashMap::new(),
+            daemon_settings_extra: BTreeMap::new(),
             dirty_sessions: HashSet::new(),
             dirty_generation: 0,
         }
@@ -460,15 +453,21 @@ impl PersistedState {
             .unwrap_or_default()
     }
 
-    fn settings(&self) -> AppSettings {
+    fn app_settings(&self) -> AppSettings {
         AppSettings {
             favorite_models: self.favorite_models.clone(),
             theme: self.theme,
             language: self.language,
+        }
+    }
+
+    pub fn daemon_settings(&self) -> crate::DaemonSettings {
+        crate::DaemonSettings {
             computer_use_enabled: self.computer_use_enabled,
             computer_use_allowed_apps: self.computer_use_allowed_apps.clone(),
             disabled_providers: self.disabled_providers.clone(),
             provider_binary_overrides: self.provider_binary_overrides.clone(),
+            extra: self.daemon_settings_extra.clone(),
         }
     }
 
@@ -490,14 +489,18 @@ impl PersistedState {
         }
     }
 
-    fn apply_settings(&mut self, settings: AppSettings) {
+    fn apply_app_settings(&mut self, settings: AppSettings) {
         self.favorite_models = settings.favorite_models;
         self.theme = settings.theme;
         self.language = settings.language;
+    }
+
+    pub fn apply_daemon_settings(&mut self, settings: crate::DaemonSettings) {
         self.computer_use_enabled = settings.computer_use_enabled;
         self.computer_use_allowed_apps = settings.computer_use_allowed_apps;
         self.disabled_providers = settings.disabled_providers;
         self.provider_binary_overrides = settings.provider_binary_overrides;
+        self.daemon_settings_extra = settings.extra;
     }
 
     fn apply_app_state(&mut self, app_state: AppState) {
@@ -857,7 +860,7 @@ struct Storage {
     /// See [`write_messages`].
     written_messages: HashMap<Uuid, HashMap<Uuid, u64>>,
     saved_projects: u64,
-    saved_settings: u64,
+    saved_app_settings: u64,
     saved_app_state: u64,
 }
 
@@ -865,11 +868,14 @@ pub struct StateStore {
     path: PathBuf,
     /// App-managed navigation and layout state stays local to this database.
     app_state_path: PathBuf,
-    /// Release settings are user-owned and shared from `~/.pengpilot`; debug
-    /// settings stay in the checkout's isolated `temp/` directory.
-    settings_path: PathBuf,
+    /// Desktop-owned preferences. Debug stays isolated in the checkout while
+    /// Release uses `~/.pengpilot/app.json`.
+    app_settings_path: PathBuf,
+    /// Read-only migration sources for the former combined settings document.
+    legacy_settings_paths: Vec<PathBuf>,
     storage: Mutex<Option<Storage>>,
     blobs: Arc<BlobStore>,
+    desktop_files: bool,
 }
 
 impl StateStore {
@@ -895,28 +901,48 @@ impl StateStore {
 
     pub fn new(path: PathBuf) -> Self {
         let directory = path.parent().unwrap_or_else(|| Path::new(".")).to_owned();
-        let settings_path = if cfg!(debug_assertions) {
-            directory.join("settings.json")
+        let configuration_directory = dirs::home_dir()
+            .unwrap_or_else(std::env::temp_dir)
+            .join(".pengpilot");
+        let (app_settings_path, legacy_settings_paths) = if cfg!(debug_assertions) {
+            (
+                directory.join("app.json"),
+                vec![directory.join("settings.json")],
+            )
         } else {
-            dirs::home_dir()
-                .unwrap_or_else(std::env::temp_dir)
-                .join(".pengpilot")
-                .join("settings.json")
+            (
+                configuration_directory.join("app.json"),
+                vec![configuration_directory.join("settings.json")],
+            )
         };
-        Self::with_settings_path(path, settings_path)
+        Self::with_settings_paths(path, app_settings_path, legacy_settings_paths)
     }
 
-    fn with_settings_path(path: PathBuf, settings_path: PathBuf) -> Self {
+    /// Local database owner used inside `pengpilot-daemon`. It never reads or
+    /// writes desktop-only `app.json` or client navigation state.
+    pub fn daemon(path: PathBuf) -> Self {
+        let mut store = Self::new(path);
+        store.desktop_files = false;
+        store
+    }
+
+    fn with_settings_paths(
+        path: PathBuf,
+        app_settings_path: PathBuf,
+        legacy_settings_paths: Vec<PathBuf>,
+    ) -> Self {
         let directory = path.parent().unwrap_or_else(|| Path::new(".")).to_owned();
         let root = directory.join("blobs");
         crate::blob_store::set_shared_root(root.clone());
         let blobs = Arc::new(BlobStore::new(root));
         Self {
             app_state_path: directory.join("state.json"),
-            settings_path,
+            app_settings_path,
+            legacy_settings_paths,
             path,
             storage: Mutex::new(None),
             blobs,
+            desktop_files: true,
         }
     }
 
@@ -1010,14 +1036,30 @@ impl StateStore {
         state
     }
 
-    fn read_settings(&self) -> io::Result<(Option<AppSettings>, bool)> {
-        let Ok(bytes) = fs::read(&self.settings_path) else {
-            return Ok((None, false));
+    fn read_app_settings(&self) -> io::Result<Option<AppSettings>> {
+        let source = match fs::read(&self.app_settings_path) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                let mut migrated = None;
+                for path in &self.legacy_settings_paths {
+                    match fs::read(path) {
+                        Ok(bytes) => {
+                            migrated = Some(bytes);
+                            break;
+                        }
+                        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                        Err(error) => return Err(error),
+                    }
+                }
+                migrated
+            }
+            Err(error) => return Err(error),
+        };
+        let Some(bytes) = source else {
+            return Ok(None);
         };
         let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(to_io_error)?;
-        let had_legacy_analytics = value.get("analytics_enabled").is_some();
-        let settings = serde_json::from_value(value).map_err(to_io_error)?;
-        Ok((Some(settings), had_legacy_analytics))
+        serde_json::from_value(value).map(Some).map_err(to_io_error)
     }
 
     fn read_app_state(&self) -> io::Result<(Option<AppState>, bool)> {
@@ -1040,14 +1082,14 @@ impl StateStore {
         Ok((Some(app_state), had_legacy_analytics))
     }
 
-    fn write_settings(&self, settings: &AppSettings) -> io::Result<()> {
-        if let Some(parent) = self.settings_path.parent() {
+    fn write_app_settings(&self, settings: &AppSettings) -> io::Result<()> {
+        if let Some(parent) = self.app_settings_path.parent() {
             fs::create_dir_all(parent)?;
         }
         let data = serde_json::to_vec_pretty(settings).map_err(to_io_error)?;
-        let temporary = self.settings_path.with_extension("json.tmp");
+        let temporary = self.app_settings_path.with_extension("json.tmp");
         fs::write(&temporary, data)?;
-        fs::rename(temporary, &self.settings_path)
+        fs::rename(temporary, &self.app_settings_path)
     }
 
     fn write_app_state(&self, app_state: &AppState) -> io::Result<()> {
@@ -1063,18 +1105,17 @@ impl StateStore {
     /// Settings and window state stay on this machine even when the task
     /// catalog is loaded from the daemon.
     pub fn overlay_desktop_files(&self, state: &mut PersistedState) -> io::Result<()> {
-        let (settings, settings_had_legacy_analytics) = self.read_settings()?;
-        let settings_missing = settings.is_none();
-        if let Some(settings) = settings {
-            state.apply_settings(settings);
+        let app_settings_missing = !self.app_settings_path.is_file();
+        if let Some(settings) = self.read_app_settings()? {
+            state.apply_app_settings(settings);
         }
         let (app_state, app_state_had_legacy_analytics) = self.read_app_state()?;
         let app_state_missing = app_state.is_none();
         if let Some(app_state) = app_state {
             state.apply_app_state(app_state);
         }
-        if settings_missing || settings_had_legacy_analytics {
-            let _ = self.write_settings(&state.settings());
+        if app_settings_missing {
+            let _ = self.write_app_settings(&state.app_settings());
         }
         if app_state_missing || app_state_had_legacy_analytics {
             let _ = self.write_app_state(&state.app_state());
@@ -1083,7 +1124,7 @@ impl StateStore {
     }
 
     pub fn save_desktop_files(&self, state: &PersistedState) -> io::Result<()> {
-        self.write_settings(&state.settings())?;
+        self.write_app_settings(&state.app_settings())?;
         self.write_app_state(&state.app_state())?;
         Ok(())
     }
@@ -1094,12 +1135,20 @@ impl StateStore {
 
         // Missing JSON files mean defaults; the database remains the source of
         // truth for projects and sessions.
-        let (settings, settings_had_legacy_analytics) = self.read_settings()?;
-        let settings_missing = settings.is_none();
-        if let Some(settings) = settings {
-            state.apply_settings(settings);
+        let app_settings_missing = self.desktop_files && !self.app_settings_path.is_file();
+        let app_settings = if self.desktop_files {
+            self.read_app_settings()?
+        } else {
+            None
+        };
+        if let Some(settings) = app_settings {
+            state.apply_app_settings(settings);
         }
-        let (app_state, app_state_had_legacy_analytics) = self.read_app_state()?;
+        let (app_state, app_state_had_legacy_analytics) = if self.desktop_files {
+            self.read_app_state()?
+        } else {
+            (None, false)
+        };
         let app_state_missing = app_state.is_none();
         if let Some(app_state) = app_state {
             state.apply_app_state(app_state);
@@ -1174,14 +1223,14 @@ impl StateStore {
         drop(sessions);
 
         state.migrate_loaded();
-        let settings = state.settings();
-        let settings_are_saved = if settings_missing || settings_had_legacy_analytics {
-            self.write_settings(&settings).is_ok()
-        } else {
-            true
-        };
+        let app_settings = state.app_settings();
+        let app_settings_are_saved = !self.desktop_files
+            || !app_settings_missing
+            || self.write_app_settings(&app_settings).is_ok();
         let app_state = state.app_state();
-        let app_state_is_saved = if app_state_missing || app_state_had_legacy_analytics {
+        let app_state_is_saved = if !self.desktop_files {
+            true
+        } else if app_state_missing || app_state_had_legacy_analytics {
             self.write_app_state(&app_state).is_ok()
         } else {
             true
@@ -1194,8 +1243,8 @@ impl StateStore {
             // are skeletons anyway, so the first save of one is a full write.
             written_messages: HashMap::new(),
             saved_projects: 0,
-            saved_settings: if settings_are_saved {
-                fingerprint(&serde_json::to_string(&settings).map_err(to_io_error)?)
+            saved_app_settings: if app_settings_are_saved {
+                fingerprint(&serde_json::to_string(&app_settings).map_err(to_io_error)?)
             } else {
                 0
             },
@@ -1224,7 +1273,7 @@ impl StateStore {
                 persisted_sessions: HashSet::new(),
                 written_messages: HashMap::new(),
                 saved_projects: 0,
-                saved_settings: 0,
+                saved_app_settings: 0,
                 saved_app_state: 0,
             });
         }
@@ -1306,26 +1355,28 @@ impl StateStore {
                 persisted_sessions: HashSet::new(),
                 written_messages: HashMap::new(),
                 saved_projects: 0,
-                saved_settings: 0,
+                saved_app_settings: 0,
                 saved_app_state: 0,
             });
         }
         let storage = guard.as_mut().expect("storage opened above");
 
-        let settings = state.settings();
-        let settings_fingerprint =
-            fingerprint(&serde_json::to_string(&settings).map_err(to_io_error)?);
-        if settings_fingerprint != storage.saved_settings {
-            self.write_settings(&settings)?;
-            storage.saved_settings = settings_fingerprint;
-        }
+        if self.desktop_files {
+            let app_settings = state.app_settings();
+            let app_settings_fingerprint =
+                fingerprint(&serde_json::to_string(&app_settings).map_err(to_io_error)?);
+            if app_settings_fingerprint != storage.saved_app_settings {
+                self.write_app_settings(&app_settings)?;
+                storage.saved_app_settings = app_settings_fingerprint;
+            }
 
-        let app_state = state.app_state();
-        let app_state_fingerprint =
-            fingerprint(&serde_json::to_string(&app_state).map_err(to_io_error)?);
-        if app_state_fingerprint != storage.saved_app_state {
-            self.write_app_state(&app_state)?;
-            storage.saved_app_state = app_state_fingerprint;
+            let app_state = state.app_state();
+            let app_state_fingerprint =
+                fingerprint(&serde_json::to_string(&app_state).map_err(to_io_error)?);
+            if app_state_fingerprint != storage.saved_app_state {
+                self.write_app_state(&app_state)?;
+                storage.saved_app_state = app_state_fingerprint;
+            }
         }
 
         let transaction = storage
@@ -1842,7 +1893,11 @@ mod tests {
     }
 
     fn store_in(directory: &Path) -> StateStore {
-        StateStore::with_settings_path(directory.join("app.db"), directory.join("settings.json"))
+        StateStore::with_settings_paths(
+            directory.join("app.db"),
+            directory.join("app.json"),
+            vec![directory.join("settings.json")],
+        )
     }
 
     /// `load` returns list-only sessions by design; tests that assert on
@@ -1879,32 +1934,27 @@ mod tests {
     }
 
     #[test]
-    fn legacy_analytics_fields_are_removed_during_load() {
+    fn legacy_combined_settings_migrate_app_fields_without_claiming_daemon_fields() {
         let directory = temporary_directory();
         fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("settings.json"),
-            r#"{"theme":"dark","analytics_enabled":true}"#,
-        )
-        .unwrap();
-        fs::write(
-            directory.join("state.json"),
-            format!(
-                r#"{{"app_state_version":{APP_STATE_VERSION},"analytics_id":"{}"}}"#,
-                Uuid::new_v4()
-            ),
-        )
-        .unwrap();
+        let legacy_path = directory.join("settings.json");
+        let legacy = r#"{
+            "theme": "dark",
+            "analytics_enabled": false,
+            "computer_use_enabled": true,
+            "disabled_providers": ["claude"]
+        }"#;
+        fs::write(&legacy_path, legacy).unwrap();
 
         let restored = store_in(&directory).load().unwrap();
         assert_eq!(restored.theme, ThemePreference::Dark);
 
-        let settings: serde_json::Value =
-            serde_json::from_slice(&fs::read(directory.join("settings.json")).unwrap()).unwrap();
-        let app_state: serde_json::Value =
-            serde_json::from_slice(&fs::read(directory.join("state.json")).unwrap()).unwrap();
-        assert!(settings.get("analytics_enabled").is_none());
-        assert!(app_state.get("analytics_id").is_none());
+        let app: serde_json::Value =
+            serde_json::from_slice(&fs::read(directory.join("app.json")).unwrap()).unwrap();
+        assert_eq!(app["theme"], "dark");
+        assert!(app.get("computer_use_enabled").is_none());
+        assert!(app.get("disabled_providers").is_none());
+        assert_eq!(fs::read_to_string(legacy_path).unwrap(), legacy);
 
         fs::remove_dir_all(directory).ok();
     }
@@ -1914,7 +1964,7 @@ mod tests {
         let directory = temporary_directory();
         let store = store_in(&directory);
         store.load().unwrap();
-        let settings_path = directory.join("settings.json");
+        let settings_path = directory.join("app.json");
         let settings: serde_json::Value =
             serde_json::from_slice(&fs::read(&settings_path).unwrap()).unwrap();
         let app_state: serde_json::Value =
@@ -1933,12 +1983,12 @@ mod tests {
         let state = PersistedState::empty();
         assert!(!state.computer_use_enabled);
 
-        let mut settings = serde_json::to_value(state.settings()).unwrap();
+        let mut settings = serde_json::to_value(state.daemon_settings()).unwrap();
         settings
             .as_object_mut()
             .unwrap()
             .remove("computer_use_enabled");
-        let restored: AppSettings = serde_json::from_value(settings).unwrap();
+        let restored: crate::DaemonSettings = serde_json::from_value(settings).unwrap();
 
         assert!(!restored.computer_use_enabled);
     }
@@ -1949,7 +1999,6 @@ mod tests {
 
         assert_eq!(settings.theme, ThemePreference::Dark);
         assert_eq!(settings.language, AppLanguage::System);
-        assert!(!settings.computer_use_enabled);
     }
 
     #[test]
@@ -2397,22 +2446,31 @@ mod tests {
         let store = StateStore::new(path.clone());
         assert_eq!(store.app_state_path, path.with_file_name("state.json"));
 
-        // Debug builds stay inside the checkout so development never writes to
-        // the installed app's data, including settings.
+        // Debug files stay inside the checkout so development cannot read or
+        // write the installed app's settings.
         #[cfg(debug_assertions)]
         {
             assert_eq!(directory, Some(std::ffi::OsStr::new("temp")));
             assert!(path.starts_with(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")));
-            assert_eq!(store.settings_path, path.with_file_name("settings.json"));
+            assert_eq!(store.app_settings_path, path.with_file_name("app.json"));
+            assert_eq!(
+                store.legacy_settings_paths,
+                [path.with_file_name("settings.json")]
+            );
         }
         #[cfg(not(debug_assertions))]
         {
             assert_eq!(directory, Some(std::ffi::OsStr::new("PengPilot")));
+            let configuration_directory = dirs::home_dir()
+                .unwrap_or_else(std::env::temp_dir)
+                .join(".pengpilot");
             assert_eq!(
-                store.settings_path,
-                dirs::home_dir()
-                    .unwrap_or_else(std::env::temp_dir)
-                    .join(".pengpilot/settings.json")
+                store.app_settings_path,
+                configuration_directory.join("app.json")
+            );
+            assert_eq!(
+                store.legacy_settings_paths,
+                [configuration_directory.join("settings.json")]
             );
         }
     }
@@ -2474,9 +2532,11 @@ mod tests {
                 ),
             ],
         });
+        let daemon_settings = state.daemon_settings();
         store.save(&mut state).unwrap();
 
-        let restored = load_hydrated(&store_in(&directory));
+        let mut restored = load_hydrated(&store_in(&directory));
+        restored.apply_daemon_settings(daemon_settings);
         assert_eq!(restored.projects[0].name, "project");
         assert_eq!(restored.sessions.len(), 1);
         assert_eq!(restored.sessions[0].model.as_deref(), Some("gpt-5.6-luna"));
@@ -2648,7 +2708,7 @@ mod tests {
     }
 
     #[test]
-    fn settings_and_app_managed_state_live_in_separate_json_files() {
+    fn app_settings_and_app_managed_state_live_in_separate_json_files() {
         let directory = temporary_directory();
         let store = store_in(&directory);
         let mut state = PersistedState::fresh(PathBuf::from("/tmp/project"));
@@ -2657,7 +2717,7 @@ mod tests {
         state.sidebar_width = 301.0;
         store.save(&mut state).unwrap();
 
-        let settings = directory.join("settings.json");
+        let settings = directory.join("app.json");
         let text = fs::read_to_string(&settings).unwrap();
         assert!(
             text.contains('\n'),
@@ -2666,6 +2726,17 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert_eq!(value["theme"], "light");
         assert_eq!(value["language"], "simplified-chinese");
+        for daemon_key in [
+            "computer_use_enabled",
+            "computer_use_allowed_apps",
+            "disabled_providers",
+            "provider_binary_overrides",
+        ] {
+            assert!(
+                value.get(daemon_key).is_none(),
+                "{daemon_key} leaked into app.json"
+            );
+        }
         for app_managed_key in [
             "version",
             "app_state_version",
@@ -2684,7 +2755,7 @@ mod tests {
         ] {
             assert!(
                 value.get(app_managed_key).is_none(),
-                "{app_managed_key} leaked into settings.json"
+                "{app_managed_key} leaked into app.json"
             );
         }
 
@@ -2725,7 +2796,7 @@ mod tests {
         let mut state = PersistedState::fresh(PathBuf::from("/tmp/project"));
         store.save(&mut state).unwrap();
 
-        let settings_path = directory.join("settings.json");
+        let settings_path = directory.join("app.json");
         let mut user_document: serde_json::Value =
             serde_json::from_slice(&fs::read(&settings_path).unwrap()).unwrap();
         user_document["future_setting"] = serde_json::Value::Bool(true);

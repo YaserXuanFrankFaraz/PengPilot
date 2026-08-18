@@ -16,9 +16,11 @@ use crate::driver::{self, DriverHandle, DriverStartOptions, SessionOptions};
 use crate::model::{AgentSession, Project};
 use crate::persistence::{ComposerDraftStore, PersistedState, StateStore};
 use crate::server::{Backend, EventSink};
+use crate::settings::DaemonSettingsStore;
 use crate::usage_history::ScanCache;
 
 pub struct PengPilotBackend {
+    settings: DaemonSettingsStore,
     task_store: StateStore,
     task_state: Mutex<PersistedState>,
     removed_session_ids: Mutex<HashSet<Uuid>>,
@@ -30,7 +32,7 @@ pub struct PengPilotBackend {
 }
 
 impl PengPilotBackend {
-    pub fn new(task_store: StateStore) -> anyhow::Result<Self> {
+    pub fn new(settings: DaemonSettingsStore, task_store: StateStore) -> anyhow::Result<Self> {
         let task_state = task_store
             .load()
             .context("could not load PengPilot task database")?;
@@ -41,6 +43,7 @@ impl PengPilotBackend {
             .to_owned();
         let composer_drafts = ComposerDraftStore::for_state_path(task_store.path());
         Ok(Self {
+            settings,
             task_store,
             task_state: Mutex::new(task_state),
             removed_session_ids: Mutex::new(HashSet::new()),
@@ -268,6 +271,13 @@ impl Backend for PengPilotBackend {
                 self.composer_drafts.apply_changes(changes)?;
                 Ok(ResponsePayload::Ack)
             }
+            Command::GetSettings => Ok(ResponsePayload::Settings {
+                settings: self.settings.get(),
+            }),
+            Command::UpdateSettings { settings } => {
+                self.settings.replace(settings)?;
+                Ok(ResponsePayload::Ack)
+            }
             Command::Start { options } => {
                 let previous = self.sessions.lock().remove(&session_id);
                 drop(previous);
@@ -456,7 +466,11 @@ mod tests {
     use uuid::Uuid;
 
     fn backend_in(directory: &std::path::Path) -> PengPilotBackend {
-        PengPilotBackend::new(StateStore::new(directory.join("app.db"))).unwrap()
+        PengPilotBackend::new(
+            crate::DaemonSettingsStore::open(directory.join("settings.json")).unwrap(),
+            StateStore::daemon(directory.join("app.db")),
+        )
+        .unwrap()
     }
 
     fn request(command: Command) -> Request {
@@ -703,6 +717,34 @@ mod tests {
             panic!("expected composer drafts");
         };
         assert_eq!(loaded.sessions.get(&session_id).unwrap().text, "unsent");
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn settings_round_trip_over_the_backend() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-settings-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let mut settings = pengpilot_protocol::DaemonSettings::default();
+        settings.computer_use_enabled = true;
+        settings.disabled_providers = vec![ProviderKind::Claude];
+        backend
+            .handle(
+                request(Command::UpdateSettings {
+                    settings: settings.clone(),
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap();
+        let ResponsePayload::Settings { settings: loaded } = backend
+            .handle(request(Command::GetSettings), EventSink::discarded())
+            .unwrap()
+        else {
+            panic!("expected settings");
+        };
+        assert!(loaded.computer_use_enabled);
+        assert_eq!(loaded.disabled_providers, vec![ProviderKind::Claude]);
         let _ = std::fs::remove_dir_all(directory);
     }
 

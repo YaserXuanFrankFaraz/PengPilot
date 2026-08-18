@@ -47,6 +47,7 @@ pub mod model_catalog;
 pub mod opencode_pool;
 pub mod opencode_session;
 pub mod persistence;
+pub mod settings;
 pub mod skills;
 pub mod usage;
 pub mod usage_history;
@@ -55,6 +56,7 @@ pub mod worktree;
 mod server;
 
 pub use daemon::PengPilotBackend;
+pub use settings::{DaemonSettings, DaemonSettingsStore};
 pub use pengpilot_protocol::{
     APP_EXECUTABLE_ENV, ClientMessage, Command, DAEMON_ADDRESS_ENV, DAEMON_TOKEN_ENV, DaemonReady,
     MAX_WIRE_MESSAGE_BYTES, PROTOCOL_VERSION, ReplayCursor, Request, ResponseOutcome,

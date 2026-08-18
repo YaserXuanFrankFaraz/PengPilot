@@ -27,7 +27,6 @@ pub fn start_process() -> anyhow::Result<pengpilot_client::DaemonSupervisor> {
         ),
         (None, None) => {}
     }
-    // ponytail: loopback bind until DaemonSettings exists on the wire.
     pengpilot_client::DaemonSupervisor::spawn_configured(
         &daemon_executable_path()?,
         cfg!(debug_assertions),

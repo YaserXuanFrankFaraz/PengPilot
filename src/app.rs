@@ -1857,6 +1857,10 @@ impl Waku {
         let composer_draft_store = ComposerDraftStore::remote(daemon.clone());
         let composer_drafts = composer_draft_store.load().unwrap_or_default();
         let mut state = store.load_or_fresh(cwd);
+        state.apply_daemon_settings(daemon.settings());
+        if let Err(error) = daemon.update_settings(state.daemon_settings()) {
+            eprintln!("could not normalize daemon settings after migration: {error:#}");
+        }
         crate::i18n::set_language(state.language);
         let composer = cx.new(|cx| ComposerInput::new(window, cx).padding_x(px(14.0)));
         let user_input_answer = cx.new(|cx| {

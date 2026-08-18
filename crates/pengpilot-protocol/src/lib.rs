@@ -27,6 +27,7 @@ pub mod persistence;
 pub mod projectless;
 pub mod protocol;
 pub mod session;
+pub mod settings;
 pub mod skills;
 pub mod theme;
 pub mod usage;
@@ -40,3 +41,4 @@ pub use protocol::{
     ResponsePayload, RpcError, SequencedEvent, ServerMessage, WireComputerToolRequest,
     WireDriverEvent, WireDriverStartOptions, WireSessionOptions,
 };
+pub use settings::DaemonSettings;

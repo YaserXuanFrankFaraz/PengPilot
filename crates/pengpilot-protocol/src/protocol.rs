@@ -9,6 +9,7 @@ use crate::computer_use::ComputerPermissions;
 use crate::model::{ProviderKind, ProviderProbe};
 use crate::persistence::{ComposerDraftChange, ComposerDrafts};
 use crate::session::Project;
+use crate::settings::DaemonSettings;
 use crate::skills::SkillsCatalog;
 use crate::usage::PlanUsage;
 use crate::usage_history::{UsageHistory, UsageWindow};
@@ -63,8 +64,8 @@ pub struct ReplayCursor {
     pub sequence: u64,
 }
 
-/// JSON-RPC command surface. Settings / attachments / workspace wait
-/// until those value types live in this crate.
+/// JSON-RPC command surface. Attachments / workspace / PTY wait until
+/// those implementations live in the daemon.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(
     tag = "type",
@@ -112,6 +113,10 @@ pub enum Command {
     },
     Fork {
         turns_to_remove: usize,
+    },
+    GetSettings,
+    UpdateSettings {
+        settings: DaemonSettings,
     },
     ProbeProvider {
         provider: ProviderKind,
@@ -302,6 +307,9 @@ pub enum ResponsePayload {
     Cursor {
         cursor: Option<Value>,
     },
+    Settings {
+        settings: DaemonSettings,
+    },
     ProviderProbe {
         probe: ProviderProbe,
         version: Option<String>,
@@ -418,6 +426,18 @@ mod tests {
         let json = serde_json::to_value(Command::RewindSessionToMessage { turn_count: 4 }).unwrap();
         assert_eq!(json["type"], "rewindSessionToMessage");
         assert_eq!(json["turnCount"], 4);
+    }
+
+    #[test]
+    fn settings_commands_use_stable_camel_case_tags() {
+        let json = serde_json::to_value(Command::GetSettings).unwrap();
+        assert_eq!(json["type"], "getSettings");
+        let json = serde_json::to_value(Command::UpdateSettings {
+            settings: DaemonSettings::default(),
+        })
+        .unwrap();
+        assert_eq!(json["type"], "updateSettings");
+        assert_eq!(json["settings"]["computer_use_enabled"], false);
     }
 
     #[test]

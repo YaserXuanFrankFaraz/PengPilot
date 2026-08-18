@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::DaemonClient;
-use pengpilot_protocol::{APP_EXECUTABLE_ENV, DAEMON_TOKEN_ENV, DaemonReady, PROTOCOL_VERSION};
+use pengpilot_protocol::{
+    APP_EXECUTABLE_ENV, Command, DAEMON_TOKEN_ENV, DaemonReady, DaemonSettings, PROTOCOL_VERSION,
+    ResponsePayload,
+};
 
 const START_TIMEOUT: Duration = Duration::from_secs(15);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(1);
@@ -24,9 +27,10 @@ pub const DEFAULT_EXPOSED_DAEMON_PORT: u16 = 34_123;
 
 /// Desktop-owned launch configuration for the daemon it supervises.
 ///
-/// The bearer token is intentionally stable across daemon-only rebuilds and
-/// desktop relaunches so a configured web client keeps working. Provider
-/// settings RPC waits until `DaemonSettings` lives in the protocol crate.
+/// Provider settings belong to the daemon and live in `settings.json`; this
+/// is an app preference because it controls how the desktop launches its own
+/// child process. The bearer token is intentionally stable across daemon-only
+/// rebuilds and desktop relaunches so a configured web client keeps working.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct DaemonExposureSettings {
@@ -290,6 +294,9 @@ struct SupervisorInner {
     target: Mutex<DaemonTarget>,
     exposure: Mutex<Option<DaemonExposureSettings>>,
     restart: Mutex<()>,
+    settings: Mutex<DaemonSettings>,
+    persisted_settings: Mutex<Option<DaemonSettings>>,
+    settings_updates: Sender<DaemonSettings>,
     client_updates: Mutex<Vec<Sender<DaemonClient>>>,
     running: AtomicBool,
 }
@@ -333,11 +340,13 @@ impl DaemonSupervisor {
     ) -> anyhow::Result<Self> {
         let exposure = exposure.validate()?;
         let process = DaemonProcess::spawn_configured(executable, exposure.clone())?;
+        let settings = read_settings(&process.client())?;
         let initial_stamp = ExecutableStamp::read(executable)?;
         let supervisor = Self::from_target(
             DaemonTarget::Local(process),
             Some(executable.to_owned()),
             Some(exposure),
+            settings,
         )?;
         let weak_inner = Arc::downgrade(&supervisor.inner);
         std::thread::Builder::new()
@@ -351,24 +360,36 @@ impl DaemonSupervisor {
     /// service manager). Dropping the desktop never shuts this daemon down.
     pub fn connect(address: &str, token: String) -> anyhow::Result<Self> {
         let client = DaemonClient::connect(address, token)?;
-        Self::from_target(DaemonTarget::Remote(client), None, None)
+        let settings = read_settings(&client)?;
+        Self::from_target(DaemonTarget::Remote(client), None, None, settings)
     }
 
     fn from_target(
         target: DaemonTarget,
         executable: Option<PathBuf>,
         exposure: Option<DaemonExposureSettings>,
+        settings: DaemonSettings,
     ) -> anyhow::Result<Self> {
-        Ok(Self {
-            inner: Arc::new(SupervisorInner {
-                executable,
-                target: Mutex::new(target),
-                exposure: Mutex::new(exposure),
-                restart: Mutex::new(()),
-                client_updates: Mutex::new(Vec::new()),
-                running: AtomicBool::new(true),
-            }),
-        })
+        let (settings_updates, settings_update_rx) = unbounded();
+        let inner = Arc::new(SupervisorInner {
+            executable,
+            target: Mutex::new(target),
+            exposure: Mutex::new(exposure),
+            restart: Mutex::new(()),
+            settings: Mutex::new(settings),
+            // The desktop sends one normalized snapshot after it has migrated
+            // the legacy combined settings document into app.json.
+            persisted_settings: Mutex::new(None),
+            settings_updates,
+            client_updates: Mutex::new(Vec::new()),
+            running: AtomicBool::new(true),
+        });
+        let weak_inner = Arc::downgrade(&inner);
+        std::thread::Builder::new()
+            .name("pengpilot-daemon-settings".into())
+            .spawn(move || persist_settings(weak_inner, settings_update_rx))
+            .context("could not start PengPilot daemon settings writer")?;
+        Ok(Self { inner })
     }
 
     pub fn client(&self) -> DaemonClient {
@@ -387,6 +408,10 @@ impl DaemonSupervisor {
 
     pub fn is_remote(&self) -> bool {
         self.inner.executable.is_none()
+    }
+
+    pub fn settings(&self) -> DaemonSettings {
+        self.inner.settings.lock().clone()
     }
 
     /// Restart only the desktop-managed daemon with a new listener policy.
@@ -409,11 +434,13 @@ impl DaemonSupervisor {
         match replace_local_daemon(&self.inner, &executable, &exposure) {
             Ok(()) => {
                 *self.inner.exposure.lock() = Some(exposure);
+                queue_settings_refresh(&self.inner);
                 Ok(())
             }
             Err(error) => {
                 let restore = replace_local_daemon(&self.inner, &executable, &previous);
                 if restore.is_ok() {
+                    queue_settings_refresh(&self.inner);
                     Err(error)
                 } else {
                     Err(error.context(format!(
@@ -423,6 +450,18 @@ impl DaemonSupervisor {
                 }
             }
         }
+    }
+
+    /// Queue a daemon settings update without blocking the desktop UI thread.
+    pub fn update_settings(&self, settings: DaemonSettings) -> anyhow::Result<()> {
+        *self.inner.settings.lock() = settings.clone();
+        if self.inner.persisted_settings.lock().as_ref() == Some(&settings) {
+            return Ok(());
+        }
+        self.inner
+            .settings_updates
+            .send(settings)
+            .map_err(|_| anyhow::anyhow!("PengPilot daemon settings writer is closed"))
     }
 }
 
@@ -512,6 +551,64 @@ fn replace_local_daemon(
         .lock()
         .retain(|subscriber| subscriber.send(client.clone()).is_ok());
     Ok(())
+}
+
+fn queue_settings_refresh(inner: &SupervisorInner) {
+    let settings = inner.settings.lock().clone();
+    *inner.persisted_settings.lock() = None;
+    let _ = inner.settings_updates.send(settings);
+}
+
+fn read_settings(client: &DaemonClient) -> anyhow::Result<DaemonSettings> {
+    match client.request(Uuid::nil(), Uuid::nil(), Command::GetSettings)? {
+        ResponsePayload::Settings { settings } => Ok(settings),
+        _ => bail!("PengPilot daemon returned an invalid settings response"),
+    }
+}
+
+fn persist_settings(
+    weak_inner: std::sync::Weak<SupervisorInner>,
+    updates: Receiver<DaemonSettings>,
+) {
+    while let Ok(mut settings) = updates.recv() {
+        while let Ok(newer) = updates.try_recv() {
+            settings = newer;
+        }
+        loop {
+            let Some(inner) = weak_inner.upgrade() else {
+                return;
+            };
+            if !inner.running.load(Ordering::Acquire) {
+                return;
+            }
+            let desired = inner.settings.lock().clone();
+            if desired != settings {
+                settings = desired;
+            }
+            let client = inner.target.lock().client();
+            let result = client.request(
+                Uuid::nil(),
+                Uuid::nil(),
+                Command::UpdateSettings {
+                    settings: settings.clone(),
+                },
+            );
+            match result {
+                Ok(ResponsePayload::Ack) => {
+                    *inner.persisted_settings.lock() = Some(settings);
+                    break;
+                }
+                Ok(_) => {
+                    eprintln!("PengPilot daemon returned an invalid settings update response");
+                }
+                Err(error) => {
+                    eprintln!("could not persist PengPilot daemon settings: {error:#}");
+                }
+            }
+            drop(inner);
+            std::thread::sleep(REBUILD_POLL_INTERVAL);
+        }
+    }
 }
 
 #[cfg(test)]

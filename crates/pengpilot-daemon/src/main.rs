@@ -45,7 +45,13 @@ fn main() -> anyhow::Result<()> {
             })?;
     }
 
-    let backend = PengPilotBackend::new(StateStore::new(StateStore::default_path()))
+    let task_path = StateStore::default_path();
+    let settings = pengpilot_core::DaemonSettingsStore::open_with_legacy(
+        pengpilot_core::DaemonSettings::default_path(),
+        [task_path.with_file_name("settings.json")],
+    )
+    .context("could not load daemon settings")?;
+    let backend = PengPilotBackend::new(settings, StateStore::daemon(task_path))
         .context("could not open PengPilot backend")?;
     serve(
         listener,
