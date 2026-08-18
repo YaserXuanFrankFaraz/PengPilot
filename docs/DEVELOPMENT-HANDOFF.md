@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + in-process pengpilot-daemon (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + composer/skills/usage_history in core (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **635 green** (`pengpilot` 334+10, `pengpilot-core` 235, `pengpilot-protocol` 53, `pengpilot-daemon` 3); 18 ignored driver live-tests live in core |
+| Tests | **635 green** (`pengpilot` 305+10, `pengpilot-core` 264, `pengpilot-protocol` 53, `pengpilot-daemon` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -33,9 +33,10 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
   `pengpilot-daemon`. `pengpilot-core` holds the headless engine:
   git/blob/command_env/worktree/checkpoint, SQLite `persistence` and media
   `library`, `model_catalog`, provider pools/session adapters, `usage` fetch,
-  `computer_use` helper I/O, `driver/`, and `PengPilotBackend`. The app
-  re-exports those modules. UI, md rendering, and transcript assembly stay
-  in the app.
+  `usage_history`, `composer_complete`, `skills`, `computer_use` helper I/O,
+  `driver/`, and `PengPilotBackend`. The app re-exports those modules. UI, md
+  rendering, transcript assembly, and the GPUI `terminal` widget stay in the
+  app.
 - `crates/pengpilot-protocol`: serde-only wire value types, no I/O. Carries
   `DriverEvent` / `RuntimeEventCursor`, `PlanUsage` / `PlanWindow`,
   computer-use state (`ComputerUseState.image_url`, not a GPUI image), and a
@@ -51,7 +52,8 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
   keeps working (no call-site churn). This is the deliberate "re-export bridge"
   pattern from waku's `src/lib.rs`. `src/main.rs` does the same for `i18n`,
   `identity`, `library`, `persistence`, `model_catalog`, pools/sessions,
-  `usage`, `computer_use`, and `driver`.
+  `usage`, `usage_history`, `composer_complete`, `skills`, `computer_use`,
+  and `driver`.
 
 ### Target: waku's daemon + WebSocket RPC layout
 
@@ -90,7 +92,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | --- | --- | --- |
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
 | 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | ✅ including `DriverEvent` (image_url, not GPUI) |
-| 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | **In progress** (daemon binary + Backend seam landed; leftover engine modules still in app) |
+| 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | ✅ engine + in-process daemon; GPUI `terminal.rs` stays in app |
 | 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | ⬜ |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
 | 5 | Re-align to waku mainline; maintain provider verification | ⬜ |
@@ -157,12 +159,15 @@ placeholder.
   commands. `pengpilot-daemon` parses the waku CLI flags, loads `StateStore`,
   and parks. No WebSocket / token / `DaemonReady` stdout until Phase 3.
   Provider `--version` probe lives in `pengpilot-core::model`.
+- Composer/skills/usage: `composer_complete`, `skills`, and `usage_history`
+  live in core. `SkillSource::icon` keeps asset path strings (no `crate::ui`).
+  The GPUI `src/terminal.rs` widget stays in the app; waku's daemon-owned
+  `DaemonTerminal` PTY is Phase 3 (needs `WireDriverEvent` + WS).
 
 ### Phase 2 remaining
 
-Move `composer_complete` / `skills` / `usage_history` / `terminal` as needed.
-Phase 3 adds the rest of `Command` / `ResponsePayload`, `WireDriverEvent`,
-and `server.rs` WS.
+None for engine modules. Phase 3 adds the rest of `Command` /
+`ResponsePayload`, `WireDriverEvent`, and `server.rs` WS.
 
 ### Phase 2–5 starting notes (from the waku map)
 
@@ -258,8 +263,8 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Continue **Phase 2**: leftover engine modules (`composer_complete` /
-   `skills` / `usage_history` / `terminal`). Then Phase 3–5 (WS client,
-   packaging, waku realign).
+1. Start **Phase 3**: port remaining `protocol.rs` / `server.rs` WS from
+   `/tmp/waku`, then `pengpilot-client` (DaemonClient / supervisor). GPUI
+   `terminal.rs` stays; daemon PTY lands with that slice.
 2. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).

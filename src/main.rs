@@ -37,7 +37,9 @@ mod claude_session {
 mod command_env {
     pub use pengpilot_core::command_env::*;
 }
-mod composer_complete;
+mod composer_complete {
+    pub use pengpilot_core::composer_complete::*;
+}
 mod computer_use {
     pub use pengpilot_core::computer_use::*;
 }
@@ -90,7 +92,9 @@ mod platform;
 mod projectless;
 mod query;
 mod review_diff;
-mod skills;
+mod skills {
+    pub use pengpilot_core::skills::*;
+}
 mod terminal;
 mod theme;
 mod ui;
@@ -98,7 +102,9 @@ mod updater;
 mod usage {
     pub use pengpilot_core::usage::*;
 }
-mod usage_history;
+mod usage_history {
+    pub use pengpilot_core::usage_history::*;
+}
 mod work {
     pub use pengpilot_protocol::work::*;
 }

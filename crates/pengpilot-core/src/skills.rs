@@ -58,8 +58,25 @@ impl SkillSource {
     pub fn icon(self) -> &'static str {
         match self {
             Self::Shared => "icons/package.svg",
-            Self::Provider(provider) => crate::ui::provider_icon(provider),
+            Self::Provider(provider) => provider_icon_path(provider),
         }
+    }
+}
+
+fn provider_icon_path(provider: ProviderKind) -> &'static str {
+    match provider {
+        ProviderKind::Amp => "icons/provider-amp.svg",
+        ProviderKind::Claude => "icons/provider-claude.png",
+        ProviderKind::Codex => "icons/provider-openai.png",
+        ProviderKind::Cursor => "icons/provider-cursor.svg",
+        ProviderKind::DeepSeek => "icons/provider-deepseek.png",
+        ProviderKind::OpenCode => "icons/provider-opencode.png",
+        ProviderKind::Grok => "icons/provider-grok.png",
+        ProviderKind::Pi => "icons/provider-pi.svg",
+        ProviderKind::Omp => "icons/provider-omp-color.svg",
+        ProviderKind::Kiro => "icons/provider-kiro.png",
+        ProviderKind::Hermes => "icons/provider-hermes.png",
+        ProviderKind::Trae => "icons/provider-trae.png",
     }
 }
 

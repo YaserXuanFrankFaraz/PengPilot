@@ -26,6 +26,7 @@ pub mod blob_store;
 pub mod checkpoint;
 pub mod claude_session;
 pub mod command_env;
+pub mod composer_complete;
 pub mod computer_use;
 pub mod cursor_session;
 pub mod daemon;
@@ -44,7 +45,9 @@ pub mod model_catalog;
 pub mod opencode_pool;
 pub mod opencode_session;
 pub mod persistence;
+pub mod skills;
 pub mod usage;
+pub mod usage_history;
 pub mod worktree;
 
 pub use daemon::{Backend, EventSink, PengPilotBackend};
