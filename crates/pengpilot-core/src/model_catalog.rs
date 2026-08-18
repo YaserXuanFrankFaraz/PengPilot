@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use crate::model::{
+use pengpilot_protocol::model::{
     ProviderAgentPreset, ProviderKind, ProviderModel, ProviderModelOption, ProviderProbe,
 };
 
@@ -163,7 +163,7 @@ fn model_cache_path(provider: ProviderKind) -> PathBuf {
     } else {
         dirs::cache_dir()
             .unwrap_or_else(std::env::temp_dir)
-            .join(crate::identity::DATA_DIRECTORY_NAME)
+            .join(pengpilot_protocol::identity::DATA_DIRECTORY_NAME)
             .join("models")
     };
     directory.join(format!("{}.json", provider.id()))

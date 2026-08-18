@@ -16,7 +16,7 @@ use crate::deepseek_session::DeepSeekServer;
 const SERVER_EXIT_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
-pub(crate) struct PooledDeepSeekServer {
+pub struct PooledDeepSeekServer {
     inner: Arc<PoolInner>,
 }
 
@@ -81,7 +81,7 @@ fn pool() -> &'static Mutex<HashMap<PathBuf, Arc<PoolSlot>>> {
 
 /// Returns the resident Harness Host for `binary`, starting it when needed.
 /// Blocking by design; driver construction already runs off the UI thread.
-pub(crate) fn acquire(binary: &Path) -> anyhow::Result<PooledDeepSeekServer> {
+pub fn acquire(binary: &Path) -> anyhow::Result<PooledDeepSeekServer> {
     acquire_with_start(binary, || DeepSeekServer::start(binary))
 }
 

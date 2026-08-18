@@ -133,15 +133,15 @@ impl StreamControl {
     }
 }
 
-pub(crate) struct DeepSeekServer {
+pub struct DeepSeekServer {
     child: Arc<Mutex<Child>>,
-    pub(crate) port: u16,
+    pub port: u16,
     events: Arc<EventHub>,
     streams: Arc<StreamControl>,
 }
 
 impl DeepSeekServer {
-    pub(crate) fn start(binary: &Path) -> anyhow::Result<Self> {
+    pub fn start(binary: &Path) -> anyhow::Result<Self> {
         Self::start_with_dsh_home(binary, None)
     }
 
@@ -300,11 +300,11 @@ impl DeepSeekServer {
         })
     }
 
-    pub(crate) fn subscribe(&self, session_id: &str) -> Receiver<Value> {
+    pub fn subscribe(&self, session_id: &str) -> Receiver<Value> {
         self.events.subscribe(session_id)
     }
 
-    pub(crate) fn rpc(&self, method: &str, payload: Value) -> anyhow::Result<Value> {
+    pub fn rpc(&self, method: &str, payload: Value) -> anyhow::Result<Value> {
         let rpc_id = format!("waku-{}", Uuid::new_v4());
         let body = json!({
             "type": "client-request",
@@ -327,7 +327,7 @@ impl DeepSeekServer {
         rpc_result_value(method, &response)
     }
 
-    pub(crate) fn respond(&self, rpc_id: &str, value: Value) -> anyhow::Result<()> {
+    pub fn respond(&self, rpc_id: &str, value: Value) -> anyhow::Result<()> {
         let body = json!({
             "type": "client-response",
             "rpcId": rpc_id,
@@ -353,7 +353,7 @@ impl DeepSeekServer {
         }
     }
 
-    pub(crate) fn reject_response(&self, rpc_id: &str, message: &str) -> anyhow::Result<()> {
+    pub fn reject_response(&self, rpc_id: &str, message: &str) -> anyhow::Result<()> {
         let body = json!({
             "type": "client-response",
             "rpcId": rpc_id,
@@ -376,14 +376,14 @@ impl DeepSeekServer {
         }
     }
 
-    pub(crate) fn is_alive(&self) -> bool {
+    pub fn is_alive(&self) -> bool {
         self.child
             .lock()
             .try_wait()
             .is_ok_and(|status| status.is_none())
     }
 
-    pub(crate) fn shutdown(&self, timeout: Duration) {
+    pub fn shutdown(&self, timeout: Duration) {
         self.streams.cancel();
         terminate_child(&mut self.child.lock(), timeout);
     }

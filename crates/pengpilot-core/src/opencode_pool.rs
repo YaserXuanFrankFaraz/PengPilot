@@ -27,7 +27,7 @@ const SERVER_EXIT_TIMEOUT: Duration = Duration::from_secs(5);
 ///
 /// Dropping the last handle kills the server. Clones add handles.
 #[derive(Clone)]
-pub(crate) struct PooledServer {
+pub struct PooledServer {
     inner: Arc<PoolInner>,
 }
 
@@ -75,7 +75,7 @@ impl PooledServer {
     /// Wraps a server a session started for itself. Computer Use bakes
     /// per-session configuration into the server environment, so those
     /// sessions cannot share a workspace server and keep this path.
-    pub(crate) fn dedicated(server: OpenCodeServer) -> Self {
+    pub fn dedicated(server: OpenCodeServer) -> Self {
         Self {
             inner: Arc::new(PoolInner { server, slot: None }),
         }
@@ -114,7 +114,7 @@ fn pool() -> &'static Mutex<HashMap<PoolKey, Arc<PoolSlot>>> {
 ///
 /// Blocking (process start plus health probe), so callers must already be off
 /// the UI thread — driver start on the background executor is.
-pub(crate) fn acquire(binary: &Path, cwd: &Path) -> anyhow::Result<PooledServer> {
+pub fn acquire(binary: &Path, cwd: &Path) -> anyhow::Result<PooledServer> {
     acquire_with_start(binary, cwd, || OpenCodeServer::start(binary, cwd))
 }
 

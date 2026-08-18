@@ -9,7 +9,7 @@ use anyhow::{Context as _, anyhow, bail};
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 
-use crate::model::ProviderResumeCursor;
+use pengpilot_protocol::model::ProviderResumeCursor;
 
 const SERVER_START_TIMEOUT: Duration = Duration::from_secs(10);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -41,7 +41,7 @@ pub fn fork_session_at_turn(
 /// with the live process for OpenCode's local resources. Rewinds with a live
 /// driver use this path instead, while cold sessions still use the standalone
 /// helper above.
-pub(crate) fn fork_session_at_turn_on_server(
+pub fn fork_session_at_turn_on_server(
     server: &OpenCodeServer,
     session_id: &str,
     retained_turns: usize,
@@ -50,7 +50,7 @@ pub(crate) fn fork_session_at_turn_on_server(
     fork_session_with_message_ids(server, session_id, &message_ids, retained_turns)
 }
 
-pub(crate) fn fork_session_removing_turns_on_server(
+pub fn fork_session_removing_turns_on_server(
     server: &OpenCodeServer,
     session_id: &str,
     turns_to_remove: usize,
@@ -118,19 +118,19 @@ fn fork_message_id(message_ids: &[String], retained_turns: usize) -> anyhow::Res
     Ok(message_ids.get(retained_turns).map(String::as_str))
 }
 
-pub(crate) struct OpenCodeServer {
+pub struct OpenCodeServer {
     child: Mutex<Child>,
-    pub(crate) port: u16,
+    pub port: u16,
 }
 
 impl OpenCodeServer {
-    pub(crate) fn start(binary: &Path, cwd: &Path) -> anyhow::Result<Self> {
+    pub fn start(binary: &Path, cwd: &Path) -> anyhow::Result<Self> {
         Self::start_with_env(binary, cwd, &[])
     }
 
     /// Starts the server with extra environment, so a caller can hand it the
     /// Computer Use configuration the same way a one-shot invocation got it.
-    pub(crate) fn start_with_env(
+    pub fn start_with_env(
         binary: &Path,
         cwd: &Path,
         environment: &[(String, String)],
@@ -182,16 +182,11 @@ impl OpenCodeServer {
         }
     }
 
-    pub(crate) fn request(
-        &self,
-        method: &str,
-        path: &str,
-        body: Option<&Value>,
-    ) -> anyhow::Result<Value> {
+    pub fn request(&self, method: &str, path: &str, body: Option<&Value>) -> anyhow::Result<Value> {
         self.request_with_timeout(method, path, body, HTTP_TIMEOUT)
     }
 
-    pub(crate) fn request_with_timeout(
+    pub fn request_with_timeout(
         &self,
         method: &str,
         path: &str,
@@ -204,7 +199,7 @@ impl OpenCodeServer {
     /// Whether the server process is still running. `Child::try_wait` both
     /// observes and reaps an exited child; `kill(pid, 0)` cannot distinguish a
     /// running process from the unreaped zombie owned by this process.
-    pub(crate) fn is_alive(&self) -> bool {
+    pub fn is_alive(&self) -> bool {
         self.child
             .lock()
             .try_wait()
@@ -228,7 +223,7 @@ fn is_native_user_turn(message: &Value) -> bool {
 impl OpenCodeServer {
     /// Terminates and reaps the owned child. The timeout is a graceful-exit
     /// budget; a server that ignores TERM is killed afterward.
-    pub(crate) fn shutdown(&self, timeout: Duration) {
+    pub fn shutdown(&self, timeout: Duration) {
         let mut child = self.child.lock();
         if child.try_wait().is_ok_and(|status| status.is_some()) {
             return;
@@ -271,7 +266,7 @@ impl Drop for OpenCodeServer {
 /// Sends one request to a server identified by port alone. Readers that must
 /// not keep the server alive (they only unblock when it exits) hold the port
 /// instead of a handle and request through this.
-pub(crate) fn request_json_on_port(
+pub fn request_json_on_port(
     port: u16,
     method: &str,
     path: &str,
@@ -445,7 +440,7 @@ fn decode_chunked(mut input: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(output)
 }
 
-pub(crate) fn encode_path_segment(value: &str) -> String {
+pub fn encode_path_segment(value: &str) -> String {
     let mut encoded = String::new();
     for byte in value.bytes() {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {

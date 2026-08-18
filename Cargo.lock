@@ -4897,13 +4897,16 @@ version = "0.1.20"
 dependencies = [
  "anyhow",
  "base64",
+ "crossbeam-channel",
  "dirs",
  "libc",
  "parking_lot",
  "pengpilot-protocol",
  "rusqlite",
+ "rust-i18n",
  "serde",
  "serde_json",
+ "url",
  "uuid",
 ]
 

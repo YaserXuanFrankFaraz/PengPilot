@@ -36,8 +36,12 @@ mod command_env {
 mod composer_complete;
 mod computer_use;
 mod cursor_session;
-mod deepseek_pool;
-mod deepseek_session;
+mod deepseek_pool {
+    pub use pengpilot_core::deepseek_pool::*;
+}
+mod deepseek_session {
+    pub use pengpilot_core::deepseek_session::*;
+}
 mod driver;
 mod git_branch {
     pub use pengpilot_core::git_branch::*;
@@ -58,9 +62,15 @@ mod library {
 }
 mod md;
 mod model;
-mod model_catalog;
-mod opencode_pool;
-mod opencode_session;
+mod model_catalog {
+    pub use pengpilot_core::model_catalog::*;
+}
+mod opencode_pool {
+    pub use pengpilot_core::opencode_pool::*;
+}
+mod opencode_session {
+    pub use pengpilot_core::opencode_session::*;
+}
 mod persistence {
     pub use pengpilot_core::persistence::*;
 }

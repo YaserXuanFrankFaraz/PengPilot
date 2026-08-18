@@ -12,6 +12,10 @@ fn main() {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let directory = repository.join("db/migrations");
     println!("cargo:rerun-if-changed={}", directory.display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        repository.join("locales").display()
+    );
 
     let mut migrations = fs::read_dir(&directory)
         .unwrap_or_else(|error| panic!("reading {}: {error}", directory.display()))
