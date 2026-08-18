@@ -200,12 +200,12 @@ impl Backend for PengPilotBackend {
                         ensure_shell_environment();
                         let probe =
                             crate::model::provider_probe(provider, binary_override.as_deref());
-                        match probe.path.as_deref() {
-                            Some(binary) => Some(crate::usage::fetch_grok_plan_usage(binary)?),
-                            None => None,
-                        }
+                        let binary = probe
+                            .path
+                            .ok_or_else(|| anyhow!("grok is not installed"))?;
+                        Some(crate::usage::fetch_grok_plan_usage(&binary)?)
                     }
-                    _ => None,
+                    _ => bail!("provider has no plan usage fetcher"),
                 };
                 Ok(ResponsePayload::PlanUsage { usage })
             }
@@ -562,6 +562,26 @@ mod tests {
             )
             .unwrap_err();
         assert!(error.to_string().contains("is not running"));
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn fetch_plan_usage_rejects_providers_without_a_fetcher() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-usage-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let error = backend
+            .handle(
+                request(Command::FetchPlanUsage {
+                    provider: ProviderKind::Amp,
+                    binary_override: None,
+                    cli_version: None,
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("no plan usage fetcher"));
         let _ = std::fs::remove_dir_all(directory);
     }
 }

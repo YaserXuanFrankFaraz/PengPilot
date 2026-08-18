@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + driver sessions over RPC (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + plan usage / computer-use permissions over RPC (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **658 green** (`pengpilot` 305+10, `pengpilot-core` 278, `pengpilot-protocol` 58, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
+| Tests | **659 green** (`pengpilot` 305+10, `pengpilot-core` 279, `pengpilot-protocol` 58, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -39,10 +39,12 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
   Provider processes start in the daemon via `Command::Start`; the app holds
   `RemoteDriverControl` (`src/driver.rs`). UI, md, transcript assembly, and
   the GPUI `terminal` widget stay in the app.
-- RPC paths so far: `ProbeProvider`, `LoadTaskState` / `SaveTaskState` /
+- RPC paths so far: `ProbeProvider`, `FetchPlanUsage`,
+  `ProbeComputerPermissions`, `LoadTaskState` / `SaveTaskState` /
   `HydrateSession` / `RemoveSession`, and the driver session surface
   (`Start` / `Prompt` / `Steer` / `Cancel` / … / `CloseSession`). Workspace,
-  drafts, library, and daemon PTY still call core from the app or Ack.
+  drafts, library, skills/usage-history catalogs, and daemon PTY still call
+  core from the app or Ack.
 - `crates/pengpilot-protocol`: serde-only wire value types, no I/O. Envelope
   types (`ClientMessage` / `ServerMessage` / `ReplayCursor` /
   `WireDriverEvent`, `PROTOCOL_VERSION=3`). `event_to_wire` / `event_from_wire`
@@ -191,6 +193,10 @@ placeholder.
   `EventSink`. Desktop `src/driver.rs` `start_remote` / `RemoteDriverControl`
   talk JSON-RPC; `Drop` unsubscribes, `close()` sends `CloseSession`. Skip
   `attach_remote` until a second client needs to rejoin a live runtime.
+- Plan meters + Computer Use permissions: desktop `usage_meter` /
+  `request_computer_permissions` call `FetchPlanUsage` /
+  `ProbeComputerPermissions`. Backend errors for providers with no fetcher
+  and for missing Grok (same as the old in-process app path).
 
 ### Phase 3 remaining
 
