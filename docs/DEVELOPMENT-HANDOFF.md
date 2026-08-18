@@ -102,6 +102,8 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 - `Project` + `projectless` predicates (`home_directory`, `workspace_root`,
   `is_projectless_path`, `is_legacy_root_path`) live in the protocol crate;
   `src/projectless.rs` keeps `create_workspace` and re-exports the predicates.
+- `ProviderProbe` lives in `pengpilot-protocol::model`; discovery is
+  `model_catalog::discover_probe_models`.
 
 ### Phase 1 remaining — exact analysis (already done, don't re-explore)
 
@@ -115,10 +117,8 @@ chains to `ActivityItem` → `ReasoningBlock` plus custom serde
 whole interlocking layer should move together in one large step (best with a
 fresh full budget).
 
-**`ProviderProbe` extraction needs decoupling**: strip the `discover_models`
-method (it calls `crate::model_catalog::discover_catalog`); add
-`pub fn discover_probe_models(&mut ProviderProbe)` to `src/model_catalog.rs`;
-update the caller `src/app/runtime.rs:781` (`probe.discover_models()`).
+**`ProviderProbe`**: extracted. Catalog fill lives in
+`model_catalog::discover_probe_models`; the app caller is `runtime.rs`.
 
 **`Project` / `projectless`**: extracted. Engine-side `create_workspace` /
 migration stay in `src/projectless.rs`. Do not rebuild the deleted Box::leak
@@ -223,13 +223,11 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Decouple `ProviderProbe` (`model_catalog::discover_probe_models`,
-   `runtime.rs:781`).
-2. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
+1. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
    interlocking layer as one large step; then the remaining session/settings
    wire types.
-3. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
+2. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
    **Phase 3** (WS RPC + `WireDriverEvent`), **Phase 4** (packaging), **Phase 5**
    (mainline alignment). Package a release at each clean checkpoint.
-4. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
+3. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).

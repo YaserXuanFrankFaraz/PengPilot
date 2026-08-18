@@ -542,3 +542,30 @@ impl ProviderModel {
         self
     }
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ProviderProbe {
+    pub provider: ProviderKind,
+    pub installed: bool,
+    pub path: Option<PathBuf>,
+    #[serde(default)]
+    pub models: Vec<ProviderModel>,
+    #[serde(default)]
+    pub agent_presets: Vec<ProviderAgentPreset>,
+}
+
+impl ProviderProbe {
+    pub fn preferred_model(&self) -> Option<&ProviderModel> {
+        self.models
+            .iter()
+            .find(|model| model.is_default)
+            .or_else(|| self.models.first())
+    }
+
+    pub fn preferred_agent_preset(&self) -> Option<&ProviderAgentPreset> {
+        self.agent_presets
+            .iter()
+            .find(|preset| preset.is_default)
+            .or_else(|| self.agent_presets.first())
+    }
+}

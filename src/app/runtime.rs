@@ -778,7 +778,9 @@ impl Waku {
                         signal_event_pump(&event_wake);
                     }
                 }
-                if provider_probe_tx.send(probe.discover_models()).is_ok() {
+                let mut probe = probe;
+                crate::model_catalog::discover_probe_models(&mut probe);
+                if provider_probe_tx.send(probe).is_ok() {
                     signal_event_pump(&event_wake);
                 }
             })

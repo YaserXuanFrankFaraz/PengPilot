@@ -5,52 +5,13 @@ use uuid::Uuid;
 
 pub use pengpilot_protocol::model::{
     FavoriteModel, InteractionMode, ProviderAgentPreset, ProviderKind, ProviderModel,
-    ProviderModelOption, ProviderResumeCursor, RuntimeMode,
+    ProviderModelOption, ProviderProbe, ProviderResumeCursor, RuntimeMode,
 };
 pub use pengpilot_protocol::session::{
     ActivityKind, AgentTurn, Checkpoint, CheckpointFile, CheckpointStatus, ContextUsage, Message,
     MessageAttachment, MessageRole, Project, QueuedMessage, SessionStatus, SessionWorkspace,
     TurnStatus, unix_time, unix_time_millis,
 };
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ProviderProbe {
-    pub provider: ProviderKind,
-    pub installed: bool,
-    pub path: Option<PathBuf>,
-    #[serde(default)]
-    pub models: Vec<ProviderModel>,
-    #[serde(default)]
-    pub agent_presets: Vec<ProviderAgentPreset>,
-}
-
-impl ProviderProbe {
-    pub fn discover_models(mut self) -> Self {
-        if self.provider.supports_model_discovery()
-            && let Some(path) = self.path.as_deref()
-        {
-            let (models, agent_presets) =
-                crate::model_catalog::discover_catalog(self.provider, path);
-            self.models = models;
-            self.agent_presets = agent_presets;
-        }
-        self
-    }
-
-    pub fn preferred_model(&self) -> Option<&ProviderModel> {
-        self.models
-            .iter()
-            .find(|model| model.is_default)
-            .or_else(|| self.models.first())
-    }
-
-    pub fn preferred_agent_preset(&self) -> Option<&ProviderAgentPreset> {
-        self.agent_presets
-            .iter()
-            .find(|preset| preset.is_default)
-            .or_else(|| self.agent_presets.first())
-    }
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AgentSession {

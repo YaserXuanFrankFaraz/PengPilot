@@ -6,7 +6,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use crate::model::{ProviderAgentPreset, ProviderKind, ProviderModel, ProviderModelOption};
+use crate::model::{
+    ProviderAgentPreset, ProviderKind, ProviderModel, ProviderModelOption, ProviderProbe,
+};
 
 const CODEX_RPC_TIMEOUT: Duration = Duration::from_secs(5);
 const PI_RPC_TIMEOUT: Duration = Duration::from_secs(10);
@@ -99,6 +101,16 @@ pub fn fallback_agent_presets(provider: ProviderKind) -> Vec<ProviderAgentPreset
         ProviderAgentPreset::new("cordis", tr!("agent_preset.creator"))
             .description(tr!("agent_preset.creator_description")),
     ]
+}
+
+pub fn discover_probe_models(probe: &mut ProviderProbe) {
+    if probe.provider.supports_model_discovery()
+        && let Some(path) = probe.path.as_deref()
+    {
+        let (models, agent_presets) = discover_catalog(probe.provider, path);
+        probe.models = models;
+        probe.agent_presets = agent_presets;
+    }
 }
 
 /// Discovers both ordinary models and provider-owned agent compositions in
