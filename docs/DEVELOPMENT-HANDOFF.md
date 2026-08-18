@@ -302,7 +302,10 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Continue **Phase 3**: remaining Command types (settings, attachments,
+1. After **each** Phase 3–5 slice: spawn other-model review agents (Standards /
+   Spec / defect-first; see `.cursor/rules/multi-model-review.mdc`) before the
+   next slice. Fix P0/P1 first.
+2. Continue **Phase 3**: remaining Command types (settings, attachments,
    workspace, drafts, skills/usage catalogs), then daemon PTY. Live-verify
    Debug.app actually spawns `pengpilot-daemon` (quit the running watcher
    first). Do **not** cut a GitHub release until that spawn is confirmed.

@@ -1,0 +1,28 @@
+---
+description: After each daemon-migration slice, run a multi-model code review before the next slice.
+alwaysApply: true
+---
+
+# Multi-model review after each slice
+
+After a Phase 3–5 slice is tested, committed, and pushed, **do not start the next slice until a review lands**.
+
+## How
+
+Launch **at least two sub-agents in parallel**, each on a **different model family** (do not inherit the parent for every agent). Typical split:
+
+1. **Standards** — `AGENTS.md` / `CONTRIBUTING.md` + Fowler smell baseline
+2. **Spec** — `docs/DEVELOPMENT-HANDOFF.md` Phase 3–5 + the slice’s success criteria
+3. **Defect-first** (optional third) — correctness/security/UI-thread I/O only
+
+Fixed point: the commit **before this slice** (or `59e3b6d^` for the whole RPC stack). Diff: `git diff <fixed-point>...HEAD`.
+
+## Report
+
+Keep axes separate. Do not merge or rerank across axes. Fix P0/P1 before the next slice. Leave `src/app/sidebar.rs` and `.zcode/` alone.
+
+## Do not
+
+- Skip review because tests are green
+- Cut a GitHub release until Debug.app daemon spawn is live-verified
+- Use one model for every review agent
