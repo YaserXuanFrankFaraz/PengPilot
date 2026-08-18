@@ -4916,6 +4916,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pengpilot-daemon"
+version = "0.1.20"
+dependencies = [
+ "anyhow",
+ "libc",
+ "pengpilot-core",
+ "pengpilot-protocol",
+]
+
+[[package]]
 name = "pengpilot-protocol"
 version = "0.1.20"
 dependencies = [

@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + drivers in pengpilot-core (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + in-process pengpilot-daemon (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **627 green** (`pengpilot` 336+10, `pengpilot-core` 230, `pengpilot-protocol` 51); 18 ignored driver live-tests now live in core |
+| Tests | **635 green** (`pengpilot` 334+10, `pengpilot-core` 235, `pengpilot-protocol` 53, `pengpilot-daemon` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -27,18 +27,26 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
 
 ## 2. Architecture — today and the target
 
-### Today: app + protocol crate + young core crate
+### Today: app + protocol + core + in-process daemon binary
 
-- Cargo workspace: `pengpilot` + `pengpilot-protocol` + `pengpilot-core`.
-  `pengpilot-core` holds the headless engine: git/blob/command_env/worktree/
-  checkpoint, SQLite `persistence` and media `library`, `model_catalog`,
-  provider pools/session adapters, `usage` fetch, `computer_use` helper I/O,
-  and `driver/`. The app re-exports those modules. UI, md rendering, and
-  transcript assembly stay in the app.
-- `crates/pengpilot-protocol`: serde-only wire value types, no I/O. Now also
-  carries `DriverEvent` / `RuntimeEventCursor`, `PlanUsage` / `PlanWindow`,
-  and computer-use state (`ComputerUseState.image_url`, not a GPUI image).
-  GPUI decode of the PNG data URL happens in `src/app/streaming.rs`.
+- Cargo workspace: `pengpilot` + `pengpilot-protocol` + `pengpilot-core` +
+  `pengpilot-daemon`. `pengpilot-core` holds the headless engine:
+  git/blob/command_env/worktree/checkpoint, SQLite `persistence` and media
+  `library`, `model_catalog`, provider pools/session adapters, `usage` fetch,
+  `computer_use` helper I/O, `driver/`, and `PengPilotBackend`. The app
+  re-exports those modules. UI, md rendering, and transcript assembly stay
+  in the app.
+- `crates/pengpilot-protocol`: serde-only wire value types, no I/O. Carries
+  `DriverEvent` / `RuntimeEventCursor`, `PlanUsage` / `PlanWindow`,
+  computer-use state (`ComputerUseState.image_url`, not a GPUI image), and a
+  Phase 2 `protocol.rs` subset (`PROTOCOL_VERSION=3`, `Command` /
+  `ResponsePayload` for LoadTaskState / ProbeProvider / FetchPlanUsage /
+  ProbeComputerPermissions). GPUI decode of the PNG data URL happens in
+  `src/app/streaming.rs`.
+- `crates/pengpilot-daemon`: thin binary. Parses `--bind` /
+  `--parent-pid` / `--allow-origin` / `--allow-non-loopback`, constructs
+  `PengPilotBackend`, parks. No TCP, no token, no `DaemonReady` JSON until
+  Phase 3.
 - `src/model.rs` re-exports the protocol types so every `crate::model::X` path
   keeps working (no call-site churn). This is the deliberate "re-export bridge"
   pattern from waku's `src/lib.rs`. `src/main.rs` does the same for `i18n`,
@@ -82,7 +90,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | --- | --- | --- |
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
 | 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | ✅ including `DriverEvent` (image_url, not GPUI) |
-| 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | **In progress** (core engine including drivers; daemon binary not yet) |
+| 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | **In progress** (daemon binary + Backend seam landed; leftover engine modules still in app) |
 | 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | ⬜ |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
 | 5 | Re-align to waku mainline; maintain provider verification | ⬜ |
@@ -145,12 +153,16 @@ placeholder.
   `ComputerUseState.image_url`. Core gained `driver/`, remaining session
   adapters, `computer_use` helper I/O, and `usage` fetch. App streaming
   decodes the preview PNG; `ComputerUsePreview` still holds `gpui::Image`.
+- In-process daemon: protocol subset + `PengPilotBackend::handle` for four
+  commands. `pengpilot-daemon` parses the waku CLI flags, loads `StateStore`,
+  and parks. No WebSocket / token / `DaemonReady` stdout until Phase 3.
+  Provider `--version` probe lives in `pengpilot-core::model`.
 
 ### Phase 2 remaining
 
 Move `composer_complete` / `skills` / `usage_history` / `terminal` as needed.
-Add `pengpilot-daemon` as a thin in-process `Backend` seam (no WebSocket
-until Phase 3).
+Phase 3 adds the rest of `Command` / `ResponsePayload`, `WireDriverEvent`,
+and `server.rs` WS.
 
 ### Phase 2–5 starting notes (from the waku map)
 
@@ -246,8 +258,8 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Continue **Phase 2**: add `pengpilot-daemon` (in-process Backend, no WS),
-   then leftover engine modules (`composer_complete` / `skills` /
-   `usage_history` / `terminal`). Then Phase 3–5.
+1. Continue **Phase 2**: leftover engine modules (`composer_complete` /
+   `skills` / `usage_history` / `terminal`). Then Phase 3–5 (WS client,
+   packaging, waku realign).
 2. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).

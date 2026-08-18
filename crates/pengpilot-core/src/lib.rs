@@ -5,8 +5,8 @@
 //! re-exports these modules so existing `crate::git_commit` paths keep working
 //! while the engine moves out of the UI process.
 //!
-//! Phase 2 in-process backend: no WebSocket yet. `pengpilot-daemon` and RPC
-//! land once the remaining UI-adjacent modules follow.
+//! Phase 2 in-process backend: `pengpilot-daemon` constructs [`PengPilotBackend`]
+//! with no WebSocket until Phase 3.
 
 #![recursion_limit = "256"]
 
@@ -28,6 +28,7 @@ pub mod claude_session;
 pub mod command_env;
 pub mod computer_use;
 pub mod cursor_session;
+pub mod daemon;
 pub mod deepseek_pool;
 pub mod deepseek_session;
 pub mod driver;
@@ -45,3 +46,9 @@ pub mod opencode_session;
 pub mod persistence;
 pub mod usage;
 pub mod worktree;
+
+pub use daemon::{Backend, EventSink, PengPilotBackend};
+pub use pengpilot_protocol::protocol::{
+    APP_EXECUTABLE_ENV, Command, DAEMON_ADDRESS_ENV, DAEMON_TOKEN_ENV, DaemonReady,
+    PROTOCOL_VERSION, Request, ResponsePayload,
+};

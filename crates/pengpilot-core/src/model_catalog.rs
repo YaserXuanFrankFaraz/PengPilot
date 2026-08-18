@@ -158,6 +158,7 @@ pub fn discover_catalog(
 fn model_cache_path(provider: ProviderKind) -> PathBuf {
     let directory = if cfg!(debug_assertions) {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
             .join("temp")
             .join("model-cache")
     } else {

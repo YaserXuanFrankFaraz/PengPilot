@@ -818,7 +818,7 @@ impl Waku {
             if std::thread::Builder::new()
                 .name(format!("waku-{}-version-probe", provider.id()))
                 .spawn(move || {
-                    let version = probe_provider_version(&path);
+                    let version = pengpilot_core::model::probe_provider_version(&path);
                     if provider_version_tx.send((provider, version)).is_ok() {
                         signal_event_pump(&event_wake);
                     }
@@ -2778,82 +2778,6 @@ mod response_fork_title_tests {
         assert_eq!(
             next_response_fork_title("Plan (2026)", ["Plan (2026)"]),
             "Plan (2026) (2)"
-        );
-    }
-}
-
-/// Run `<cli> --version` and pull a version number out of whatever it prints.
-/// Blocking; runs on a version-probe thread, never on the UI thread.
-fn probe_provider_version(binary: &std::path::Path) -> Option<String> {
-    let mut command = crate::command_env::command(binary);
-    let command = command.arg("--version").stdin(std::process::Stdio::null());
-    let output = crate::command_env::output(command).ok()?;
-    let combined = format!(
-        "{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    parse_cli_version(&combined)
-}
-
-/// The first token that reads as a version number — digits and dots, an
-/// optional leading `v`, optional pre-release tail — from the first non-empty
-/// line. CLIs decorate this differently ("codex-cli 0.45.0", "2.1.24 (Claude
-/// Code)", "v1.3.0-beta"); the number is the part worth showing.
-fn parse_cli_version(output: &str) -> Option<String> {
-    let line = output.lines().find(|line| !line.trim().is_empty())?;
-    line.split_whitespace()
-        .map(|token| {
-            token
-                .trim_start_matches('v')
-                .trim_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '.' || c == '-'))
-        })
-        .find(|token| {
-            let mut parts = token.split('.');
-            let leading_number = parts
-                .next()
-                .is_some_and(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit()));
-            leading_number
-                && parts
-                    .next()
-                    .is_some_and(|part| part.chars().next().is_some_and(|c| c.is_ascii_digit()))
-        })
-        .map(str::to_owned)
-}
-
-#[cfg(test)]
-mod version_tests {
-    use super::parse_cli_version;
-
-    #[test]
-    fn parses_common_cli_version_banners() {
-        assert_eq!(
-            parse_cli_version("codex-cli 0.45.0\n"),
-            Some("0.45.0".to_owned())
-        );
-        assert_eq!(
-            parse_cli_version("2.1.24 (Claude Code)\n"),
-            Some("2.1.24".to_owned())
-        );
-        assert_eq!(
-            parse_cli_version("v1.3.0-beta.2"),
-            Some("1.3.0-beta.2".to_owned())
-        );
-        assert_eq!(
-            parse_cli_version("\nAmp CLI version 0.9.12\n"),
-            Some("0.9.12".to_owned())
-        );
-        assert_eq!(parse_cli_version("not a version"), None);
-        assert_eq!(parse_cli_version(""), None);
-    }
-
-    #[test]
-    fn version_requires_a_dotted_number_not_a_bare_digit() {
-        // "2024" alone or a hash must not read as a version.
-        assert_eq!(parse_cli_version("build 2024 f3a9c1"), None);
-        assert_eq!(
-            parse_cli_version("cursor-agent 2025.09.12-4f8d8e2"),
-            Some("2025.09.12-4f8d8e2".to_owned())
         );
     }
 }

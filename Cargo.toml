@@ -2,6 +2,7 @@
 members = [
     ".",
     "crates/pengpilot-core",
+    "crates/pengpilot-daemon",
     "crates/pengpilot-protocol",
 ]
 resolver = "2"

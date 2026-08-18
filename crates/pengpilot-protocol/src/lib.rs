@@ -23,6 +23,7 @@ pub mod i18n;
 pub mod identity;
 pub mod model;
 pub mod projectless;
+pub mod protocol;
 pub mod session;
 pub mod theme;
 pub mod usage;

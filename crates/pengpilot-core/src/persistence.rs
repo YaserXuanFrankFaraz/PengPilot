@@ -936,7 +936,8 @@ impl StateStore {
     /// per-user application support directory.
     pub fn default_path() -> PathBuf {
         if cfg!(debug_assertions) {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
                 .join("temp")
                 .join("app.db")
         } else {
@@ -2421,7 +2422,7 @@ mod tests {
         #[cfg(debug_assertions)]
         {
             assert_eq!(directory, Some(std::ffi::OsStr::new("temp")));
-            assert!(path.starts_with(env!("CARGO_MANIFEST_DIR")));
+            assert!(path.starts_with(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")));
             assert_eq!(store.settings_path, path.with_file_name("settings.json"));
         }
         #[cfg(not(debug_assertions))]
