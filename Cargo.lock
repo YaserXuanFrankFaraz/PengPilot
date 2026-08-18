@@ -4952,6 +4952,7 @@ dependencies = [
  "objc2-user-notifications",
  "objc2-web-kit",
  "parking_lot",
+ "pengpilot-client",
  "pengpilot-core",
  "pengpilot-protocol",
  "pulldown-cmark",

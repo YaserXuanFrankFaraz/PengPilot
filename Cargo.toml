@@ -18,6 +18,7 @@ license = "GPL-3.0-only"
 [dependencies]
 pengpilot-protocol = { path = "crates/pengpilot-protocol" }
 pengpilot-core = { path = "crates/pengpilot-core" }
+pengpilot-client = { path = "crates/pengpilot-client" }
 agent-client-protocol = "2.0.0"
 alacritty_terminal = { version = "0.26", default-features = false }
 anyhow = "1.0"

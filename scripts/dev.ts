@@ -11,7 +11,7 @@ const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || "target");
 const appPath = isMacOS
   ? join(targetDir, "debug/PengPilot Debug.app")
   : join(targetDir, "debug/pengpilot");
-const watchedDirectories = ["src", "assets", "resources", "locales"];
+const watchedDirectories = ["src", "crates", "assets", "resources", "locales"];
 const watchedFiles = ["Cargo.toml", "Cargo.lock", "build.rs"];
 const rebuildDebounceMs = 1_000;
 
@@ -29,7 +29,7 @@ async function build(): Promise<boolean> {
   console.log(`[pengpilot-dev] Building ${isMacOS ? "app bundle" : "app"}...`);
   const result = isMacOS
     ? await $`${join(root, "scripts/bundle.sh")} debug`.nothrow()
-    : await $`cargo build --bin pengpilot --bin pengpilot_js_repl`.nothrow();
+    : await $`cargo build --bin pengpilot --bin pengpilot_js_repl --package pengpilot-daemon --bin pengpilot-daemon`.nothrow();
   if (result.exitCode !== 0) {
     console.error("[pengpilot-dev] Build failed; keeping the current app open.");
     return false;

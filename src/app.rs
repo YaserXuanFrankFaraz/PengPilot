@@ -1011,6 +1011,9 @@ impl Default for ActivityScrollViewport {
 }
 
 pub struct Waku {
+    /// Owns the headless provider process for exactly as long as the desktop
+    /// app entity. Debug builds can replace it independently after a rebuild.
+    daemon: pengpilot_client::DaemonSupervisor,
     state: PersistedState,
     store: StateStore,
     /// Cached before rendering so path labels can abbreviate the home prefix
@@ -1812,7 +1815,11 @@ impl Waku {
         }
     }
 
-    pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
+    pub fn new(
+        window: &mut Window,
+        cx: &mut App,
+        daemon: pengpilot_client::DaemonSupervisor,
+    ) -> Entity<Self> {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let home_directory = dirs::home_dir();
         let state_path = StateStore::default_path();
@@ -2518,6 +2525,7 @@ impl Waku {
             };
 
             Self {
+                daemon,
                 state,
                 store,
                 home_directory,

@@ -13,10 +13,11 @@ archive="$target_dir/release/$package.tar.gz"
 staging="$(mktemp -d)"
 trap 'rm -rf -- "$staging"' EXIT
 
-cargo build --locked --release --bin pengpilot
+cargo build --locked --release --bin pengpilot --package pengpilot-daemon --bin pengpilot-daemon
 
 package_dir="$staging/$package"
 install -Dm755 "$target_dir/release/pengpilot" "$package_dir/bin/pengpilot"
+install -Dm755 "$target_dir/release/pengpilot-daemon" "$package_dir/bin/pengpilot-daemon"
 install -Dm644 resources/linux/com.pengpilot.app.desktop \
   "$package_dir/share/applications/com.pengpilot.app.desktop"
 install -Dm644 website/public/app-icon.png \

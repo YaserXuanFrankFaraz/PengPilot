@@ -46,6 +46,7 @@ mod computer_use {
 mod cursor_session {
     pub use pengpilot_core::cursor_session::*;
 }
+mod daemon;
 mod deepseek_pool {
     pub use pengpilot_core::deepseek_pool::*;
 }
@@ -191,10 +192,12 @@ impl WakuApplicationExt for Application {
 }
 
 fn main() {
+    let daemon = crate::daemon::start_process()
+        .unwrap_or_else(|error| panic!("failed to start PengPilot daemon: {error:#}"));
     gpui_platform::application()
         .with_assets(crate::assets::Assets)
         .with_main_window_reopen()
-        .run(|cx: &mut App| {
+        .run(move |cx: &mut App| {
             // Linux uses this for Wayland app_id/X11 WM_CLASS and notification
             // attribution. Other platforms also benefit from one stable
             // process identity.
@@ -342,9 +345,9 @@ fn main() {
                         window_min_size: Some(size(px(980.0), px(680.0))),
                         ..Default::default()
                     },
-                    |window, cx| {
+                    move |window, cx| {
                         crate::platform::configure_main_window_close_behavior(window, cx);
-                        let waku = Waku::new(window, cx);
+                        let waku = Waku::new(window, cx, daemon);
                         let composer_focus = waku.read(cx).composer_focus(cx);
                         window.focus(&composer_focus, cx);
                         waku

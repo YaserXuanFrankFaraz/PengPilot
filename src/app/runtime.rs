@@ -765,22 +765,25 @@ impl Waku {
         self.provider_model_discoveries_pending.insert(provider);
         let provider_probe_tx = self.provider_probe_tx.clone();
         let event_wake = self.event_wake_tx.clone();
+        let daemon = self.daemon.client();
+        let binary_override = self.state.provider_binary_overrides.get(&provider).cloned();
         if std::thread::Builder::new()
             .name(format!("waku-{}-model-discovery", provider.id()))
             .spawn(move || {
-                // Stale-while-revalidate: the catalog cached by the last
-                // successful discovery renders right away, and the CLI's
-                // answer replaces it (and the cache) whenever it lands.
-                if let Some(models) = crate::model_catalog::cached_models(provider) {
-                    let mut cached = probe.clone();
-                    cached.models = models;
-                    if provider_probe_tx.send(cached).is_ok() {
-                        signal_event_pump(&event_wake);
-                    }
-                }
-                let mut probe = probe;
-                crate::model_catalog::discover_probe_models(&mut probe);
-                if provider_probe_tx.send(probe).is_ok() {
+                let discovered = match daemon.request(
+                    Uuid::nil(),
+                    Uuid::nil(),
+                    pengpilot_client::Command::ProbeProvider {
+                        provider,
+                        binary_override,
+                        discover_models: true,
+                        probe_version: false,
+                    },
+                ) {
+                    Ok(pengpilot_client::ResponsePayload::ProviderProbe { probe, .. }) => probe,
+                    _ => probe,
+                };
+                if provider_probe_tx.send(discovered).is_ok() {
                     signal_event_pump(&event_wake);
                 }
             })
@@ -807,18 +810,34 @@ impl Waku {
             .probes
             .iter()
             .filter(|probe| probe.installed)
-            .filter_map(|probe| probe.path.clone().map(|path| (probe.provider, path)))
+            .map(|probe| probe.provider)
             .collect::<Vec<_>>();
-        for (provider, path) in targets {
+        for provider in targets {
             if !self.provider_version_probes_pending.insert(provider) {
                 continue;
             }
             let provider_version_tx = self.provider_version_tx.clone();
             let event_wake = self.event_wake_tx.clone();
+            let daemon = self.daemon.client();
+            let binary_override = self.state.provider_binary_overrides.get(&provider).cloned();
             if std::thread::Builder::new()
                 .name(format!("waku-{}-version-probe", provider.id()))
                 .spawn(move || {
-                    let version = pengpilot_core::model::probe_provider_version(&path);
+                    let version = match daemon.request(
+                        Uuid::nil(),
+                        Uuid::nil(),
+                        pengpilot_client::Command::ProbeProvider {
+                            provider,
+                            binary_override,
+                            discover_models: false,
+                            probe_version: true,
+                        },
+                    ) {
+                        Ok(pengpilot_client::ResponsePayload::ProviderProbe { version, .. }) => {
+                            version
+                        }
+                        _ => None,
+                    };
                     if provider_version_tx.send((provider, version)).is_ok() {
                         signal_event_pump(&event_wake);
                     }
@@ -857,25 +876,30 @@ impl Waku {
         let provider_detection_tx = self.provider_detection_tx.clone();
         let event_wake = self.event_wake_tx.clone();
         let detect_providers = providers.clone();
+        let daemon = self.daemon.client();
         if std::thread::Builder::new()
             .name("waku-provider-detection".into())
             .spawn(move || {
-                // Finder/Dock launches do not inherit the environment
-                // assembled by the user's interactive shell. Resolve it here,
-                // away from the UI thread, before looking for nvm/fnm-managed
-                // CLIs and launching provider probes.
-                crate::command_env::refresh_from_default_shell();
                 for provider in detect_providers {
-                    let path = match overrides.get(&provider) {
-                        Some(binary) => crate::command_env::resolve_binary_override(binary),
-                        None => crate::command_env::find_executable(provider.command()),
-                    };
-                    let probe = crate::model::ProviderProbe {
-                        provider,
-                        installed: path.is_some(),
-                        path,
-                        models: crate::model_catalog::fallback_models(provider),
-                        agent_presets: crate::model_catalog::fallback_agent_presets(provider),
+                    let response = daemon.request(
+                        Uuid::nil(),
+                        Uuid::nil(),
+                        pengpilot_client::Command::ProbeProvider {
+                            provider,
+                            binary_override: overrides.get(&provider).cloned(),
+                            discover_models: false,
+                            probe_version: false,
+                        },
+                    );
+                    let probe = match response {
+                        Ok(pengpilot_client::ResponsePayload::ProviderProbe { probe, .. }) => probe,
+                        _ => ProviderProbe {
+                            provider,
+                            installed: false,
+                            path: None,
+                            models: crate::model_catalog::fallback_models(provider),
+                            agent_presets: crate::model_catalog::fallback_agent_presets(provider),
+                        },
                     };
                     if provider_detection_tx.send(probe).is_ok() {
                         signal_event_pump(&event_wake);
