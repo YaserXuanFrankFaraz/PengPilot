@@ -511,6 +511,7 @@ fn monitor_daemon(
                 continue;
             }
         }
+        queue_settings_refresh(&inner);
         if let Some(observed_stamp) = observed_stamp {
             active_stamp = observed_stamp;
         }

@@ -2338,6 +2338,9 @@ impl Waku {
             // Window-frame changes are only mirrored in memory; the quit save
             // is what lands the final position and size on disk.
             cx.on_app_quit(|this, _| {
+                if let Err(error) = this.daemon.update_settings(this.state.daemon_settings()) {
+                    this.show_toast(tr!("errors.save_local_state", error = error));
+                }
                 if let Err(error) = this.store.save(&mut this.state) {
                     this.show_toast(tr!("errors.save_local_state", error = error));
                 }
