@@ -9,7 +9,7 @@ use anyhow::{Context as _, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::model::{Checkpoint, CheckpointFile, CheckpointStatus, unix_time};
+use pengpilot_protocol::session::{Checkpoint, CheckpointFile, CheckpointStatus, unix_time};
 
 const TURN_START_METADATA_PREFIX: &str = "PengPilot-Turn-Start: ";
 const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";

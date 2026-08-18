@@ -23,7 +23,7 @@ const LOGIN_SHELL_ENV_TIMEOUT: Duration = Duration::from_secs(5);
 const INTERACTIVE_SHELL_ENV_TIMEOUT: Duration = Duration::from_secs(3);
 const SHELL_ENV_COMMAND: &str = "/usr/bin/env -0 > \"$PENGPILOT_SHELL_ENV_CAPTURE_FILE\"";
 
-type ShellEnvironment = Vec<(OsString, OsString)>;
+pub type ShellEnvironment = Vec<(OsString, OsString)>;
 
 static LOGIN_SHELL_ENVIRONMENT: OnceLock<RwLock<Option<ShellEnvironment>>> = OnceLock::new();
 static SHELL_ENV_CAPTURE_ID: AtomicU64 = AtomicU64::new(0);
@@ -45,7 +45,7 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
 /// a process spawned from such a thread inherits the blocked mask. That breaks
 /// provider-side async process reapers. The caller's mask is restored as soon
 /// as the child has been created.
-pub(crate) fn spawn(command: &mut Command) -> io::Result<Child> {
+pub fn spawn(command: &mut Command) -> io::Result<Child> {
     with_sigchld_unblocked(|| command.spawn())
 }
 
@@ -54,7 +54,7 @@ pub(crate) fn spawn(command: &mut Command) -> io::Result<Child> {
 /// `Command::spawn` inherits standard streams by default, unlike
 /// `Command::output`. Own all three streams here so callers keep the latter's
 /// behavior while the signal mask is changed only for the spawn itself.
-pub(crate) fn output(command: &mut Command) -> io::Result<Output> {
+pub fn output(command: &mut Command) -> io::Result<Output> {
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -65,7 +65,7 @@ pub(crate) fn output(command: &mut Command) -> io::Result<Output> {
 /// Normalize a Waku-owned provider thread before a dependency spawns the child
 /// internally. The ACP SDK owns its `async_process::Command`, so its dedicated
 /// connection thread uses this once at startup instead of [`spawn`].
-pub(crate) fn unblock_sigchld_for_current_thread() -> io::Result<()> {
+pub fn unblock_sigchld_for_current_thread() -> io::Result<()> {
     #[cfg(target_os = "macos")]
     {
         let sigchld = sigchld_set()?;
@@ -186,7 +186,7 @@ fn login_shell_environment() -> &'static RwLock<Option<ShellEnvironment>> {
     LOGIN_SHELL_ENVIRONMENT.get_or_init(|| RwLock::new(None))
 }
 
-pub(crate) fn shell_environment() -> ShellEnvironment {
+pub fn shell_environment() -> ShellEnvironment {
     login_shell_environment()
         .read()
         .unwrap_or_else(|poisoned| poisoned.into_inner())

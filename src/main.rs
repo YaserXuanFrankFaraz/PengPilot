@@ -22,19 +22,29 @@ macro_rules! tr_cow {
 mod amp_session;
 mod app;
 mod assets;
-mod blob_store;
+mod blob_store {
+    pub use pengpilot_core::blob_store::*;
+}
 mod browser;
-mod checkpoint;
+mod checkpoint {
+    pub use pengpilot_core::checkpoint::*;
+}
 mod claude_session;
-mod command_env;
+mod command_env {
+    pub use pengpilot_core::command_env::*;
+}
 mod composer_complete;
 mod computer_use;
 mod cursor_session;
 mod deepseek_pool;
 mod deepseek_session;
 mod driver;
-mod git_branch;
-mod git_commit;
+mod git_branch {
+    pub use pengpilot_core::git_branch::*;
+}
+mod git_commit {
+    pub use pengpilot_core::git_commit::*;
+}
 mod grok_session;
 mod i18n;
 mod identity;
@@ -60,7 +70,9 @@ mod usage_history;
 mod work {
     pub use pengpilot_protocol::work::*;
 }
-mod worktree;
+mod worktree {
+    pub use pengpilot_core::worktree::*;
+}
 
 use gpui::{
     App, Application, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions,

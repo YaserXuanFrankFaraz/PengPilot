@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, anyhow, bail};
 use uuid::Uuid;
 
-use crate::model::ProviderKind;
+use pengpilot_protocol::model::ProviderKind;
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(120);
 const AGENT_TIMEOUT: Duration = Duration::from_secs(180);
