@@ -42,8 +42,8 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
   the app).
 - `src/model.rs` re-exports the protocol types so every `crate::model::X` path
   keeps working (no call-site churn). This is the deliberate "re-export bridge"
-  pattern from waku's `src/lib.rs`. `src/i18n.rs` / `src/identity.rs` are the
-  same kind of re-export (inline modules in `src/main.rs`).
+  pattern from waku's `src/lib.rs`. `src/main.rs` does the same for `i18n`,
+  `identity`, `library`, and `persistence`.
 
 ### Target: waku's daemon + WebSocket RPC layout
 
