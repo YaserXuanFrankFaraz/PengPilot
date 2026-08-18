@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 (commit `26cce3b`)_
+_Last updated: 2026-08-18, v0.1.20 + session leaf types (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **627 green** (`pengpilot` 612+10, `pengpilot-protocol` 5) |
+| Tests | **627 green** (`pengpilot` 611+10, `pengpilot-protocol` 6) |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -79,7 +79,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
-| 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | **In progress** (roughly 1/3) |
+| 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | **In progress** (~2/3) |
 | 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | ⬜ |
 | 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | ⬜ |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
@@ -93,15 +93,18 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
   `ProviderModel`, `ProviderModelOption`, `FavoriteModel`, `ProviderAgentPreset` extracted.
 - `e72277f` — `work` module (WorkflowStatus/Quadrant/FocusZone/InboxCollection) moved whole.
 - `26cce3b` — v0.1.20 checkpoint release.
+- session leaf types — `SessionWorkspace`, `SessionStatus`, `TurnStatus`,
+  `QueuedMessage`, `Message`/`MessageRole`/`MessageAttachment`, `Checkpoint`/
+  `CheckpointStatus`/`CheckpointFile`, `AgentTurn`, `ContextUsage`,
+  `ActivityKind`, plus `unix_time`/`unix_time_millis`, live in
+  `crates/pengpilot-protocol/src/session.rs` and are re-exported from
+  `src/model.rs`. The `ActivityKind` tool-name test moved with them.
 
 ### Phase 1 remaining — exact analysis (already done, don't re-explore)
 
-**Leaf value types can be extracted independently** (verify each has no glue
-references, then re-export): `SessionWorkspace`, `SessionStatus`, `TurnStatus`,
-`QueuedMessage`, `Message`, `MessageRole`, `MessageAttachment`, `Checkpoint`/
-`CheckpointStatus`/`CheckpointFile`, `AgentTurn`, `ContextUsage`, `ActivityKind`
-(all currently in `src/model.rs`). `AgentSession` (and `Project`) can stay
-app-side meanwhile — they resolve the moved types through the re-export.
+Leaf session value types are extracted. `AgentSession` and `Project` stay
+app-side until the steps below; they resolve the moved types through the
+re-export.
 
 **`AgentSession` cannot be extracted alone**: it references `ReportedCommand`
 (`src/model.rs:1307`) and `TranscriptBlock` (`:2589`), and `TranscriptBlock`
@@ -222,16 +225,14 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. **Resume Phase 1** — extract the leaf session value types (list in §3) into
-   `pengpilot-protocol`, re-export from `src/model.rs`, `cargo test`, commit.
-2. Add `protocol/projectless` (pure predicates) + `dirs` dep; extract `Project`.
-3. Decouple `ProviderProbe` (`model_catalog::discover_probe_models`,
+1. Add `protocol/projectless` (pure predicates) + `dirs` dep; extract `Project`.
+2. Decouple `ProviderProbe` (`model_catalog::discover_probe_models`,
    `runtime.rs:781`).
-4. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
+3. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
    interlocking layer as one large step; then the remaining session/settings
    wire types.
-5. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
+4. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
    **Phase 3** (WS RPC + `WireDriverEvent`), **Phase 4** (packaging), **Phase 5**
    (mainline alignment). Package a release at each clean checkpoint.
-6. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
+5. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).
