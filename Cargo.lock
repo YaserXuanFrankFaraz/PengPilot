@@ -5024,9 +5024,11 @@ version = "0.1.20"
 dependencies = [
  "anyhow",
  "libc",
+ "pengpilot-client",
  "pengpilot-core",
  "pengpilot-protocol",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]

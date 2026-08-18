@@ -4,6 +4,11 @@
 //! reach daemon-owned filesystem, Git, database, or provider implementations.
 
 mod client;
+mod process;
 
 pub use client::DaemonClient;
 pub use pengpilot_protocol::*;
+pub use process::{
+    DEFAULT_EXPOSED_DAEMON_PORT, DaemonExposureSettings, DaemonProcess, DaemonSupervisor,
+    parse_allowed_origins,
+};

@@ -1,6 +1,6 @@
 # PengPilot Development Handoff
 
-_Last updated: 2026-08-18, v0.1.20 + daemon WS /v1 (see §3)_
+_Last updated: 2026-08-18, v0.1.20 + DaemonSupervisor (see §3)_
 
 This document lets a fresh coding agent continue PengPilot R&D without
 re-deriving context. Read it top to bottom; the "Next actions" section at the
@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **651 green** (`pengpilot` 305+10, `pengpilot-core` 275, `pengpilot-protocol` 57, `pengpilot-daemon` 3, `pengpilot-client` 1); 18 ignored driver live-tests live in core |
+| Tests | **654 green** (`pengpilot` 305+10, `pengpilot-core` 275, `pengpilot-protocol` 57, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -41,8 +41,10 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
   those value types live here.
 - `crates/pengpilot-daemon`: binds loopback, requires `PENGPILOT_DAEMON_TOKEN`,
   prints `DaemonReady` JSON on stdout, serves `PengPilotBackend`.
-- `crates/pengpilot-client`: `DaemonClient` only (no supervisor yet). Core
-  tests use it; the app does not depend on it yet.
+- `crates/pengpilot-client`: `DaemonClient` + `DaemonProcess` /
+  `DaemonSupervisor` (spawn, token, `DaemonReady`, rebuild watch). No
+  settings RPC yet (`GetSettings` is not on the wire). The app does not
+  depend on this crate yet.
 - `src/model.rs` re-exports the protocol types so every `crate::model::X` path
   keeps working (no call-site churn). This is the deliberate "re-export bridge"
   pattern from waku's `src/lib.rs`. `src/main.rs` does the same for `i18n`,
@@ -88,7 +90,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
 | 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | ✅ including `DriverEvent` (image_url, not GPUI) |
 | 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | ✅ engine + in-process daemon; GPUI `terminal.rs` stays in app |
-| 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | **In progress** (serve + DaemonClient landed; app still in-process) |
+| 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | **In progress** (serve + DaemonClient + Supervisor; app still in-process) |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
 | 5 | Re-align to waku mainline; maintain provider verification | ⬜ |
 | — | Package-hygiene pass (after daemonization): shrink DMG/ZIP/App | ⬜ |
@@ -159,13 +161,16 @@ placeholder.
 - WebSocket slice: `serve()` + `EventSink` hub + `DaemonClient`. Token auth,
   origin allowlist, sequenced replay. Unimplemented `Command` variants return
   `Ack`. App still in-process.
+- Supervisor: `DaemonProcess` / `DaemonSupervisor` spawn the binary, pass
+  `PENGPILOT_DAEMON_TOKEN`, wait for `DaemonReady`. Integration test
+  `spawns_and_serves_load_task_state` covers the handshake. Settings persist
+  waits for `DaemonSettings` on the protocol.
 
 ### Phase 3 remaining
 
-Wire the desktop app as a WS client (`DaemonSupervisor` / `DaemonProcess`,
-`StateStore::remote`, `RemoteDriverControl`). Port remaining `Command` types
-(settings, attachments, workspace, drafts, skills/usage-history catalogs).
-Daemon PTY.
+Point the desktop app at `DaemonSupervisor` (`runtime.rs` / streaming /
+persistence as RPC). Port remaining `Command` types (settings, attachments,
+workspace, drafts, skills/usage-history catalogs). Daemon PTY.
 
 ### Phase 2–5 starting notes (from the waku map)
 
@@ -261,7 +266,9 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Continue **Phase 3**: `DaemonSupervisor` / spawn, then point the app's
-   `runtime.rs` at `DaemonClient` so the UI process no longer owns the engine.
+1. Continue **Phase 3**: point the app's `runtime.rs` at `DaemonSupervisor`
+   so the UI process no longer owns the engine. Do **not** package a release
+   until the app actually spawns the daemon (Phase 4). `v0.1.20` remains the
+   fallback.
 2. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).
