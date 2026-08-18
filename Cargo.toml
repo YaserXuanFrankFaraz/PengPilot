@@ -1,6 +1,7 @@
 [workspace]
 members = [
     ".",
+    "crates/pengpilot-client",
     "crates/pengpilot-core",
     "crates/pengpilot-daemon",
     "crates/pengpilot-protocol",

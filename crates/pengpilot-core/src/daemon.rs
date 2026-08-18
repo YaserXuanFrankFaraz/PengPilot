@@ -1,33 +1,14 @@
-//! In-process provider backend. WebSocket JSON-RPC is Phase 3.
+//! Provider backend for `pengpilot-daemon`.
 
 use std::sync::OnceLock;
 
 use anyhow::Context as _;
 use parking_lot::Mutex;
-use pengpilot_protocol::protocol::{Command, Request, ResponsePayload};
+use pengpilot_protocol::{Command, Request, ResponsePayload};
 
-use crate::model::{AgentSession, DriverEvent};
+use crate::model::AgentSession;
 use crate::persistence::{PersistedState, StateStore};
-
-pub trait Backend: Send + Sync + 'static {
-    fn handle(&self, request: Request, events: EventSink) -> anyhow::Result<ResponsePayload>;
-
-    fn shutdown(&self) {}
-}
-
-/// Driver events have nowhere to go until Phase 3's replay hub exists.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct EventSink;
-
-impl EventSink {
-    pub fn discarded() -> Self {
-        Self
-    }
-
-    pub fn send(&self, _event: DriverEvent) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
+use crate::server::{Backend, EventSink};
 
 pub struct PengPilotBackend {
     task_state: Mutex<PersistedState>,
@@ -120,6 +101,7 @@ impl Backend for PengPilotBackend {
                 let permissions = crate::computer_use::probe_permissions(prompt)?;
                 Ok(ResponsePayload::ComputerPermissions { permissions })
             }
+            _ => Ok(ResponsePayload::Ack),
         }
     }
 }

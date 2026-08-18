@@ -5,8 +5,10 @@
 //! re-exports these modules so existing `crate::git_commit` paths keep working
 //! while the engine moves out of the UI process.
 //!
-//! Phase 2 in-process backend: `pengpilot-daemon` constructs [`PengPilotBackend`]
-//! with no WebSocket until Phase 3.
+//! `pengpilot-daemon` binds a loopback WebSocket and serves
+//! [`PengPilotBackend`] through [`serve`]. The desktop app still calls the
+//! engine in-process; `pengpilot-client` is the Phase 3 transport for tests
+//! and the later remote-client slice.
 
 #![recursion_limit = "256"]
 
@@ -50,8 +52,13 @@ pub mod usage;
 pub mod usage_history;
 pub mod worktree;
 
-pub use daemon::{Backend, EventSink, PengPilotBackend};
-pub use pengpilot_protocol::protocol::{
-    APP_EXECUTABLE_ENV, Command, DAEMON_ADDRESS_ENV, DAEMON_TOKEN_ENV, DaemonReady,
-    PROTOCOL_VERSION, Request, ResponsePayload,
+mod server;
+
+pub use daemon::PengPilotBackend;
+pub use pengpilot_protocol::{
+    APP_EXECUTABLE_ENV, ClientMessage, Command, DAEMON_ADDRESS_ENV, DAEMON_TOKEN_ENV, DaemonReady,
+    MAX_WIRE_MESSAGE_BYTES, PROTOCOL_VERSION, ReplayCursor, Request, ResponseOutcome,
+    ResponsePayload, RpcError, SequencedEvent, ServerMessage, WireComputerToolRequest,
+    WireDriverEvent, WireDriverStartOptions, WireSessionOptions,
 };
+pub use server::{Backend, EventSink, ServerOptions, serve};

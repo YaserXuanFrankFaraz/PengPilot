@@ -1,21 +1,33 @@
 use std::io::Write as _;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context as _, anyhow, bail};
 use pengpilot_core::persistence::StateStore;
-use pengpilot_core::{PROTOCOL_VERSION, PengPilotBackend};
+use pengpilot_core::{PengPilotBackend, ServerOptions, serve};
+use pengpilot_protocol::{DAEMON_TOKEN_ENV, DaemonReady, PROTOCOL_VERSION};
 
 fn main() -> anyhow::Result<()> {
     let arguments = Arguments::parse(std::env::args().skip(1))?;
-    let address: SocketAddr = arguments
-        .bind
-        .parse()
-        .with_context(|| format!("invalid --bind address {}", arguments.bind))?;
+    let token = std::env::var(DAEMON_TOKEN_ENV)
+        .context("PengPilot daemon authentication token is missing")?;
+    // The bearer capability belongs only to this server process. Remove it
+    // before any provider or workspace subprocess can inherit the daemon's
+    // environment.
+    unsafe { std::env::remove_var(DAEMON_TOKEN_ENV) };
+    let listener = TcpListener::bind(&arguments.bind)
+        .with_context(|| format!("could not bind PengPilot daemon to {}", arguments.bind))?;
+    let address = listener.local_addr()?;
     ensure_bind_allowed(address, arguments.allow_non_loopback)?;
-    let _allowed_origins = arguments.allowed_origins;
+    let ready = DaemonReady {
+        address: address.to_string(),
+        protocol_version: PROTOCOL_VERSION,
+        pid: std::process::id(),
+    };
+    println!("{}", serde_json::to_string(&ready)?);
+    std::io::stdout().flush()?;
 
     let shutdown = Arc::new(AtomicBool::new(false));
     if let Some(parent_pid) = arguments.parent_pid {
@@ -33,22 +45,18 @@ fn main() -> anyhow::Result<()> {
             })?;
     }
 
-    let _backend = PengPilotBackend::new(StateStore::new(StateStore::default_path()))
+    let backend = PengPilotBackend::new(StateStore::new(StateStore::default_path()))
         .context("could not open PengPilot backend")?;
-
-    // Phase 3 prints DaemonReady JSON on stdout after TcpListener::bind.
-    // Do not emit a fake address here — a supervisor would treat it as live WS.
-    eprintln!("pengpilot-daemon: protocol {PROTOCOL_VERSION}; WebSocket JSON-RPC is Phase 3");
-    std::io::stderr().flush()?;
-
-    while !shutdown.load(Ordering::Acquire) {
-        if arguments.parent_pid.is_none() {
-            std::thread::park();
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(500));
-    }
-    Ok(())
+    serve(
+        listener,
+        token,
+        Arc::new(backend),
+        shutdown,
+        ServerOptions {
+            allowed_origins: arguments.allowed_origins.into_iter().collect(),
+            allow_shutdown: arguments.parent_pid.is_some(),
+        },
+    )
 }
 
 fn ensure_bind_allowed(address: SocketAddr, allow_non_loopback: bool) -> anyhow::Result<()> {
