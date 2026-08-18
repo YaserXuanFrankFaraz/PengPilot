@@ -7,8 +7,8 @@
 //! beside the app database.
 //!
 //! Everything here blocks on the filesystem and (for the rate table) the
-//! network, and must run on the background executor. Render reads only the
-//! [`UsageHistory`] snapshot the app entity stores. Transcripts are
+//! network, and must run in the daemon. The desktop stores only the
+//! [`UsageHistory`] snapshot returned over RPC. Transcripts are
 //! append-only, so parsed records are memoised per file by `(size, mtime)` in
 //! a [`ScanCache`] the caller owns; warm rescans only reparse changed files.
 
@@ -17,62 +17,14 @@ use std::io::BufRead as _;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use chrono::{Datelike as _, Local, NaiveDate, TimeZone as _, Utc};
+use chrono::{Local, NaiveDate, TimeZone as _, Utc};
 use serde_json::Value;
 
-/// The windows the daily and per-project views offer, in menu order.
-pub const WINDOW_CHOICES: [UsageWindow; 5] = [
-    UsageWindow::TrailingDays(7),
-    UsageWindow::TrailingDays(30),
-    UsageWindow::TrailingDays(90),
-    UsageWindow::ThisMonth,
-    UsageWindow::LastMonth,
-];
-
-/// The fixed window the monthly statement view scans.
-pub const MONTHLY_WINDOW: UsageWindow = UsageWindow::Months(12);
-
-/// The stretch of calendar time one scan covers.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UsageWindow {
-    /// The trailing N days ending today.
-    TrailingDays(u32),
-    /// The current calendar month and the N−1 before it.
-    Months(u32),
-    /// The current calendar month to date.
-    ThisMonth,
-    /// The previous calendar month, whole.
-    LastMonth,
-}
-
-impl UsageWindow {
-    /// The inclusive `(since, until)` days the window covers, relative to
-    /// `today`. Only `LastMonth` ends before today.
-    pub fn bounds(self, today: NaiveDate) -> (NaiveDate, NaiveDate) {
-        match self {
-            UsageWindow::TrailingDays(days) => (
-                today - chrono::Days::new(u64::from(days.saturating_sub(1))),
-                today,
-            ),
-            UsageWindow::Months(months) => (
-                first_of_month(today)
-                    .checked_sub_months(chrono::Months::new(months.saturating_sub(1)))
-                    .unwrap_or_else(|| first_of_month(today)),
-                today,
-            ),
-            UsageWindow::ThisMonth => (first_of_month(today), today),
-            UsageWindow::LastMonth => {
-                let this_first = first_of_month(today);
-                (
-                    this_first
-                        .checked_sub_months(chrono::Months::new(1))
-                        .unwrap_or(this_first),
-                    this_first.pred_opt().unwrap_or(today),
-                )
-            }
-        }
-    }
-}
+pub use pengpilot_protocol::usage_history::{
+    CostQuality, DaySlice, MONTHLY_WINDOW, ModelSlice, MonthSlice, PricingStatus, ProjectSlice,
+    ProviderDay, ProviderSlice, TokenTotals, UsageHistory, UsageProvider, UsageWindow,
+    WINDOW_CHOICES, days_in_month, enumerate_days, enumerate_months, first_of_month,
+};
 
 /// Files whose mtime predates the window start by more than this are skipped
 /// without opening. The slack covers a session whose last write lands just
@@ -84,65 +36,6 @@ const LITELLM_RATES_URL: &str =
 const RATES_CACHE_FILE: &str = "usage-model-rates.json";
 /// Rates move rarely; a day-old table keeps the page working offline.
 const RATES_TTL: Duration = Duration::from_secs(24 * 3600);
-
-/// Providers with a transcript scanner. Mirrors T3 Code's coverage.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum UsageProvider {
-    Claude,
-    Codex,
-    Grok,
-}
-
-impl UsageProvider {
-    pub const COUNT: usize = 3;
-    pub const ALL: [UsageProvider; Self::COUNT] = [
-        UsageProvider::Claude,
-        UsageProvider::Codex,
-        UsageProvider::Grok,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            UsageProvider::Claude => "Claude Code",
-            UsageProvider::Codex => "Codex",
-            UsageProvider::Grok => "Grok",
-        }
-    }
-
-    /// Index into the fixed per-provider arrays on [`DaySlice`].
-    pub fn index(self) -> usize {
-        match self {
-            UsageProvider::Claude => 0,
-            UsageProvider::Codex => 1,
-            UsageProvider::Grok => 2,
-        }
-    }
-}
-
-/// Token counts for one record or bucket. `reasoning` is a subset of `output`
-/// and is never added into [`TokenTotals::total`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct TokenTotals {
-    pub uncached_input: u64,
-    pub cached_input: u64,
-    pub cache_creation: u64,
-    pub output: u64,
-    pub reasoning: u64,
-}
-
-impl TokenTotals {
-    pub fn total(&self) -> u64 {
-        self.uncached_input + self.cached_input + self.cache_creation + self.output
-    }
-
-    fn add(&mut self, other: &TokenTotals) {
-        self.uncached_input += other.uncached_input;
-        self.cached_input += other.cached_input;
-        self.cache_creation += other.cache_creation;
-        self.output += other.output;
-        self.reasoning += other.reasoning;
-    }
-}
 
 /// One usage event parsed out of a transcript line.
 #[derive(Clone, Debug)]
@@ -545,16 +438,6 @@ pub struct ModelRate {
     pub output: f64,
     pub cache_read: f64,
     pub cache_creation: f64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PricingStatus {
-    /// Fetched from LiteLLM within this scan.
-    Fresh,
-    /// Served from the on-disk snapshot.
-    Cached,
-    /// No table at all; every model reports as unpriced.
-    Unavailable,
 }
 
 #[derive(Clone, Debug)]
@@ -1066,136 +949,6 @@ impl Aggregator {
     }
 }
 
-/* ------------------------------------------------------------------------- */
-/* Derived view                                                              */
-/* ------------------------------------------------------------------------- */
-
-#[derive(Clone, Debug)]
-pub struct ProviderSlice {
-    pub provider: UsageProvider,
-    pub cost_usd: f64,
-    pub total_tokens: u64,
-    pub cost_share: f64,
-    pub token_share: f64,
-}
-
-#[derive(Clone, Debug)]
-pub struct ModelSlice {
-    pub provider: UsageProvider,
-    pub model: String,
-    pub cost_usd: f64,
-    pub total_tokens: u64,
-    pub cost_share: f64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ProviderDay {
-    pub cost_usd: f64,
-    pub total_tokens: u64,
-}
-
-/// One calendar day with activity, ascending by day in
-/// [`UsageHistory::daily`]. `by_provider` is indexed by
-/// [`UsageProvider::index`].
-#[derive(Clone, Debug)]
-pub struct DaySlice {
-    pub day: NaiveDate,
-    pub cost_usd: f64,
-    pub total_tokens: u64,
-    pub by_provider: [ProviderDay; UsageProvider::COUNT],
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct CostQuality {
-    pub provider_reported_share: f64,
-    pub model_priced_share: f64,
-    pub unpriced_share: f64,
-    pub cache_savings_usd: f64,
-}
-
-/// One calendar month with activity, keyed by its first day, ascending in
-/// [`UsageHistory::months`].
-#[derive(Clone, Debug)]
-pub struct MonthSlice {
-    pub first_day: NaiveDate,
-    pub cost_usd: f64,
-    pub total_tokens: u64,
-    pub by_provider: [ProviderDay; UsageProvider::COUNT],
-    /// Distinct sessions active in the month.
-    pub sessions: u64,
-    /// Days in the month with any tokens.
-    pub active_days: u32,
-    /// Cost per model, descending; the render caps how many it shows.
-    pub top_models: Vec<(String, f64)>,
-}
-
-/// One project's usage within the window, descending by cost in
-/// [`UsageHistory::projects`]. `path` is the resolved project root (or the
-/// raw working directory when no known root contains it; empty when the
-/// transcripts did not record one).
-#[derive(Clone, Debug)]
-pub struct ProjectSlice {
-    pub path: String,
-    pub cost_usd: f64,
-    pub total_tokens: u64,
-    pub by_provider: [ProviderDay; UsageProvider::COUNT],
-    pub sessions: u64,
-    pub cost_share: f64,
-    pub last_day: Option<NaiveDate>,
-    /// Cost per model, descending; the render caps how many it shows.
-    pub top_models: Vec<(String, f64)>,
-}
-
-/// The fully derived snapshot the Usage page renders. Everything a frame
-/// needs is precomputed here so render does no aggregation of its own.
-#[derive(Clone, Debug)]
-pub struct UsageHistory {
-    pub window: UsageWindow,
-    pub since_day: NaiveDate,
-    pub until_day: NaiveDate,
-    pub totals: TokenTotals,
-    pub total_tokens: u64,
-    pub cost_usd: f64,
-    pub records: u64,
-    pub sessions: u64,
-    /// Sorted by cost descending.
-    pub providers: Vec<ProviderSlice>,
-    /// Sorted by cost descending, then tokens.
-    pub models: Vec<ModelSlice>,
-    /// Days with activity, ascending.
-    pub daily: Vec<DaySlice>,
-    /// Months with activity, ascending.
-    pub months: Vec<MonthSlice>,
-    /// Projects by cost, descending.
-    pub projects: Vec<ProjectSlice>,
-    pub quality: CostQuality,
-    pub pricing: PricingStatus,
-    pub scanned_files: usize,
-    pub skipped_files: usize,
-    /// Provider roots that exist but could not be read.
-    pub errors: Vec<String>,
-    pub scan_duration: Duration,
-}
-
-impl UsageHistory {
-    /// The day's slice, if that day had activity. `daily` is sorted, so this
-    /// is a binary search.
-    pub fn day(&self, day: NaiveDate) -> Option<&DaySlice> {
-        self.daily
-            .binary_search_by_key(&day, |slice| slice.day)
-            .ok()
-            .map(|index| &self.daily[index])
-    }
-
-    /// The month's slice by its first day, if that month had activity.
-    pub fn month(&self, first_day: NaiveDate) -> Option<&MonthSlice> {
-        self.months
-            .binary_search_by_key(&first_day, |slice| slice.first_day)
-            .ok()
-            .map(|index| &self.months[index])
-    }
-}
-
 /// Scan every provider's transcripts for `window` ending today and derive
 /// the page snapshot. `project_roots` are the app's known project paths, used
 /// to attribute working directories to projects. Blocking; run on the
@@ -1482,48 +1235,6 @@ fn derive_history(
         errors,
         scan_duration,
     }
-}
-
-/// Inclusive day list between the window bounds, oldest first — the chart's
-/// x-axis, including days with no activity.
-pub fn enumerate_days(since_day: NaiveDate, until_day: NaiveDate) -> Vec<NaiveDate> {
-    let mut days = Vec::new();
-    let mut cursor = since_day;
-    while cursor <= until_day {
-        days.push(cursor);
-        cursor = cursor + chrono::Days::new(1);
-    }
-    days
-}
-
-/// The first day of `day`'s calendar month.
-pub fn first_of_month(day: NaiveDate) -> NaiveDate {
-    day.with_day(1).unwrap_or(day)
-}
-
-/// Inclusive first-of-month list between the bounds' months, oldest first —
-/// the statement view's rows, including months with no activity.
-pub fn enumerate_months(since_day: NaiveDate, until_day: NaiveDate) -> Vec<NaiveDate> {
-    let mut months = Vec::new();
-    let mut cursor = first_of_month(since_day);
-    let last = first_of_month(until_day);
-    while cursor <= last {
-        months.push(cursor);
-        let Some(next) = cursor.checked_add_months(chrono::Months::new(1)) else {
-            break;
-        };
-        cursor = next;
-    }
-    months
-}
-
-/// Number of days in `first_day`'s month.
-pub fn days_in_month(first_day: NaiveDate) -> u32 {
-    first_day
-        .checked_add_months(chrono::Months::new(1))
-        .and_then(|next| next.pred_opt())
-        .map(|last| last.day())
-        .unwrap_or(31)
 }
 
 #[cfg(test)]

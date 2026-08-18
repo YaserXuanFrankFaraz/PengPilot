@@ -29,6 +29,7 @@ pub mod session;
 pub mod skills;
 pub mod theme;
 pub mod usage;
+pub mod usage_history;
 pub mod work;
 
 pub use driver_wire::{decode_enum, encode_enum, event_from_wire, event_to_wire};

@@ -28,8 +28,6 @@ const CHART_GUTTER: f32 = 56.0;
 const USAGE_PROJECT_ROW_HEIGHT: f32 = 96.0;
 /// A snapshot older than this rescans when the page is next opened.
 const USAGE_RESCAN_AFTER: Duration = Duration::from_secs(120);
-/// The in-memory rate table is revalidated against its disk TTL this often.
-const USAGE_RATES_RELOAD: Duration = Duration::from_secs(3600);
 fn provider_kind(provider: UsageProvider) -> ProviderKind {
     match provider {
         UsageProvider::Claude => ProviderKind::Claude,
@@ -90,9 +88,7 @@ impl Waku {
         self.usage_history_pending_for = Some(window);
         self.usage_history_generation += 1;
         let generation = self.usage_history_generation;
-        let rate_table = std::sync::Arc::clone(&self.usage_rate_table);
-        let rates_dir = self.usage_rates_dir.clone();
-        let cache = self.usage_history_cache.clone();
+        let daemon = self.daemon.client();
         let project_roots: Vec<PathBuf> = self
             .state
             .projects
@@ -103,29 +99,17 @@ impl Waku {
             let history = cx
                 .background_executor()
                 .spawn(async move {
-                    // The rate table is shared across scans and revalidated
-                    // hourly; `load_rate_table` itself serves its disk cache
-                    // within TTL, so this rarely touches the network.
-                    let rates = {
-                        let mut slot = rate_table
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner());
-                        match slot
-                            .as_ref()
-                            .filter(|(loaded, _)| loaded.elapsed() < USAGE_RATES_RELOAD)
-                        {
-                            Some((_, rates)) => rates.clone(),
-                            None => {
-                                let rates = usage_history::load_rate_table(&rates_dir);
-                                *slot = Some((Instant::now(), rates.clone()));
-                                rates
-                            }
-                        }
-                    };
-                    let mut cache = cache
-                        .lock()
-                        .unwrap_or_else(|poisoned| poisoned.into_inner());
-                    usage_history::scan(&mut cache, &rates, window, &project_roots)
+                    match daemon.request(
+                        Uuid::nil(),
+                        Uuid::nil(),
+                        pengpilot_client::Command::LoadUsageHistory {
+                            window,
+                            project_roots,
+                        },
+                    )? {
+                        pengpilot_client::ResponsePayload::UsageHistory { history } => Ok(history),
+                        _ => anyhow::bail!("the daemon returned an invalid usage response"),
+                    }
                 })
                 .await;
             let _ = this.update(cx, |this, cx| {
@@ -136,8 +120,13 @@ impl Waku {
                 // The day axis may have changed length; a stale index would
                 // point at the wrong day.
                 this.usage_chart_hover = None;
-                this.usage_history_scanned_at = Some(Instant::now());
-                this.usage_history = Some(history);
+                match history {
+                    Ok(history) => {
+                        this.usage_history_scanned_at = Some(Instant::now());
+                        this.usage_history = Some(history);
+                    }
+                    Err(error) => this.show_toast(error.to_string()),
+                }
                 cx.notify();
             });
         })

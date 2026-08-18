@@ -10,6 +10,7 @@ use crate::model::{ProviderKind, ProviderProbe};
 use crate::session::Project;
 use crate::skills::SkillsCatalog;
 use crate::usage::PlanUsage;
+use crate::usage_history::{UsageHistory, UsageWindow};
 
 pub const PROTOCOL_VERSION: u32 = 3;
 pub const MAX_WIRE_MESSAGE_BYTES: usize = 48 * 1024 * 1024;
@@ -134,6 +135,10 @@ pub enum Command {
     },
     TrashSkills {
         dirs: Vec<PathBuf>,
+    },
+    LoadUsageHistory {
+        window: UsageWindow,
+        project_roots: Vec<PathBuf>,
     },
     LoadTaskState,
     SaveTaskState {
@@ -300,6 +305,9 @@ pub enum ResponsePayload {
     },
     SkillsCatalog {
         catalog: SkillsCatalog,
+    },
+    UsageHistory {
+        history: UsageHistory,
     },
     TaskState {
         projects: Vec<Project>,

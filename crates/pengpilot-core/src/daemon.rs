@@ -1,6 +1,7 @@
 //! Provider backend for `pengpilot-daemon`.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use anyhow::{Context as _, anyhow, bail};
@@ -15,12 +16,15 @@ use crate::driver::{self, DriverHandle, DriverStartOptions, SessionOptions};
 use crate::model::{AgentSession, Project};
 use crate::persistence::{PersistedState, StateStore};
 use crate::server::{Backend, EventSink};
+use crate::usage_history::ScanCache;
 
 pub struct PengPilotBackend {
     task_store: StateStore,
     task_state: Mutex<PersistedState>,
     removed_session_ids: Mutex<HashSet<Uuid>>,
     sessions: Mutex<HashMap<Uuid, (Uuid, DriverHandle)>>,
+    usage_scan_cache: Mutex<ScanCache>,
+    usage_rates_dir: PathBuf,
     default_cwd: std::path::PathBuf,
 }
 
@@ -29,11 +33,18 @@ impl PengPilotBackend {
         let task_state = task_store
             .load()
             .context("could not load PengPilot task database")?;
+        let usage_rates_dir = task_store
+            .path()
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .to_owned();
         Ok(Self {
             task_store,
             task_state: Mutex::new(task_state),
             removed_session_ids: Mutex::new(HashSet::new()),
             sessions: Mutex::new(HashMap::new()),
+            usage_scan_cache: Mutex::new(HashMap::new()),
+            usage_rates_dir,
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         })
     }
@@ -229,6 +240,19 @@ impl Backend for PengPilotBackend {
             Command::TrashSkills { dirs } => {
                 crate::skills::trash_skills(&dirs).map_err(|error| anyhow!(error))?;
                 Ok(ResponsePayload::Ack)
+            }
+            Command::LoadUsageHistory {
+                window,
+                project_roots,
+            } => {
+                let rates = crate::usage_history::load_rate_table(&self.usage_rates_dir);
+                let history = crate::usage_history::scan(
+                    &mut self.usage_scan_cache.lock(),
+                    &rates,
+                    window,
+                    &project_roots,
+                );
+                Ok(ResponsePayload::UsageHistory { history })
             }
             Command::Start { options } => {
                 let previous = self.sessions.lock().remove(&session_id);

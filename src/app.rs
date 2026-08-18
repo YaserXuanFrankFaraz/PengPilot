@@ -1142,13 +1142,6 @@ pub struct Waku {
     /// The settings Usage page's snapshot: historical token/cost usage
     /// scanned from provider transcripts off-thread. Frames read only this.
     usage_history: Option<crate::usage_history::UsageHistory>,
-    /// Shared in-memory rate table, revalidated against its disk TTL hourly.
-    usage_rate_table:
-        std::sync::Arc<std::sync::Mutex<Option<(Instant, crate::usage_history::RateTable)>>>,
-    /// Directory for the usage rate table's disk cache.
-    usage_rates_dir: PathBuf,
-    /// File-memoized transcript scan cache, shared across window switches.
-    usage_history_cache: std::sync::Arc<std::sync::Mutex<crate::usage_history::ScanCache>>,
     /// The window a scan is currently in flight for, so a repeat request for
     /// the same window coalesces while a changed window supersedes it.
     usage_history_pending_for: Option<crate::usage_history::UsageWindow>,
@@ -2631,12 +2624,6 @@ impl Waku {
                 plan_usage_checked_at: HashMap::new(),
                 plan_usage_stale: HashSet::new(),
                 usage_history: None,
-                usage_rate_table: std::sync::Arc::default(),
-                usage_rates_dir: StateStore::default_path()
-                    .parent()
-                    .map(|directory| directory.to_owned())
-                    .unwrap_or_else(std::env::temp_dir),
-                usage_history_cache: std::sync::Arc::default(),
                 usage_history_pending_for: None,
                 usage_history_generation: 0,
                 usage_history_scanned_at: None,
