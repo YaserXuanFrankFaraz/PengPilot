@@ -17,6 +17,7 @@ macro_rules! tr {
     };
 }
 
+pub mod agent;
 pub mod model;
 pub mod projectless;
 pub mod session;

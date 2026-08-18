@@ -4898,6 +4898,7 @@ dependencies = [
  "rust-i18n",
  "serde",
  "serde_json",
+ "similar",
  "uuid",
 ]
 

@@ -14,7 +14,7 @@ end is the immediate starting point.
 | --- | --- |
 | Repo | `YaserXuanFrankFaraz/PengPilot`, branch `main` |
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
-| Tests | **627 green** (`pengpilot` 611+10, `pengpilot-protocol` 6) |
+| Tests | **627 green** (`pengpilot` 576+10, `pengpilot-protocol` 41) |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
 | Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
@@ -79,7 +79,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
-| 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | **In progress** (~5/6; AgentSession layer left) |
+| 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | ✅ value types done; `DriverEvent` waits for Phase 3 |
 | 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | ⬜ |
 | 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | ⬜ |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
@@ -104,18 +104,16 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
   `src/projectless.rs` keeps `create_workspace` and re-exports the predicates.
 - `ProviderProbe` lives in `pengpilot-protocol::model`; discovery is
   `model_catalog::discover_probe_models`.
+- `AgentSession` + transcript layer (`ReportedCommand`, `ActivityItem`,
+  `ReasoningBlock`, `TranscriptBlock`, background-work/permission/user-input
+  values, activity diff helpers) live in `crates/pengpilot-protocol/src/agent.rs`.
+  Session tests moved with them. `src/model.rs` keeps `DriverEvent` /
+  `RuntimeEventCursor` because `ComputerUseUpdated` holds `Arc<gpui::Image>`.
 
 ### Phase 1 remaining — exact analysis (already done, don't re-explore)
 
-`AgentSession` stays app-side until the interlocking transcript layer moves.
-`Project` is extracted.
-
-**`AgentSession` cannot be extracted alone**: it references `ReportedCommand`
-(`src/model.rs:1307`) and `TranscriptBlock` (`:2589`), and `TranscriptBlock`
-chains to `ActivityItem` → `ReasoningBlock` plus custom serde
-(`serialize_transcript_activities`/`deserialize_transcript_activities`). That
-whole interlocking layer should move together in one large step (best with a
-fresh full budget).
+Value types are extracted. `src/model.rs` is the re-export bridge plus
+`DriverEvent`.
 
 **`ProviderProbe`**: extracted. Catalog fill lives in
 `model_catalog::discover_probe_models`; the app caller is `runtime.rs`.
@@ -223,11 +221,9 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
-   interlocking layer as one large step; then the remaining session/settings
-   wire types.
-2. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
-   **Phase 3** (WS RPC + `WireDriverEvent`), **Phase 4** (packaging), **Phase 5**
-   (mainline alignment). Package a release at each clean checkpoint.
-3. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
+1. Enter **Phase 2**: `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon`
+   (thin binary, in-process backend first). Then **Phase 3** (WS RPC +
+   `WireDriverEvent`), **Phase 4** (packaging), **Phase 5** (mainline alignment).
+   Package a release at each clean checkpoint.
+2. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).
