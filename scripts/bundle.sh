@@ -43,9 +43,11 @@ case "$profile" in
 esac
 if [ "${PENGPILOT_SKIP_CARGO_BUILD:-0}" != "1" ]; then
   if [ "$profile" = "release" ]; then
-    cargo build --release -vv --bin pengpilot --bin pengpilot_js_repl --package pengpilot-daemon --bin pengpilot-daemon
+    cargo build --release -vv --bin pengpilot --bin pengpilot_js_repl
+    cargo build --release -vv -p pengpilot-daemon --bin pengpilot-daemon
   else
-    cargo build -vv --bin pengpilot --bin pengpilot_js_repl --package pengpilot-daemon --bin pengpilot-daemon
+    cargo build -vv --bin pengpilot --bin pengpilot_js_repl
+    cargo build -vv -p pengpilot-daemon --bin pengpilot-daemon
   fi
 fi
 

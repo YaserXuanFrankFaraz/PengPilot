@@ -16,7 +16,7 @@ end is the immediate starting point.
 | Version | **0.1.20** (latest GitHub release, tagged `v0.1.20`) |
 | Tests | **665 green** (`pengpilot` 305+10, `pengpilot-core` 282, `pengpilot-protocol` 61, `pengpilot-daemon` 3+1, `pengpilot-client` 3); 18 ignored driver live-tests live in core |
 | Working tree | Clean except the user's uncommitted `src/app/sidebar.rs` (1-line theme tweak `.bg(sidebar)→surface`) — **never commit it; the user owns it** |
-| Runtime | `bun ./scripts/dev.ts` owns `PengPilot Debug.app`; AGENTS.md governs its use |
+| Runtime | Debug.app spawn **live-verified 2026-08-19**: app pid parent of `pengpilot-daemon --bind 127.0.0.1:0`. Watcher was stopped for that check. |
 | **Highest-priority work** | **Daemon migration (Phase 1 → 5)**, not yet complete |
 
 Health checks: `cargo test` at workspace root; the dev watcher builds the Debug
@@ -179,13 +179,14 @@ placeholder.
   `PENGPILOT_DAEMON_TOKEN`, wait for `DaemonReady`. Integration test
   `spawns_and_serves_load_task_state` covers the handshake. Settings persist
   waits for `DaemonSettings` on the protocol.
-- Desktop spawn: `src/daemon.rs` + `Waku.daemon`. Probe/detection/version
-  RPC via `self.daemon.client()`. Debug looks up `target/debug/pengpilot-daemon`
-  (ancestor named `debug`); override with `PENGPILOT_DAEMON_PATH`. Remote
-  connect if both `PENGPILOT_DAEMON_ADDRESS` and `PENGPILOT_DAEMON_TOKEN` are
-  set. `scripts/bundle.sh` / `dev.ts` always cargo-build the daemon binary;
-  release copies + signs it into `Contents/MacOS/`. Debug does not copy it
-  into the `.app` (rebuild watch stays on `target/debug`).
+- Desktop spawn: **live-verified** 2026-08-19. `PengPilot Debug.app` spawned
+  `target/debug/pengpilot-daemon --bind 127.0.0.1:0 --parent-pid <app>`.
+  Debug looks up `target/debug/pengpilot-daemon` (ancestor named `debug`);
+  override with `PENGPILOT_DAEMON_PATH`. Remote connect if both
+  `PENGPILOT_DAEMON_ADDRESS` and `PENGPILOT_DAEMON_TOKEN` are set.
+  `scripts/bundle.sh` cargo-builds the app bins then `-p pengpilot-daemon`
+  (one `--package` cannot name bins from two packages). Debug does not copy
+  the daemon into the `.app`; release copies + signs it into `Contents/MacOS/`.
 - Task catalog RPC: `PengPilotBackend` keeps `StateStore` and implements
   `SaveTaskState` / `HydrateSession` / `RemoveSession`. Desktop
   `StateStore::remote` refuses to save until `LoadTaskState` succeeded.
@@ -224,7 +225,9 @@ placeholder.
 ### Phase 3 remaining
 
 Remaining `Command` types (settings, attachments, workspace).
-Daemon PTY. Live-verify Debug.app spawn.
+Daemon PTY. Spawn is live-verified; do not cut a GitHub release until
+those remaining slices land if they are in the same migration. `v0.1.20`
+remains the fallback.
 
 ### Phase 2–5 starting notes (from the waku map)
 
@@ -329,10 +332,9 @@ Size baselines (all recorded, use for the package-hygiene phase):
    Spec / defect-first; see `.cursor/rules/multi-model-review.mdc`) before the
    next slice. Fix P0/P1 first.
 2. Continue **Phase 3**: remaining Command types (settings, attachments,
-   workspace), then daemon PTY. Live-verify Debug.app actually
-   spawns `pengpilot-daemon` (quit the running watcher first). Do **not**
-   cut a GitHub release until that spawn is confirmed. `v0.1.20` remains
-   the fallback.
+   workspace), then daemon PTY. Debug.app daemon spawn is live-verified
+   (2026-08-19). Do **not** cut a GitHub release until remaining Phase 3
+   RPC/PTY land or the user asks. `v0.1.20` remains the fallback.
 3. Then Phase 4 size gates.
 4. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).
