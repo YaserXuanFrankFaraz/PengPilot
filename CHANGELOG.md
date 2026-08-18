@@ -14,6 +14,46 @@ Write release notes for the final product users receive, not the development
 history. When a feature is still unreleased, fold its fixes and refinements into
 the original feature bullet instead of adding separate entries for them.
 
+## [0.1.20]
+
+### Internal checkpoint: daemon-alignment groundwork
+
+This release is a behavior-preserving structural checkpoint. The repository
+is now a cargo workspace with a new `crates/pengpilot-protocol` crate: the
+first wire-bound value types (provider kinds, model options, runtime and
+interaction modes, workflow/inbox state) moved out of `src/model.rs` into
+the protocol crate and are re-exported so all existing paths keep working.
+No user-visible behavior changed — the split mirrors how waku's mainline
+would be consumed by a future daemon + RPC architecture.
+
+### Provider verification (ad-hoc dogfooding release)
+
+| Provider | CLI version | Test command | Result | Date |
+| --- | --- | --- | --- | --- |
+| Claude | 2.1.233 | `claude -p "Reply with exactly: PENG_OK"` | pass | 2026-08-18 |
+| Codex | 0.147.0 | `codex exec --skip-git-repo-check "Reply with exactly: PENG_OK"` | pass (usage-limit dependent) | 2026-08-18 |
+| Cursor | cursor-agent (latest) | `cursor-agent --trust -p "Reply with exactly: PENG_OK"` | pass | 2026-08-18 |
+
+This release changes no driver code (the refactor is type relocation with
+re-exports), so the remaining providers carry the 0.1.19 verification
+forward; Kiro remains unauthenticated and Codex's full-turn run depends on
+its usage limit resetting.
+
+### 中文摘要
+
+**内部检查点：daemon 对齐的地基改造**
+
+本版本为保持行为不变的结构性检查点。仓库已转为 cargo workspace，新增
+`crates/pengpilot-protocol` crate：首批 wire 值类型（provider 种类、模型
+选项、运行/交互模式、工作流收件箱状态）已从 `src/model.rs` 迁入协议
+crate 并以 re-export 保持所有既有路径可用。无任何用户可见行为变化——该
+拆分与 waku 主线未来 daemon + RPC 架构的消费方式对齐。
+
+**Provider 验证（临时自用 dogfooding 版本）**
+
+本版本不含任何驱动改动（纯类型搬迁 + re-export），故其余 provider 沿用
+0.1.19 的验证结论；Kiro 仍未登录，Codex 完整回合依赖其用量额度重置。
+
 ## [0.1.19]
 
 ### Brand polish
