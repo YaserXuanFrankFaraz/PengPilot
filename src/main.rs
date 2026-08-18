@@ -86,9 +86,7 @@ mod opencode_pool {
 mod opencode_session {
     pub use pengpilot_core::opencode_session::*;
 }
-mod persistence {
-    pub use pengpilot_core::persistence::*;
-}
+mod persistence;
 mod platform;
 mod projectless;
 mod query;

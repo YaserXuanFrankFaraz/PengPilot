@@ -1,17 +1,21 @@
 //! Provider backend for `pengpilot-daemon`.
 
+use std::collections::HashSet;
 use std::sync::OnceLock;
 
 use anyhow::Context as _;
 use parking_lot::Mutex;
 use pengpilot_protocol::{Command, Request, ResponsePayload};
+use uuid::Uuid;
 
-use crate::model::AgentSession;
+use crate::model::{AgentSession, Project};
 use crate::persistence::{PersistedState, StateStore};
 use crate::server::{Backend, EventSink};
 
 pub struct PengPilotBackend {
+    task_store: StateStore,
     task_state: Mutex<PersistedState>,
+    removed_session_ids: Mutex<HashSet<Uuid>>,
     default_cwd: std::path::PathBuf,
 }
 
@@ -21,7 +25,9 @@ impl PengPilotBackend {
             .load()
             .context("could not load PengPilot task database")?;
         Ok(Self {
+            task_store,
             task_state: Mutex::new(task_state),
+            removed_session_ids: Mutex::new(HashSet::new()),
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         })
     }
@@ -29,6 +35,7 @@ impl PengPilotBackend {
 
 impl Backend for PengPilotBackend {
     fn handle(&self, request: Request, _events: EventSink) -> anyhow::Result<ResponsePayload> {
+        let session_id = request.session_id;
         match request.command {
             Command::LoadTaskState => {
                 let state = self.task_state.lock();
@@ -43,6 +50,104 @@ impl Backend for PengPilotBackend {
                     projectless_root: pengpilot_protocol::projectless::workspace_root()
                         .map(std::path::Path::to_path_buf),
                 })
+            }
+            Command::SaveTaskState {
+                projects,
+                live_session_ids: _,
+                sessions,
+            } => {
+                // ponytail: last-write upsert. Stale-projection merge when a
+                // second client shares this daemon.
+                let mut state = self.task_state.lock();
+                let removed_session_ids = self.removed_session_ids.lock();
+                for project in projects {
+                    if let Some(existing) = state
+                        .projects
+                        .iter_mut()
+                        .find(|existing| existing.id == project.id)
+                    {
+                        *existing = project;
+                    } else {
+                        state.projects.push(project);
+                    }
+                }
+                let sessions = sessions
+                    .into_iter()
+                    .filter(|session| !removed_session_ids.contains(&session.id))
+                    .collect::<Vec<_>>();
+                drop(removed_session_ids);
+                let saved_ids = sessions
+                    .iter()
+                    .map(|session| session.id)
+                    .collect::<Vec<_>>();
+                for session in sessions {
+                    if let Some(existing) = state
+                        .sessions
+                        .iter_mut()
+                        .find(|existing| existing.id == session.id)
+                    {
+                        *existing = session;
+                    } else {
+                        state.sessions.push(session);
+                    }
+                }
+                for session_id in &saved_ids {
+                    state.mark_session_dirty(*session_id);
+                }
+                self.task_store.save(&mut state)?;
+                let sessions = saved_ids
+                    .into_iter()
+                    .filter_map(|session_id| {
+                        state
+                            .sessions
+                            .iter()
+                            .find(|session| session.id == session_id)
+                            .cloned()
+                    })
+                    .collect();
+                Ok(ResponsePayload::TaskStateSaved { sessions })
+            }
+            Command::RemoveSession => {
+                {
+                    let mut state = self.task_state.lock();
+                    self.removed_session_ids.lock().insert(session_id);
+                    let project_id = state
+                        .sessions
+                        .iter()
+                        .find(|session| session.id == session_id)
+                        .map(|session| session.project_id);
+                    state.sessions.retain(|session| session.id != session_id);
+                    if let Some(project_id) = project_id {
+                        let remove_project = state
+                            .projects
+                            .iter()
+                            .find(|project| project.id == project_id)
+                            .is_some_and(Project::is_projectless)
+                            && !state
+                                .sessions
+                                .iter()
+                                .any(|session| session.project_id == project_id);
+                        if remove_project {
+                            state.projects.retain(|project| project.id != project_id);
+                        }
+                    }
+                    self.task_store.save(&mut state)?;
+                }
+                Ok(ResponsePayload::Ack)
+            }
+            Command::HydrateSession { session_id } => {
+                let mut state = self.task_state.lock();
+                let session = if let Some(session) = state
+                    .sessions
+                    .iter_mut()
+                    .find(|session| session.id == session_id)
+                {
+                    self.task_store.hydrate(session)?;
+                    Some(session.clone())
+                } else {
+                    None
+                };
+                Ok(ResponsePayload::Session { session })
             }
             Command::ProbeProvider {
                 provider,
@@ -173,6 +278,105 @@ mod tests {
         };
         assert_eq!(probe.provider, ProviderKind::Codex);
         assert!(version.is_none());
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    fn started_session(project_id: Uuid) -> AgentSession {
+        use pengpilot_protocol::session::{MessageRole, TurnStatus};
+        let mut session = AgentSession::new(project_id, ProviderKind::Codex);
+        session.begin_turn("Ask");
+        session.push_message(MessageRole::Assistant, "an answer");
+        session.finish_active_turn(TurnStatus::Completed);
+        session
+    }
+
+    #[test]
+    fn save_then_reload_hydrates_the_transcript() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-save-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let project = Project::from_path(directory.join("project"));
+        let session = started_session(project.id);
+        let session_id = session.id;
+        let backend = backend_in(&directory);
+        let ResponsePayload::TaskStateSaved { sessions } = backend
+            .handle(
+                request(Command::SaveTaskState {
+                    projects: vec![project.clone()],
+                    live_session_ids: vec![session_id],
+                    sessions: vec![session],
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected save");
+        };
+        assert_eq!(sessions.len(), 1);
+
+        let backend = backend_in(&directory);
+        let ResponsePayload::TaskState { sessions, .. } = backend
+            .handle(request(Command::LoadTaskState), EventSink::discarded())
+            .unwrap()
+        else {
+            panic!("expected task state");
+        };
+        assert_eq!(sessions.len(), 1);
+        assert!(!sessions[0].detail_loaded);
+
+        let ResponsePayload::Session {
+            session: Some(hydrated),
+        } = backend
+            .handle(
+                request(Command::HydrateSession { session_id }),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected hydrated session");
+        };
+        assert!(hydrated.detail_loaded);
+        assert_eq!(hydrated.messages.len(), 2);
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn remove_session_drops_the_row() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-remove-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let project = Project::from_path(directory.join("project"));
+        let session = started_session(project.id);
+        let session_id = session.id;
+        let backend = backend_in(&directory);
+        backend
+            .handle(
+                request(Command::SaveTaskState {
+                    projects: vec![project],
+                    live_session_ids: vec![session_id],
+                    sessions: vec![session],
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap();
+        backend
+            .handle(
+                Request {
+                    request_id: Uuid::new_v4(),
+                    session_id,
+                    runtime_id: Uuid::nil(),
+                    command: Command::RemoveSession,
+                },
+                EventSink::discarded(),
+            )
+            .unwrap();
+        let ResponsePayload::TaskState { sessions, .. } = backend
+            .handle(request(Command::LoadTaskState), EventSink::discarded())
+            .unwrap()
+        else {
+            panic!("expected task state");
+        };
+        assert!(sessions.is_empty());
         let _ = std::fs::remove_dir_all(directory);
     }
 }

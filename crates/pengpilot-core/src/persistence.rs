@@ -403,6 +403,14 @@ impl PersistedState {
         self.dirty_sessions.insert(id);
     }
 
+    pub fn dirty_session_ids(&self) -> Vec<Uuid> {
+        self.dirty_sessions.iter().copied().collect()
+    }
+
+    pub fn clear_dirty_sessions(&mut self) {
+        self.dirty_sessions.clear();
+    }
+
     pub fn push_session(&mut self, session: AgentSession) {
         self.dirty_sessions.insert(session.id);
         self.sessions.push(session);
@@ -581,7 +589,7 @@ impl PersistedState {
         })
     }
 
-    fn ensure_runtime_session(&mut self) {
+    pub fn ensure_runtime_session(&mut self) {
         if self.selected_session.is_some_and(|selected_session| {
             self.sessions
                 .iter()
@@ -602,7 +610,7 @@ impl PersistedState {
         self.sessions.push(session);
     }
 
-    fn migrate_loaded(&mut self) {
+    pub fn migrate_loaded(&mut self) {
         for session in &mut self.sessions {
             let checkpoint_totals_current = session.turns.iter().all(|turn| {
                 turn.checkpoint
@@ -1106,6 +1114,34 @@ impl StateStore {
         let temporary = self.app_state_path.with_extension("json.tmp");
         fs::write(&temporary, data)?;
         fs::rename(temporary, &self.app_state_path)
+    }
+
+    /// Settings and window state stay on this machine even when the task
+    /// catalog is loaded from the daemon.
+    pub fn overlay_desktop_files(&self, state: &mut PersistedState) -> io::Result<()> {
+        let (settings, settings_had_legacy_analytics) = self.read_settings()?;
+        let settings_missing = settings.is_none();
+        if let Some(settings) = settings {
+            state.apply_settings(settings);
+        }
+        let (app_state, app_state_had_legacy_analytics) = self.read_app_state()?;
+        let app_state_missing = app_state.is_none();
+        if let Some(app_state) = app_state {
+            state.apply_app_state(app_state);
+        }
+        if settings_missing || settings_had_legacy_analytics {
+            let _ = self.write_settings(&state.settings());
+        }
+        if app_state_missing || app_state_had_legacy_analytics {
+            let _ = self.write_app_state(&state.app_state());
+        }
+        Ok(())
+    }
+
+    pub fn save_desktop_files(&self, state: &PersistedState) -> io::Result<()> {
+        self.write_settings(&state.settings())?;
+        self.write_app_state(&state.app_state())?;
+        Ok(())
     }
 
     pub fn load(&self) -> io::Result<PersistedState> {

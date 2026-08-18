@@ -375,6 +375,9 @@ impl Waku {
         self.remove_right_panel_session_state(session_id);
         self.remove_composer_draft(composer_draft_key, cx);
         self.state.sessions.remove(index);
+        if let Err(error) = self.store.remove_session(session_id) {
+            self.show_toast(tr!("errors.save_local_state", error = error));
+        }
         self.session_navigation.remove(session_id);
         let project_still_used = self
             .state

@@ -6,9 +6,8 @@
 //! while the engine moves out of the UI process.
 //!
 //! `pengpilot-daemon` binds a loopback WebSocket and serves
-//! [`PengPilotBackend`] through [`serve`]. The desktop app still calls the
-//! engine in-process; `pengpilot-client` is the Phase 3 transport for tests
-//! and the later remote-client slice.
+//! [`PengPilotBackend`] through [`serve`]. The desktop loads the task catalog
+//! over RPC; driver sessions still start in-process until `RemoteDriverControl`.
 
 #![recursion_limit = "256"]
 
