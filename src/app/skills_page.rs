@@ -5,9 +5,7 @@
 //!
 //! Discovery is filesystem work and lives on the background executor
 //! ([`Waku::ensure_skills_catalog`]); frames read only the cached catalog.
-//! Mutations are one-shot user actions — each a single rename, write, or
-//! trash call — so they run synchronously in their click handlers and then
-//! invalidate the catalog.
+//! Mutations enqueue daemon RPC from the click handler, then invalidate.
 
 use std::path::Path;
 

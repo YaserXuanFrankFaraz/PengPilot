@@ -1017,7 +1017,11 @@ impl Waku {
 
     pub(super) fn save(&mut self) {
         self.last_stream_save = Instant::now();
-        if let Err(error) = self.store.save(&mut self.state) {
+        if let Some(error) = self.store.take_save_acks(&mut self.state) {
+            self.show_toast(tr!("errors.save_local_state", error = error));
+        }
+        if let Err(error) = self.store.save_async(&mut self.state, self.event_wake_tx.clone())
+        {
             self.show_toast(tr!("errors.save_local_state", error = error));
         } else {
             self.stream_state_dirty = false;
@@ -2629,6 +2633,9 @@ impl Waku {
             | self.drain_plan_usage_events()
         {
             cx.notify();
+        }
+        if let Some(error) = self.store.take_save_acks(&mut self.state) {
+            self.show_toast(tr!("errors.save_local_state", error = error));
         }
         if std::mem::take(&mut self.workspace_queries_stale) {
             self.invalidate_workspace_queries(cx);

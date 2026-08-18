@@ -410,8 +410,14 @@ pub fn set_skill_enabled(dir: &Path, enabled: bool) -> Result<(), String> {
 
 /// Move each concrete skill install to the daemon host's Trash.
 pub fn trash_skills(dirs: &[PathBuf]) -> Result<(), String> {
+    let mut ctx = trash::TrashContext::default();
+    #[cfg(target_os = "macos")]
+    {
+        use trash::macos::{DeleteMethod, TrashContextExtMacos as _};
+        ctx.set_delete_method(DeleteMethod::NsFileManager);
+    }
     for dir in dirs {
-        trash::delete(dir).map_err(|error| error.to_string())?;
+        ctx.delete(dir).map_err(|error| error.to_string())?;
     }
     Ok(())
 }

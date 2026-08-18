@@ -3,7 +3,8 @@
 use std::io;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::Mutex;
 use uuid::Uuid;
@@ -24,6 +25,16 @@ pub struct StateStore {
     /// A task snapshot may only be written after this client has successfully
     /// loaded the daemon's authoritative state.
     task_state_loaded: AtomicBool,
+    /// Sequence of the latest spawned `SaveTaskState` request. Stale acks
+    /// whose sequence is behind this value must not clear dirty sessions.
+    save_seq: Arc<AtomicU64>,
+    save_acks: Arc<Mutex<Vec<SaveAck>>>,
+}
+
+struct SaveAck {
+    seq: u64,
+    dirty_generation: u64,
+    result: Result<(), String>,
 }
 
 impl Deref for StateStore {
@@ -45,6 +56,8 @@ impl StateStore {
             daemon,
             remote_default_cwd: Mutex::new(None),
             task_state_loaded: AtomicBool::new(false),
+            save_seq: Arc::new(AtomicU64::new(0)),
+            save_acks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -144,6 +157,46 @@ impl StateStore {
     }
 
     pub fn save(&self, state: &mut PersistedState) -> io::Result<()> {
+        self.save_task_state(state, true, None)
+    }
+
+    /// Desktop files on this thread; `SaveTaskState` on a worker so the UI
+    /// pump is not blocked for the RPC round trip. Dirty sessions stay set
+    /// until [`Self::take_save_acks`] sees a matching `TaskStateSaved`.
+    pub fn save_async(
+        &self,
+        state: &mut PersistedState,
+        wake: smol::channel::Sender<()>,
+    ) -> io::Result<()> {
+        self.save_task_state(state, false, Some(wake))
+    }
+
+    /// Apply finished catalog-save acks. Returns the latest error, if any.
+    pub fn take_save_acks(&self, state: &mut PersistedState) -> Option<String> {
+        let acks = std::mem::take(&mut *self.save_acks.lock());
+        let latest = self.save_seq.load(Ordering::Acquire);
+        let mut error = None;
+        for ack in acks {
+            if ack.seq != latest {
+                continue;
+            }
+            match ack.result {
+                Ok(()) if state.dirty_generation() == ack.dirty_generation => {
+                    state.clear_dirty_sessions();
+                }
+                Ok(()) => {}
+                Err(message) => error = Some(message),
+            }
+        }
+        error
+    }
+
+    fn save_task_state(
+        &self,
+        state: &mut PersistedState,
+        blocking: bool,
+        wake: Option<smol::channel::Sender<()>>,
+    ) -> io::Result<()> {
         self.local.save_desktop_files(state)?;
         if !self.task_state_loaded.load(Ordering::Acquire) {
             return Err(io::Error::new(
@@ -159,28 +212,51 @@ impl StateStore {
             .cloned()
             .collect();
         let live_session_ids = state.sessions.iter().map(|session| session.id).collect();
-        match self
-            .daemon
-            .client()
-            .request(
-                Uuid::nil(),
-                Uuid::nil(),
-                pengpilot_client::Command::SaveTaskState {
-                    projects: state.projects.clone(),
-                    live_session_ids,
-                    sessions,
-                },
-            )
-            .map_err(to_io_error)?
-        {
-            pengpilot_client::ResponsePayload::TaskStateSaved { .. } => {
-                state.clear_dirty_sessions();
-                Ok(())
-            }
-            _ => Err(io::Error::other(
-                "PengPilot daemon returned an invalid task-state save response",
-            )),
+        let command = pengpilot_client::Command::SaveTaskState {
+            projects: state.projects.clone(),
+            live_session_ids,
+            sessions,
+        };
+        if blocking {
+            return match self
+                .daemon
+                .client()
+                .request(Uuid::nil(), Uuid::nil(), command)
+                .map_err(to_io_error)?
+            {
+                pengpilot_client::ResponsePayload::TaskStateSaved { .. } => {
+                    state.clear_dirty_sessions();
+                    Ok(())
+                }
+                _ => Err(io::Error::other(
+                    "PengPilot daemon returned an invalid task-state save response",
+                )),
+            };
         }
+        let seq = self.save_seq.fetch_add(1, Ordering::AcqRel) + 1;
+        let dirty_generation = state.dirty_generation();
+        let daemon = self.daemon.client();
+        let acks = Arc::clone(&self.save_acks);
+        std::thread::Builder::new()
+            .name("pengpilot-save-task-state".into())
+            .spawn(move || {
+                let result = match daemon.request(Uuid::nil(), Uuid::nil(), command) {
+                    Ok(pengpilot_client::ResponsePayload::TaskStateSaved { .. }) => Ok(()),
+                    Ok(_) => Err(
+                        "PengPilot daemon returned an invalid task-state save response".into(),
+                    ),
+                    Err(error) => Err(error.to_string()),
+                };
+                acks.lock().push(SaveAck {
+                    seq,
+                    dirty_generation,
+                    result,
+                });
+                if let Some(wake) = wake {
+                    let _ = wake.try_send(());
+                }
+            })?;
+        Ok(())
     }
 
     pub fn remove_session(&self, session_id: Uuid) -> io::Result<()> {

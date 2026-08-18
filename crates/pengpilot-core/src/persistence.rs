@@ -387,24 +387,34 @@ pub struct PersistedState {
     /// out what moved.
     #[serde(skip)]
     dirty_sessions: HashSet<Uuid>,
+    /// Bumped on every dirty mark so a stale `SaveTaskState` ack cannot
+    /// clear sessions edited after that request was built.
+    #[serde(skip)]
+    dirty_generation: u64,
 }
 
 impl PersistedState {
     /// The only way to get a mutable session. Marks it for the next save.
     pub fn session_mut(&mut self, id: Uuid) -> Option<&mut AgentSession> {
         let session = self.sessions.iter_mut().find(|session| session.id == id)?;
+        // Disjoint fields: `sessions` stays borrowed for the return.
         self.dirty_sessions.insert(id);
+        self.dirty_generation = self.dirty_generation.wrapping_add(1);
         Some(session)
     }
 
     /// Records a session as changed without borrowing it, for the few paths
     /// that mutate through a slice or add a session outright.
     pub fn mark_session_dirty(&mut self, id: Uuid) {
-        self.dirty_sessions.insert(id);
+        self.touch_dirty(id);
     }
 
     pub fn dirty_session_ids(&self) -> Vec<Uuid> {
         self.dirty_sessions.iter().copied().collect()
+    }
+
+    pub fn dirty_generation(&self) -> u64 {
+        self.dirty_generation
     }
 
     pub fn clear_dirty_sessions(&mut self) {
@@ -412,8 +422,13 @@ impl PersistedState {
     }
 
     pub fn push_session(&mut self, session: AgentSession) {
-        self.dirty_sessions.insert(session.id);
+        self.touch_dirty(session.id);
         self.sessions.push(session);
+    }
+
+    fn touch_dirty(&mut self, id: Uuid) {
+        self.dirty_sessions.insert(id);
+        self.dirty_generation = self.dirty_generation.wrapping_add(1);
     }
 
     pub fn empty() -> Self {
@@ -442,6 +457,7 @@ impl PersistedState {
             disabled_providers: Vec::new(),
             provider_binary_overrides: HashMap::new(),
             dirty_sessions: HashSet::new(),
+            dirty_generation: 0,
         }
     }
 
@@ -998,6 +1014,10 @@ impl StateStore {
 
     pub fn blobs(&self) -> Arc<BlobStore> {
         Arc::clone(&self.blobs)
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     pub fn library_root(&self) -> PathBuf {
