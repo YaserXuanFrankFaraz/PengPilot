@@ -27,7 +27,7 @@ requirements are binding in `AGENTS.md` and `RELEASING.md`.
 
 ## 2. Architecture — today and the target
 
-### Today: single-crate app + a young protocol crate
+### Today: app + protocol crate + young core crate
 
 - Cargo workspace: `pengpilot` + `pengpilot-protocol` + `pengpilot-core`.
   `pengpilot-core` holds git/blob/command_env/worktree/checkpoint. The app
