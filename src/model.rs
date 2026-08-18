@@ -9,8 +9,8 @@ pub use pengpilot_protocol::model::{
 };
 pub use pengpilot_protocol::session::{
     ActivityKind, AgentTurn, Checkpoint, CheckpointFile, CheckpointStatus, ContextUsage, Message,
-    MessageAttachment, MessageRole, QueuedMessage, SessionStatus, SessionWorkspace, TurnStatus,
-    unix_time, unix_time_millis,
+    MessageAttachment, MessageRole, Project, QueuedMessage, SessionStatus, SessionWorkspace,
+    TurnStatus, unix_time, unix_time_millis,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -49,47 +49,6 @@ impl ProviderProbe {
             .iter()
             .find(|preset| preset.is_default)
             .or_else(|| self.agent_presets.first())
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Project {
-    pub id: Uuid,
-    pub name: String,
-    pub path: PathBuf,
-    /// When the project was added, unix seconds.
-    #[serde(default)]
-    pub created_at: u64,
-}
-
-impl Project {
-    pub const PROJECTLESS_NAME: &'static str = "No project";
-
-    pub fn display_name(&self) -> String {
-        if self.is_projectless() {
-            tr!("project.no_project_name")
-        } else {
-            self.name.clone()
-        }
-    }
-
-    pub fn from_path(path: PathBuf) -> Self {
-        let name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .filter(|value| !value.is_empty())
-            .unwrap_or("Project")
-            .to_owned();
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            path,
-            created_at: unix_time(),
-        }
-    }
-
-    pub fn is_projectless(&self) -> bool {
-        crate::projectless::is_projectless_path(&self.path)
     }
 }
 

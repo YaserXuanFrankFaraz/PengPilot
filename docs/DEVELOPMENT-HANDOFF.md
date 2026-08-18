@@ -99,12 +99,14 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
   `ActivityKind`, plus `unix_time`/`unix_time_millis`, live in
   `crates/pengpilot-protocol/src/session.rs` and are re-exported from
   `src/model.rs`. The `ActivityKind` tool-name test moved with them.
+- `Project` + `projectless` predicates (`home_directory`, `workspace_root`,
+  `is_projectless_path`, `is_legacy_root_path`) live in the protocol crate;
+  `src/projectless.rs` keeps `create_workspace` and re-exports the predicates.
 
 ### Phase 1 remaining — exact analysis (already done, don't re-explore)
 
-Leaf session value types are extracted. `AgentSession` and `Project` stay
-app-side until the steps below; they resolve the moved types through the
-re-export.
+`AgentSession` stays app-side until the interlocking transcript layer moves.
+`Project` is extracted.
 
 **`AgentSession` cannot be extracted alone**: it references `ReportedCommand`
 (`src/model.rs:1307`) and `TranscriptBlock` (`:2589`), and `TranscriptBlock`
@@ -118,13 +120,9 @@ method (it calls `crate::model_catalog::discover_catalog`); add
 `pub fn discover_probe_models(&mut ProviderProbe)` to `src/model_catalog.rs`;
 update the caller `src/app/runtime.rs:781` (`probe.discover_models()`).
 
-**`Project` needs a `projectless` module in the protocol crate**: the pure
-predicates `home_directory()`, `workspace_root()`, `is_projectless_path()`,
-`is_legacy_root_path()` are env-only (`dirs::home_dir()` + `".pengpilot"`) and
-port cleanly (add `dirs = "6"` to the protocol crate). The engine-side
-`create_workspace`/migration functions stay app-side. A previously written
-placeholder `projectless.rs` with a bogus "Box::leak" was deleted; don't
-rebuild that.
+**`Project` / `projectless`**: extracted. Engine-side `create_workspace` /
+migration stay in `src/projectless.rs`. Do not rebuild the deleted Box::leak
+placeholder.
 
 **`DriverEvent` cannot be extracted as-is**: `ComputerUseUpdated` holds
 `Arc<gpui::Image>` (UI-coupled). Phase 3 should introduce a wire-serializable
@@ -225,14 +223,13 @@ Size baselines (all recorded, use for the package-hygiene phase):
 
 ## 7. Next actions
 
-1. Add `protocol/projectless` (pure predicates) + `dirs` dep; extract `Project`.
-2. Decouple `ProviderProbe` (`model_catalog::discover_probe_models`,
+1. Decouple `ProviderProbe` (`model_catalog::discover_probe_models`,
    `runtime.rs:781`).
-3. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
+2. Land the `AgentSession`/`TranscriptBlock`/`ActivityItem`/`ReasoningBlock`
    interlocking layer as one large step; then the remaining session/settings
    wire types.
-4. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
+3. Enter **Phase 2** (core crate + daemon binary, in-process backend), then
    **Phase 3** (WS RPC + `WireDriverEvent`), **Phase 4** (packaging), **Phase 5**
    (mainline alignment). Package a release at each clean checkpoint.
-5. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
+4. After daemonization, run the **package-hygiene pass** (sizes vs the 0.1.20
    baseline table in §4).

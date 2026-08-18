@@ -4894,6 +4894,7 @@ dependencies = [
 name = "pengpilot-protocol"
 version = "0.1.20"
 dependencies = [
+ "dirs",
  "rust-i18n",
  "serde",
  "serde_json",

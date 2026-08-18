@@ -7,10 +7,13 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 use chrono::{Local, NaiveDate};
 use uuid::Uuid;
+
+pub use pengpilot_protocol::projectless::{
+    home_directory, is_legacy_root_path, is_projectless_path, workspace_root,
+};
 
 const DEFAULT_SLUG: &str = "new-chat";
 const MAX_SLUG_BYTES: usize = 80;
@@ -21,30 +24,6 @@ const MAX_RANDOM_CANDIDATES: usize = 5;
 pub struct Workspace {
     pub cwd: PathBuf,
     pub workspace_root: PathBuf,
-}
-
-/// The root is cached because `Project::is_projectless` is reached from row
-/// builders and render paths. Those callers must only perform path compares.
-pub fn home_directory() -> Option<PathBuf> {
-    let mut home = dirs::home_dir()?;
-    home.push(".pengpilot");
-    Some(home)
-}
-
-pub fn workspace_root() -> Option<&'static Path> {
-    static ROOT: OnceLock<Option<PathBuf>> = OnceLock::new();
-    ROOT.get_or_init(|| dirs::home_dir().map(|home| home.join(".pengpilot")))
-        .as_deref()
-}
-
-/// Includes the root itself so the short-lived root-level implementation can
-/// be recognized and migrated, although new workspaces are always descendants.
-pub fn is_projectless_path(path: &Path) -> bool {
-    workspace_root().is_some_and(|root| path.starts_with(root))
-}
-
-pub fn is_legacy_root_path(path: &Path) -> bool {
-    workspace_root().is_some_and(|root| path == root)
 }
 
 pub fn create_workspace(prompt: Option<&str>) -> io::Result<Workspace> {
