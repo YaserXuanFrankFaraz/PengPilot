@@ -57,7 +57,9 @@ mod ui;
 mod updater;
 mod usage;
 mod usage_history;
-mod work;
+mod work {
+    pub use pengpilot_protocol::work::*;
+}
 mod worktree;
 
 use gpui::{

@@ -1,6 +1,6 @@
 //! Progress, Eisenhower quadrant, and collection membership for local work.
 //!
-//! Workflow status is independent of [`crate::model::SessionStatus`]: the
+//! Workflow status is independent of the session status: the
 //! latter is the live process, this is how far the work has moved.
 
 use serde::{Deserialize, Serialize};
