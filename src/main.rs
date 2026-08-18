@@ -19,7 +19,9 @@ macro_rules! tr_cow {
     };
 }
 
-mod amp_session;
+mod amp_session {
+    pub use pengpilot_core::amp_session::*;
+}
 mod app;
 mod assets;
 mod blob_store {
@@ -29,27 +31,37 @@ mod browser;
 mod checkpoint {
     pub use pengpilot_core::checkpoint::*;
 }
-mod claude_session;
+mod claude_session {
+    pub use pengpilot_core::claude_session::*;
+}
 mod command_env {
     pub use pengpilot_core::command_env::*;
 }
 mod composer_complete;
-mod computer_use;
-mod cursor_session;
+mod computer_use {
+    pub use pengpilot_core::computer_use::*;
+}
+mod cursor_session {
+    pub use pengpilot_core::cursor_session::*;
+}
 mod deepseek_pool {
     pub use pengpilot_core::deepseek_pool::*;
 }
 mod deepseek_session {
     pub use pengpilot_core::deepseek_session::*;
 }
-mod driver;
+mod driver {
+    pub use pengpilot_core::driver::*;
+}
 mod git_branch {
     pub use pengpilot_core::git_branch::*;
 }
 mod git_commit {
     pub use pengpilot_core::git_commit::*;
 }
-mod grok_session;
+mod grok_session {
+    pub use pengpilot_core::grok_session::*;
+}
 mod i18n {
     pub use pengpilot_protocol::i18n::*;
 }
@@ -83,7 +95,9 @@ mod terminal;
 mod theme;
 mod ui;
 mod updater;
-mod usage;
+mod usage {
+    pub use pengpilot_core::usage::*;
+}
 mod usage_history;
 mod work {
     pub use pengpilot_protocol::work::*;

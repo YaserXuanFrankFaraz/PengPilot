@@ -3,118 +3,20 @@ use std::io::Write as _;
 use std::os::unix::fs::DirBuilderExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use anyhow::{Context as _, anyhow, bail};
 use base64::Engine as _;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
 const MAX_HELPER_OUTPUT_BYTES: usize = 24 * 1024 * 1024;
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ComputerPermissions {
-    pub screen_recording: bool,
-    pub accessibility: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ComputerTarget {
-    pub window_id: u32,
-    pub bundle_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub team_id: Option<String>,
-    pub app_name: String,
-    pub window_title: String,
-    pub width: u32,
-    pub height: u32,
-}
-
-impl ComputerTarget {
-    pub fn grant_key(&self) -> String {
-        self.bundle_id.clone()
-    }
-
-    pub fn persistable(&self) -> bool {
-        !self.bundle_id.trim().is_empty()
-    }
-}
-
-pub use pengpilot_protocol::computer_use::ComputerAppGrant;
-
-#[derive(Clone, Debug)]
-pub struct ComputerToolRequest {
-    pub call_id: String,
-    pub tool: String,
-    pub arguments: Value,
-}
-
-impl ComputerToolRequest {
-    pub fn summary(&self) -> String {
-        if self.tool != "use" {
-            return match self.tool.as_str() {
-                "status" => "Check computer-use access".into(),
-                _ => self.tool.clone(),
-            };
-        }
-        let actions = self
-            .arguments
-            .get("actions")
-            .and_then(Value::as_array)
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        if actions.is_empty() {
-            return "Inspect the window".into();
-        }
-        let mut labels = actions
-            .iter()
-            .filter_map(|action| action.get("type").and_then(Value::as_str))
-            .map(action_label)
-            .collect::<Vec<_>>();
-        labels.dedup();
-        format!("{} {}", labels.join(", "), plural(actions.len(), "action"))
-    }
-}
-
-fn action_label(action: &str) -> &'static str {
-    match action {
-        "click" | "double_click" => "Click",
-        "move" => "Move the pointer",
-        "drag" => "Drag",
-        "scroll" => "Scroll",
-        "type" => "Type text",
-        "keypress" => "Press keys",
-        "wait" => "Wait",
-        _ => "Interact",
-    }
-}
-
-fn plural(count: usize, noun: &str) -> String {
-    if count == 1 {
-        format!("1 {noun}")
-    } else {
-        format!("{count} {noun}s")
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ComputerUsePhase {
-    AwaitingApproval,
-    Running,
-    Failed,
-}
-
-#[derive(Clone, Debug)]
-pub struct ComputerUseState {
-    pub target: Option<ComputerTarget>,
-    pub phase: ComputerUsePhase,
-    pub visible: bool,
-    pub screenshot: Option<Arc<gpui::Image>>,
-}
+pub use pengpilot_protocol::computer_use::{
+    ComputerAppGrant, ComputerPermissions, ComputerTarget, ComputerToolRequest, ComputerUsePhase,
+    ComputerUseState,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -124,11 +26,20 @@ struct ComputerUsePreviewUpdate {
 }
 
 pub fn decode_preview_update(data: &[u8]) -> anyhow::Result<ComputerUseState> {
-    const PNG_PREFIX: &str = "data:image/png;base64,";
     let update: ComputerUsePreviewUpdate =
         serde_json::from_slice(data).context("Computer Use preview is invalid JSON")?;
-    let encoded = update
-        .image_url
+    validate_preview_image_url(&update.image_url)?;
+    Ok(ComputerUseState {
+        target: Some(update.target),
+        phase: ComputerUsePhase::Running,
+        visible: true,
+        image_url: Some(update.image_url),
+    })
+}
+
+fn validate_preview_image_url(image_url: &str) -> anyhow::Result<()> {
+    const PNG_PREFIX: &str = "data:image/png;base64,";
+    let encoded = image_url
         .strip_prefix(PNG_PREFIX)
         .ok_or_else(|| anyhow!("Computer Use preview is not a PNG data URL"))?;
     let bytes = base64::engine::general_purpose::STANDARD
@@ -137,15 +48,7 @@ pub fn decode_preview_update(data: &[u8]) -> anyhow::Result<ComputerUseState> {
     if bytes.is_empty() {
         bail!("Computer Use preview is empty");
     }
-    Ok(ComputerUseState {
-        target: Some(update.target),
-        phase: ComputerUsePhase::Running,
-        visible: true,
-        screenshot: Some(Arc::new(gpui::Image::from_bytes(
-            gpui::ImageFormat::Png,
-            bytes,
-        ))),
-    })
+    Ok(())
 }
 
 #[derive(Clone, Debug)]
@@ -443,6 +346,9 @@ mod tests {
         assert_eq!(state.target.unwrap().window_id, 42);
         assert_eq!(state.phase, ComputerUsePhase::Running);
         assert!(state.visible);
-        assert!(state.screenshot.is_some());
+        assert_eq!(
+            state.image_url.as_deref(),
+            Some("data:image/png;base64,aGVsbG8=")
+        );
     }
 }

@@ -4895,17 +4895,22 @@ dependencies = [
 name = "pengpilot-core"
 version = "0.1.20"
 dependencies = [
+ "agent-client-protocol",
  "anyhow",
  "base64",
+ "chrono",
  "crossbeam-channel",
  "dirs",
  "libc",
  "parking_lot",
  "pengpilot-protocol",
+ "regex",
  "rusqlite",
  "rust-i18n",
  "serde",
  "serde_json",
+ "smol",
+ "toml 0.8.23",
  "url",
  "uuid",
 ]
@@ -4914,6 +4919,7 @@ dependencies = [
 name = "pengpilot-protocol"
 version = "0.1.20"
 dependencies = [
+ "chrono",
  "dirs",
  "objc2-foundation 0.3.2",
  "rust-i18n",

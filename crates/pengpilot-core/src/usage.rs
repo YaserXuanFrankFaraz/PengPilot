@@ -16,8 +16,9 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use anyhow::{Context as _, anyhow};
-use chrono::Datelike as _;
 use serde_json::{Value, json};
+
+pub use pengpilot_protocol::usage::*;
 
 const CLAUDE_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 const CLAUDE_PROFILE_URL: &str = "https://api.anthropic.com/api/oauth/profile";
@@ -30,25 +31,6 @@ const FALLBACK_CLI_VERSION: &str = "2.1.0";
 
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const OPENCODE_GO_USAGE_URL: &str = "https://opencode.ai/zen/go/v1/usage";
-
-/// A parsed snapshot of the account's rate-limit windows.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PlanUsage {
-    /// "Max (5x)", "Pro" — from the credential's subscription metadata.
-    pub plan_label: Option<String>,
-    pub windows: Vec<PlanWindow>,
-}
-
-/// One rate-limit window: the 5-hour session lane, the all-models weekly lane,
-/// or a model-scoped weekly lane.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PlanWindow {
-    pub label: String,
-    /// Percent of the window already used, 0–100.
-    pub percent: f64,
-    /// Unix seconds when the window resets.
-    pub resets_at: Option<i64>,
-}
 
 struct OauthCredentials {
     access_token: String,
@@ -602,7 +584,7 @@ fn parse_credentials(payload: &str) -> anyhow::Result<OauthCredentials> {
 /// GET `url` with the given header lines. Headers travel to curl as a config
 /// on stdin, never on argv, so bearer tokens cannot show up in the process
 /// table. Shared with the usage-history rate-table fetch.
-pub(crate) fn http_get(url: &str, headers: &[String]) -> anyhow::Result<(u16, String)> {
+pub fn http_get(url: &str, headers: &[String]) -> anyhow::Result<(u16, String)> {
     let mut child = Command::new("/usr/bin/curl")
         .args(["-sS", "--max-time", "15", "-D", "-", "-K", "-", url])
         .stdin(Stdio::piped())
@@ -777,58 +759,6 @@ fn plan_label(subscription_type: Option<&str>, rate_limit_tier: Option<&str>) ->
         label = format!("{label} ({multiplier})");
     }
     Some(label)
-}
-
-/// "87.7k", "1.0M" — the compact token count the context row shows.
-pub fn format_tokens(tokens: u64) -> String {
-    if tokens >= 999_500 {
-        format!("{:.1}M", tokens as f64 / 1_000_000.0)
-    } else if tokens >= 1_000 {
-        format!("{:.1}k", tokens as f64 / 1_000.0)
-    } else {
-        tokens.to_string()
-    }
-}
-
-/// "Resets in 49 min" close in, "Resets Thu 7:59 PM" further out — the CLI's
-/// own phrasing for the same rows.
-pub fn reset_label(resets_at: i64, now: i64) -> String {
-    let delta = resets_at - now;
-    if delta <= 0 {
-        return tr!("usage.resets_soon");
-    }
-    let minutes = (delta + 59) / 60;
-    if minutes < 60 {
-        return tr!("usage.resets_in_minutes", count = minutes);
-    }
-    if minutes < 24 * 60 {
-        let hours = minutes / 60;
-        return match minutes % 60 {
-            0 => tr!("usage.resets_in_hours", count = hours),
-            remainder => tr!(
-                "usage.resets_in_hours_minutes",
-                hours = hours,
-                minutes = remainder
-            ),
-        };
-    }
-    use chrono::TimeZone as _;
-    match chrono::Local.timestamp_opt(resets_at, 0) {
-        chrono::LocalResult::Single(date) if crate::i18n::uses_east_asian_date_format() => tr!(
-            "usage.resets_date",
-            date = format!(
-                "{}月{}日 {}",
-                date.month(),
-                date.day(),
-                date.format("%H:%M")
-            )
-        ),
-        chrono::LocalResult::Single(date) => tr!(
-            "usage.resets_date",
-            date = date.format("%a %-I:%M %p").to_string()
-        ),
-        _ => tr!("usage.resets_soon"),
-    }
 }
 
 #[cfg(test)]
@@ -1168,28 +1098,5 @@ mod tests {
         assert_eq!(usage.windows[0].label, "Weekly limit");
         assert_eq!(usage.windows[0].percent, 37.5);
         assert!(usage.windows[0].resets_at.is_some());
-    }
-
-    #[test]
-    fn token_counts_format_like_the_cli_meter() {
-        assert_eq!(format_tokens(950), "950");
-        assert_eq!(format_tokens(87_650), "87.7k");
-        assert_eq!(format_tokens(999_600), "1.0M");
-        assert_eq!(format_tokens(1_000_000), "1.0M");
-    }
-
-    #[test]
-    fn reset_labels_stay_relative_until_a_day_out() {
-        let now = 1_700_000_000;
-        assert_eq!(reset_label(now + 49 * 60, now), "Resets in 49 min");
-        assert_eq!(
-            reset_label(now + 3 * 3600 + 120, now),
-            "Resets in 3 hr 2 min"
-        );
-        assert_eq!(reset_label(now - 5, now), "Resets soon");
-        // Beyond a day the label goes absolute in local time; the exact text
-        // depends on the machine's zone, so assert only the shape.
-        let far = reset_label(now + 3 * 24 * 3600, now);
-        assert!(far.starts_with("Resets ") && !far.contains(" in "), "{far}");
     }
 }

@@ -6,7 +6,7 @@
 //! while the engine moves out of the UI process.
 //!
 //! Phase 2 in-process backend: no WebSocket yet. `pengpilot-daemon` and RPC
-//! land once drivers follow these modules.
+//! land once the remaining UI-adjacent modules follow.
 
 #![recursion_limit = "256"]
 
@@ -21,19 +21,27 @@ macro_rules! tr {
     };
 }
 
+pub mod amp_session;
 pub mod blob_store;
 pub mod checkpoint;
+pub mod claude_session;
 pub mod command_env;
+pub mod computer_use;
+pub mod cursor_session;
 pub mod deepseek_pool;
 pub mod deepseek_session;
+pub mod driver;
 pub mod git_branch;
 pub mod git_commit;
+pub mod grok_session;
 pub mod i18n {
     pub use pengpilot_protocol::i18n::*;
 }
 pub mod library;
+pub mod model;
 pub mod model_catalog;
 pub mod opencode_pool;
 pub mod opencode_session;
 pub mod persistence;
+pub mod usage;
 pub mod worktree;

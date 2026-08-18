@@ -668,11 +668,15 @@ impl Waku {
         let Some(window_id) = state.target.as_ref().map(|target| target.window_id) else {
             return;
         };
+        let screenshot = state
+            .image_url
+            .as_deref()
+            .and_then(crate::md::render::decode_data_url);
         let mut preview = ComputerUsePreview {
             target: state.target,
             phase: state.phase,
             visible: state.visible,
-            screenshot: state.screenshot,
+            screenshot,
         };
         if let Some(index) = runtime.computer_use_previews.iter().position(|preview| {
             preview

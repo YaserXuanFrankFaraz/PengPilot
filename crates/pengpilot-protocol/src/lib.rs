@@ -25,4 +25,5 @@ pub mod model;
 pub mod projectless;
 pub mod session;
 pub mod theme;
+pub mod usage;
 pub mod work;

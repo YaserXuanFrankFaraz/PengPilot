@@ -32,14 +32,14 @@ pub struct DriverEventSender {
 }
 
 impl DriverEventSender {
-    pub(crate) fn send(&self, event: DriverEvent) -> Result<(), SendError<DriverEvent>> {
+    pub fn send(&self, event: DriverEvent) -> Result<(), SendError<DriverEvent>> {
         self.events.send(event)?;
         let _ = self.wake.try_send(());
         Ok(())
     }
 }
 
-pub(crate) trait DriverEventSink {
+pub trait DriverEventSink {
     fn send(&self, event: DriverEvent) -> Result<(), SendError<DriverEvent>>;
 }
 
@@ -56,7 +56,7 @@ impl DriverEventSink for Sender<DriverEvent> {
     }
 }
 
-pub(crate) fn event_channel(
+pub fn event_channel(
     wake: smol::channel::Sender<()>,
 ) -> (DriverEventSender, Receiver<DriverEvent>) {
     let (events, receiver) = unbounded();
@@ -64,7 +64,7 @@ pub(crate) fn event_channel(
 }
 
 #[cfg(test)]
-pub(crate) fn test_event_channel() -> (DriverEventSender, Receiver<DriverEvent>) {
+pub fn test_event_channel() -> (DriverEventSender, Receiver<DriverEvent>) {
     let (wake, _wakes) = smol::channel::bounded(1);
     event_channel(wake)
 }
