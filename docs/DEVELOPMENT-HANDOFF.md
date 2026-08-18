@@ -79,7 +79,7 @@ checkpoint** (Agent switches are expected; `v0.1.20` is the current fallback).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 | Baseline: 0.1.19 (`9a0d3b3`) sizes/tests; freeze feature ports | ✅ |
-| 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | **In progress** (~2/3) |
+| 1 | Workspace + `pengpilot-protocol`: move wire value types out of `src/model.rs`, re-export bridge | **In progress** (~5/6; AgentSession layer left) |
 | 2 | `crates/pengpilot-core` (engine) + `crates/pengpilot-daemon` (thin binary, in-process backend first) | ⬜ |
 | 3 | `crates/pengpilot-client` WS RPC: app becomes a remote client (big milestone) | ⬜ |
 | 4 | Packaging/dev/release: embed daemon in `.app`, watcher runs both, size gates | ⬜ |
