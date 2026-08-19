@@ -18,6 +18,8 @@ macro_rules! tr {
 }
 
 pub mod agent;
+pub mod attachments;
+pub mod blob;
 pub mod computer_use;
 mod driver_wire;
 pub mod i18n;

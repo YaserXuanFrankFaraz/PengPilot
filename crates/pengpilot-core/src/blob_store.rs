@@ -11,11 +11,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::SystemTime;
 
 use base64::Engine as _;
 
-/// Scheme for a stored blob reference, e.g. `waku-blob:3f2a…c1.png`.
-pub const BLOB_SCHEME: &str = "waku-blob:";
+pub use pengpilot_protocol::blob::SCHEME as BLOB_SCHEME;
 
 /// Payloads below this stay inline: a reference plus a file is not worth it for
 /// a favicon-sized image, and tests use tiny fixtures.
@@ -64,7 +64,7 @@ fn decode_data_url(url: &str) -> Option<(&str, Vec<u8>)> {
 }
 
 pub fn is_blob_reference(value: &str) -> bool {
-    value.starts_with(BLOB_SCHEME)
+    pengpilot_protocol::blob::is_reference(value)
 }
 
 /// Root used by render paths, which resolve a reference to a path without
@@ -149,7 +149,18 @@ impl BlobStore {
         // Content-addressed: an existing file with this name already holds
         // these exact bytes, so identical screenshots cost nothing.
         if fs::metadata(&path).is_ok_and(|metadata| metadata.len() as usize == bytes.len()) {
-            return Ok(());
+            // A newly-issued reference is a lease even when the content was
+            // already present from an abandoned upload. Refresh its timestamp
+            // so the grace-period sweep below cannot reclaim it before the
+            // client commits the reference to a draft or session row.
+            if fs::File::options()
+                .write(true)
+                .open(&path)
+                .and_then(|file| file.set_modified(SystemTime::now()))
+                .is_ok()
+            {
+                return Ok(());
+            }
         }
         fs::create_dir_all(&directory)?;
         let temporary = path.with_extension("tmp");
@@ -162,6 +173,25 @@ impl BlobStore {
 
     /// Deletes blobs no longer named by any live reference.
     pub fn retain(&self, live: &std::collections::HashSet<String>) -> io::Result<u64> {
+        self.retain_with_cutoff(live, None)
+    }
+
+    /// Deletes unreferenced blobs only when their last write predates
+    /// `cutoff`. Store and commit are separate RPC/SQLite operations, so a
+    /// recent unreferenced file may still be in flight.
+    pub fn retain_unreferenced_older_than(
+        &self,
+        live: &std::collections::HashSet<String>,
+        cutoff: SystemTime,
+    ) -> io::Result<u64> {
+        self.retain_with_cutoff(live, Some(cutoff))
+    }
+
+    fn retain_with_cutoff(
+        &self,
+        live: &std::collections::HashSet<String>,
+        cutoff: Option<SystemTime>,
+    ) -> io::Result<u64> {
         let mut reclaimed = 0;
         let Ok(shards) = fs::read_dir(&self.root) else {
             return Ok(0);
@@ -177,7 +207,22 @@ impl BlobStore {
                 if live.contains(&format!("{BLOB_SCHEME}{name}")) {
                     continue;
                 }
-                let size = entry.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+                let metadata = match entry.metadata() {
+                    Ok(metadata) => metadata,
+                    Err(_) if cutoff.is_some() => continue,
+                    Err(_) => {
+                        let _ = fs::remove_file(entry.path());
+                        continue;
+                    }
+                };
+                if cutoff.is_some_and(|cutoff| {
+                    metadata
+                        .modified()
+                        .map_or(true, |modified| modified >= cutoff)
+                }) {
+                    continue;
+                }
+                let size = metadata.len();
                 if fs::remove_file(entry.path()).is_ok() {
                     reclaimed += size;
                 }

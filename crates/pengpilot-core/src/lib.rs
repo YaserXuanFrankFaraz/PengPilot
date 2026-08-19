@@ -24,6 +24,7 @@ macro_rules! tr {
 }
 
 pub mod amp_session;
+pub mod attachments;
 pub mod blob_store;
 pub mod checkpoint;
 pub mod claude_session;

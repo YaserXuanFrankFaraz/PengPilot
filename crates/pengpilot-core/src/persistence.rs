@@ -17,6 +17,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use parking_lot::Mutex;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
@@ -42,6 +43,7 @@ pub use pengpilot_protocol::persistence::{
 const STATE_VERSION: u32 = 5;
 const APP_STATE_VERSION: u32 = 1;
 const COMPOSER_DRAFTS_FILENAME: &str = "composer-drafts.json";
+const ASSET_SWEEP_GRACE_PERIOD: Duration = Duration::from_secs(60 * 60);
 
 pub const DEFAULT_SIDEBAR_WIDTH: f32 = 252.0;
 pub const DEFAULT_RIGHT_PANEL_WIDTH: f32 = 460.0;
@@ -644,6 +646,14 @@ fn externalize_blobs<'a>(
 /// hydrated has an empty transcript in memory, and treating that as "owns no
 /// images" would delete screenshots that are still in use.
 fn live_blob_references(connection: &Connection) -> io::Result<HashSet<String>> {
+    live_references(connection, crate::blob_store::BLOB_SCHEME)
+}
+
+fn live_attachment_references(connection: &Connection) -> io::Result<HashSet<String>> {
+    live_references(connection, crate::attachments::ATTACHMENT_SCHEME)
+}
+
+fn live_references(connection: &Connection, scheme: &str) -> io::Result<HashSet<String>> {
     let mut statement = connection
         .prepare(
             "SELECT data FROM session_details
@@ -656,7 +666,7 @@ fn live_blob_references(connection: &Connection) -> io::Result<HashSet<String>> 
         .query_map([], |row| row.get::<_, String>(0))
         .map_err(to_io_error)?;
     for data in rows.filter_map(Result::ok) {
-        collect_blob_references(&data, &mut references);
+        collect_references(&data, scheme, &mut references);
     }
     Ok(references)
 }
@@ -664,8 +674,16 @@ fn live_blob_references(connection: &Connection) -> io::Result<HashSet<String>> 
 /// Scanning raw JSON keeps blob retention independent of how deeply a
 /// reference is nested in transcript or composer-draft metadata.
 fn collect_blob_references(data: &str, references: &mut HashSet<String>) {
+    collect_references(data, crate::blob_store::BLOB_SCHEME, references);
+}
+
+fn collect_attachment_references(data: &str, references: &mut HashSet<String>) {
+    collect_references(data, crate::attachments::ATTACHMENT_SCHEME, references);
+}
+
+fn collect_references(data: &str, scheme: &str, references: &mut HashSet<String>) {
     let mut rest = data;
-    while let Some(start) = rest.find(crate::blob_store::BLOB_SCHEME) {
+    while let Some(start) = rest.find(scheme) {
         rest = &rest[start..];
         let end = rest.find('"').unwrap_or(rest.len());
         references.insert(rest[..end].to_owned());
@@ -1503,21 +1521,36 @@ impl StateStore {
     pub fn blob_sweep(&self) -> impl FnOnce() + Send + 'static {
         let blobs = Arc::clone(&self.blobs);
         let path = self.path.clone();
+        let attachments_root = path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("attachments");
         let drafts_path = path
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .join(COMPOSER_DRAFTS_FILENAME);
         move || {
+            let cutoff = SystemTime::now()
+                .checked_sub(ASSET_SWEEP_GRACE_PERIOD)
+                .unwrap_or(SystemTime::UNIX_EPOCH);
             let Ok(connection) = Connection::open(&path) else {
                 return;
             };
             let Ok(mut live) = live_blob_references(&connection) else {
                 return;
             };
-            if let Ok(drafts) = fs::read_to_string(drafts_path) {
+            if let Ok(drafts) = fs::read_to_string(&drafts_path) {
                 collect_blob_references(&drafts, &mut live);
             }
-            let _ = blobs.retain(&live);
+            let _ = blobs.retain_unreferenced_older_than(&live, cutoff);
+            let Ok(mut live_attachments) = live_attachment_references(&connection) else {
+                return;
+            };
+            if let Ok(drafts) = fs::read_to_string(&drafts_path) {
+                collect_attachment_references(&drafts, &mut live_attachments);
+            }
+            let _ = crate::attachments::AttachmentStore::new(attachments_root)
+                .retain_unreferenced_older_than(&live_attachments, cutoff);
         }
     }
 }

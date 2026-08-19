@@ -5,6 +5,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::agent::{AgentSession, UserInputAnswer};
+use crate::attachments::{AttachmentUpload, StoredAttachment};
 use crate::computer_use::ComputerPermissions;
 use crate::model::{ProviderKind, ProviderProbe};
 use crate::persistence::{ComposerDraftChange, ComposerDrafts};
@@ -64,8 +65,8 @@ pub struct ReplayCursor {
     pub sequence: u64,
 }
 
-/// JSON-RPC command surface. Attachments / workspace / PTY wait until
-/// those implementations live in the daemon.
+/// JSON-RPC command surface. Workspace / PTY wait until those
+/// implementations live in the daemon.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(
     tag = "type",
@@ -164,6 +165,26 @@ pub enum Command {
     ApplyComposerDraftChanges {
         changes: Vec<ComposerDraftChange>,
     },
+    StoreBlob {
+        mime_type: String,
+        #[serde(with = "base64_bytes")]
+        bytes: Vec<u8>,
+    },
+    ImportAttachment {
+        name: String,
+        upload: AttachmentUpload,
+    },
+    ImportPathAttachment {
+        path: PathBuf,
+    },
+    ReadBlob {
+        reference: String,
+    },
+    ReadAttachment {
+        reference: String,
+        path: PathBuf,
+    },
+    SweepBlobs,
     ForkSessionFromResponse {
         turn_count: usize,
     },
@@ -341,6 +362,17 @@ pub enum ResponsePayload {
     ComposerDrafts {
         drafts: ComposerDrafts,
     },
+    BlobStored {
+        reference: String,
+        path: PathBuf,
+    },
+    AttachmentStored {
+        attachment: StoredAttachment,
+    },
+    BlobData {
+        #[serde(with = "base64_bytes")]
+        bytes: Vec<u8>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -438,6 +470,24 @@ mod tests {
         .unwrap();
         assert_eq!(json["type"], "updateSettings");
         assert_eq!(json["settings"]["computer_use_enabled"], false);
+    }
+
+    #[test]
+    fn blob_and_attachment_commands_use_stable_camel_case_tags() {
+        let json = serde_json::to_value(Command::StoreBlob {
+            mime_type: "image/png".into(),
+            bytes: vec![1, 2, 3],
+        })
+        .unwrap();
+        assert_eq!(json["type"], "storeBlob");
+        assert_eq!(json["mimeType"], "image/png");
+        let json = serde_json::to_value(Command::SweepBlobs).unwrap();
+        assert_eq!(json["type"], "sweepBlobs");
+        let json = serde_json::to_value(Command::ImportPathAttachment {
+            path: PathBuf::from("/tmp/file.md"),
+        })
+        .unwrap();
+        assert_eq!(json["type"], "importPathAttachment");
     }
 
     #[test]

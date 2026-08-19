@@ -1,6 +1,7 @@
 use super::*;
 
 use anyhow::Context as _;
+use base64::Engine as _;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum ComposerSubmitAction {
@@ -1932,6 +1933,7 @@ impl Waku {
             return false;
         }
         let paths = paths.to_vec();
+        let daemon = self.daemon.clone();
         let draft_owner = self.selected_composer_draft_key();
         cx.spawn(async move |waku, cx| {
             let result = cx
@@ -1939,13 +1941,24 @@ impl Waku {
                 .spawn(async move {
                     let mut stored = Vec::with_capacity(paths.len());
                     for source_path in paths {
-                        let (name, image_bytes) = attachment_local_preview_from_path(&source_path)?;
+                        let (name, upload, image_bytes) =
+                            attachment_upload_from_path(&source_path)?;
                         let is_image = image_bytes.is_some();
                         let preview_image = image_bytes.and_then(|bytes| {
                             image_preview::image_format_for_name(&name)
                                 .map(|format| Arc::new(gpui::Image::from_bytes(format, bytes)))
                         });
-                        stored.push((source_path, name, is_image, preview_image));
+                        let response = daemon.client().request(
+                            Uuid::nil(),
+                            Uuid::nil(),
+                            pengpilot_client::Command::ImportAttachment { name, upload },
+                        )?;
+                        let pengpilot_client::ResponsePayload::AttachmentStored { attachment } =
+                            response
+                        else {
+                            anyhow::bail!("the daemon returned an invalid attachment response");
+                        };
+                        stored.push((attachment, preview_image, is_image));
                     }
                     Ok::<_, anyhow::Error>(stored)
                 })
@@ -1956,13 +1969,13 @@ impl Waku {
                         return;
                     }
                     let mut changed = false;
-                    for (path, name, is_image, preview_image) in stored {
+                    for (attachment, preview_image, is_image) in stored {
                         changed |= waku.stage_daemon_attachment(
-                            path,
-                            name,
-                            false,
+                            attachment.path,
+                            attachment.name,
+                            attachment.is_dir,
                             is_image,
-                            None,
+                            attachment.reference,
                             preview_image,
                         );
                     }
@@ -1987,14 +2000,13 @@ impl Waku {
         name: String,
         is_dir: bool,
         is_image: bool,
-        blob_reference: Option<String>,
+        reference: String,
         client_preview_image: Option<Arc<gpui::Image>>,
     ) -> bool {
-        if self
-            .composer_attachments
-            .iter()
-            .any(|attachment| attachment.path == path)
-        {
+        if self.composer_attachments.iter().any(|attachment| {
+            attachment.path == path
+                || attachment.blob_reference.as_deref() == Some(reference.as_str())
+        }) {
             return false;
         }
         let mut mention = path.display().to_string();
@@ -2008,14 +2020,14 @@ impl Waku {
             name: SharedString::from(name),
             is_dir,
             is_image,
-            blob_reference,
+            blob_reference: Some(reference),
         });
         true
     }
 
     /// Stage the clipboard's primary image/file representation. On-disk paths
-    /// reuse drop handling immediately; raw image bytes are copied into Waku's
-    /// durable blob store on the background executor before their chip appears.
+    /// reuse drop handling immediately; raw image bytes are copied into the
+    /// daemon blob store on the background executor before their chip appears.
     pub(super) fn stage_pasted_attachments(
         &mut self,
         entries: Vec<ClipboardEntry>,
@@ -2037,7 +2049,7 @@ impl Waku {
             return;
         }
 
-        let blobs = self.store.blobs();
+        let daemon = self.daemon.clone();
         let draft_owner = self.selected_composer_draft_key();
         cx.spawn(async move |waku, cx| {
             let stored = cx
@@ -2049,15 +2061,23 @@ impl Waku {
                         .enumerate()
                         .map(|(index, image)| {
                             let preview_image = Arc::new(image);
-                            let reference = blobs
-                                .store_image_bytes(
-                                    preview_image.format.mime_type(),
-                                    &preview_image.bytes,
+                            let bytes = preview_image.bytes.clone();
+                            let response = daemon
+                                .client()
+                                .request(
+                                    Uuid::nil(),
+                                    Uuid::nil(),
+                                    pengpilot_client::Command::StoreBlob {
+                                        mime_type: preview_image.format.mime_type().to_owned(),
+                                        bytes,
+                                    },
                                 )
                                 .map_err(|error| error.to_string())?;
-                            let path = blobs.path_for(&reference).ok_or_else(|| {
-                                "stored clipboard image had no local path".to_owned()
-                            })?;
+                            let pengpilot_client::ResponsePayload::BlobStored { reference, path } =
+                                response
+                            else {
+                                return Err("the daemon returned an invalid blob response".into());
+                            };
                             let extension = path
                                 .extension()
                                 .and_then(|extension| extension.to_str())
@@ -2084,7 +2104,7 @@ impl Waku {
                             name,
                             false,
                             true,
-                            Some(reference),
+                            reference,
                             Some(preview_image),
                         );
                     }
@@ -3397,10 +3417,15 @@ pub(super) fn visible_branch_entries(
 // message limit until uploads move to a streaming content endpoint.
 const MAX_ATTACHMENT_BYTES: u64 = 32 * 1024 * 1024;
 
-/// Reads a client-local drop far enough to name it and, for image files,
-/// decode an in-composer preview. Attachments stay local in PengPilot: the
-/// path itself is the persisted reference, so no upload payload exists.
-fn attachment_local_preview_from_path(source: &Path) -> anyhow::Result<(String, Option<Vec<u8>>)> {
+/// Reads a client-local drop far enough to name it and upload its bytes.
+/// Directories become a file list; the daemon materializes the tree.
+fn attachment_upload_from_path(
+    source: &Path,
+) -> anyhow::Result<(
+    String,
+    pengpilot_client::attachments::AttachmentUpload,
+    Option<Vec<u8>>,
+)> {
     let metadata = std::fs::symlink_metadata(source)
         .with_context(|| format!("could not read attachment {}", source.display()))?;
     if metadata.file_type().is_symlink() {
@@ -3415,24 +3440,78 @@ fn attachment_local_preview_from_path(source: &Path) -> anyhow::Result<(String, 
         .filter(|name| !name.is_empty())
         .ok_or_else(|| anyhow::anyhow!("attachment has no file name: {}", source.display()))?
         .to_owned();
-    if metadata.is_dir() {
-        return Ok((name, None));
+    if metadata.is_file() {
+        if metadata.len() > MAX_ATTACHMENT_BYTES {
+            anyhow::bail!("attachment is larger than 32 MB: {}", source.display());
+        }
+        let bytes = std::fs::read(source)
+            .with_context(|| format!("could not read attachment {}", source.display()))?;
+        let is_image = is_image_attachment_path(source);
+        return Ok((
+            name,
+            pengpilot_client::attachments::AttachmentUpload::File {
+                data_base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+            },
+            is_image.then_some(bytes),
+        ));
     }
-    if !metadata.is_file() {
+    if !metadata.is_dir() {
         anyhow::bail!(
             "attachment is not a file or directory: {}",
             source.display()
         );
     }
-    if metadata.len() > MAX_ATTACHMENT_BYTES {
-        anyhow::bail!("attachment is larger than 32 MB: {}", source.display());
+
+    let mut pending = vec![source.to_path_buf()];
+    let mut entries = Vec::new();
+    let mut total_bytes = 0u64;
+    while let Some(directory) = pending.pop() {
+        for entry in std::fs::read_dir(&directory).with_context(|| {
+            format!(
+                "could not read attachment directory {}",
+                directory.display()
+            )
+        })? {
+            let entry = entry?;
+            let path = entry.path();
+            let metadata = std::fs::symlink_metadata(&path)?;
+            if metadata.file_type().is_symlink() {
+                continue;
+            }
+            if metadata.is_dir() {
+                pending.push(path);
+                continue;
+            }
+            if !metadata.is_file() {
+                continue;
+            }
+            if entries.len() >= pengpilot_client::attachments::MAX_ATTACHMENT_FILES {
+                anyhow::bail!(
+                    "attachment directory contains more than {} files",
+                    pengpilot_client::attachments::MAX_ATTACHMENT_FILES
+                );
+            }
+            total_bytes = total_bytes.saturating_add(metadata.len());
+            if total_bytes > MAX_ATTACHMENT_BYTES {
+                anyhow::bail!("attachment directory is larger than 32 MB");
+            }
+            let relative_path = path
+                .strip_prefix(source)
+                .context("attachment entry escaped its source directory")?
+                .to_path_buf();
+            let bytes = std::fs::read(&path)
+                .with_context(|| format!("could not read attachment {}", path.display()))?;
+            entries.push(pengpilot_client::attachments::AttachmentUploadEntry {
+                relative_path,
+                data_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+            });
+        }
     }
-    if !is_image_attachment_path(source) {
-        return Ok((name, None));
-    }
-    let bytes = std::fs::read(source)
-        .with_context(|| format!("could not read attachment {}", source.display()))?;
-    Ok((name, Some(bytes)))
+    Ok((
+        name,
+        pengpilot_client::attachments::AttachmentUpload::Directory { entries },
+        None,
+    ))
 }
 
 #[cfg(test)]

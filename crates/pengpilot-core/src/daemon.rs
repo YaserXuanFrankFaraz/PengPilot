@@ -12,6 +12,7 @@ use pengpilot_protocol::{
 use serde_json::Value;
 use uuid::Uuid;
 
+use crate::attachments::AttachmentStore;
 use crate::driver::{self, DriverHandle, DriverStartOptions, SessionOptions};
 use crate::model::{AgentSession, Project};
 use crate::persistence::{ComposerDraftStore, PersistedState, StateStore};
@@ -28,6 +29,7 @@ pub struct PengPilotBackend {
     usage_scan_cache: Mutex<ScanCache>,
     usage_rates_dir: PathBuf,
     composer_drafts: ComposerDraftStore,
+    attachments: AttachmentStore,
     default_cwd: std::path::PathBuf,
 }
 
@@ -42,6 +44,13 @@ impl PengPilotBackend {
             .unwrap_or_else(|| std::path::Path::new("."))
             .to_owned();
         let composer_drafts = ComposerDraftStore::for_state_path(task_store.path());
+        let attachments = AttachmentStore::new(
+            task_store
+                .path()
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join("attachments"),
+        );
         Ok(Self {
             settings,
             task_store,
@@ -51,6 +60,7 @@ impl PengPilotBackend {
             usage_scan_cache: Mutex::new(HashMap::new()),
             usage_rates_dir,
             composer_drafts,
+            attachments,
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         })
     }
@@ -276,6 +286,41 @@ impl Backend for PengPilotBackend {
             }),
             Command::UpdateSettings { settings } => {
                 self.settings.replace(settings)?;
+                Ok(ResponsePayload::Ack)
+            }
+            Command::StoreBlob { mime_type, bytes } => {
+                let reference = self
+                    .task_store
+                    .blobs()
+                    .store_image_bytes(&mime_type, &bytes)?;
+                let path = self
+                    .task_store
+                    .blobs()
+                    .path_for(&reference)
+                    .ok_or_else(|| anyhow!("stored blob has no daemon path"))?;
+                Ok(ResponsePayload::BlobStored { reference, path })
+            }
+            Command::ImportAttachment { name, upload } => Ok(ResponsePayload::AttachmentStored {
+                attachment: self.attachments.import(&name, upload)?,
+            }),
+            Command::ImportPathAttachment { path } => Ok(ResponsePayload::AttachmentStored {
+                attachment: self.attachments.import_path(&path)?,
+            }),
+            Command::ReadBlob { reference } => {
+                let path = self
+                    .task_store
+                    .blobs()
+                    .path_for(&reference)
+                    .ok_or_else(|| anyhow!("invalid blob reference"))?;
+                Ok(ResponsePayload::BlobData {
+                    bytes: std::fs::read(path)?,
+                })
+            }
+            Command::ReadAttachment { reference, path } => Ok(ResponsePayload::BlobData {
+                bytes: self.attachments.read_file(&reference, &path)?,
+            }),
+            Command::SweepBlobs => {
+                self.task_store.blob_sweep()();
                 Ok(ResponsePayload::Ack)
             }
             Command::Start { options } => {
@@ -745,6 +790,43 @@ mod tests {
         };
         assert!(loaded.computer_use_enabled);
         assert_eq!(loaded.disabled_providers, vec![ProviderKind::Claude]);
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn store_blob_round_trips_over_the_backend() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-blob-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let backend = backend_in(&directory);
+        let bytes = vec![9u8; 16 * 1024];
+        let ResponsePayload::BlobStored { reference, path } = backend
+            .handle(
+                request(Command::StoreBlob {
+                    mime_type: "image/png".into(),
+                    bytes: bytes.clone(),
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected blob stored");
+        };
+        assert!(pengpilot_protocol::blob::is_reference(&reference));
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+        let ResponsePayload::BlobData { bytes: loaded } = backend
+            .handle(
+                request(Command::ReadBlob { reference }),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected blob data");
+        };
+        assert_eq!(loaded, bytes);
+        backend
+            .handle(request(Command::SweepBlobs), EventSink::discarded())
+            .unwrap();
         let _ = std::fs::remove_dir_all(directory);
     }
 

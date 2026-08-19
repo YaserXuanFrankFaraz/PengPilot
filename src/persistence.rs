@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -306,6 +306,15 @@ impl StateStore {
             .notify(session_id, Uuid::nil(), pengpilot_client::Command::RemoveSession)
             .map_err(to_io_error)
     }
+
+    pub fn blob_sweep(&self) -> impl FnOnce() + Send + 'static {
+        let daemon = self.daemon.clone();
+        move || {
+            let _ = daemon
+                .client()
+                .request(Uuid::nil(), Uuid::nil(), pengpilot_client::Command::SweepBlobs);
+        }
+    }
 }
 
 const INVALID_SAVE_RESPONSE: &str = "PengPilot daemon returned an invalid task-state save response";
@@ -447,4 +456,32 @@ fn collect_composer_draft_changes(
             });
         }
     }
+}
+
+/// Reads one daemon-owned binary payload. Clients decide how to present the
+/// bytes; this transport layer deliberately creates no client-side files.
+pub fn read_remote_reference(
+    reference: &str,
+    daemon_path: Option<&Path>,
+    daemon: &pengpilot_client::DaemonSupervisor,
+) -> Option<Vec<u8>> {
+    let command = if pengpilot_protocol::blob::is_reference(reference) {
+        pengpilot_client::Command::ReadBlob {
+            reference: reference.to_owned(),
+        }
+    } else if reference.starts_with(pengpilot_protocol::attachments::ATTACHMENT_SCHEME) {
+        let path = daemon_path?;
+        pengpilot_client::Command::ReadAttachment {
+            reference: reference.to_owned(),
+            path: path.to_owned(),
+        }
+    } else {
+        return None;
+    };
+    let Ok(pengpilot_client::ResponsePayload::BlobData { bytes }) =
+        daemon.client().request(Uuid::nil(), Uuid::nil(), command)
+    else {
+        return None;
+    };
+    Some(bytes)
 }
