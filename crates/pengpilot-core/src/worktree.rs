@@ -11,17 +11,11 @@ use std::process::{Command, Output};
 use anyhow::{Context as _, anyhow, bail};
 use uuid::Uuid;
 
+pub use pengpilot_protocol::git::CreatedWorktree;
+
 const DEFAULT_SLUG: &str = "new-worktree";
 const MAX_SLUG_BYTES: usize = 48;
 const MAX_CANDIDATES: usize = 100;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CreatedWorktree {
-    /// The same project-relative directory in the new worktree. For projects
-    /// rooted at the repository root, this is the worktree root itself.
-    pub path: PathBuf,
-    pub branch: String,
-}
 
 pub fn create(
     project_path: &Path,

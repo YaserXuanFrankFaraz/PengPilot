@@ -1,6 +1,7 @@
 use super::right_panel::{DiffRowStyle, render_diff_code_row};
 use super::*;
 use base64::Engine as _;
+use std::collections::HashSet;
 
 const CHANGED_FILES_PREVIEW_LIMIT: usize = 3;
 /// Keep one virtualized transcript row bounded even when a generator touches
@@ -1052,10 +1053,21 @@ impl Waku {
             .collect::<Vec<_>>();
         self.checkpoint_ref_prefetch
             .set(Some((session_id, generation)));
+        let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
         cx.spawn(async move |this, cx| {
             let existing = cx
                 .background_executor()
-                .spawn(async move { checkpoint::session_turn_refs(&project_path, session_id) })
+                .spawn(async move {
+                    match workspace.request(pengpilot_client::WorkspaceOperation::SessionTurnRefs {
+                        cwd: project_path,
+                        session_id,
+                    }) {
+                        Ok(pengpilot_client::WorkspaceResult::TurnRefs { turn_counts }) => {
+                            turn_counts.into_iter().collect::<HashSet<_>>()
+                        }
+                        Ok(_) | Err(_) => HashSet::new(),
+                    }
+                })
                 .await;
             let _ = this.update(cx, |this, cx| {
                 if this.checkpoint_ref_generation.get() != generation {

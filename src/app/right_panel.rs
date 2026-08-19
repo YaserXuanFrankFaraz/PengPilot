@@ -815,9 +815,20 @@ fn file_highlighter_language(relative_path: &str) -> &'static str {
 ///
 /// One unbounded `read_to_string`, so callers keep it off the UI thread; the
 /// only caller is [`Waku::read_right_panel_file_into_editor`].
-fn read_right_panel_file(project_path: &Path, relative_path: &str) -> (String, bool) {
-    match std::fs::read_to_string(project_path.join(relative_path)) {
-        Ok(content) => (content, true),
+fn read_right_panel_file(
+    workspace: &pengpilot_client::WorkspaceClient,
+    project_path: &Path,
+    relative_path: &str,
+) -> (String, bool) {
+    match workspace.request(pengpilot_client::WorkspaceOperation::ReadTextFile {
+        root: project_path.to_path_buf(),
+        relative_path: PathBuf::from(relative_path),
+    }) {
+        Ok(pengpilot_client::WorkspaceResult::TextFile { content }) => (content, true),
+        Ok(_) => (
+            tr!("files.unable_to_edit", error = "invalid file response"),
+            false,
+        ),
         Err(error) => (
             tr!("files.unable_to_edit", error = error.to_string()),
             false,
@@ -1480,8 +1491,26 @@ mod tests {
         let content = "line\n".repeat(10_000);
         std::fs::write(root.join("large.txt"), &content).unwrap();
 
-        assert_eq!(read_right_panel_file(&root, "large.txt"), (content, true));
-        assert!(!read_right_panel_file(&root, "missing.txt").1);
+        match pengpilot_core::workspace::execute(
+            pengpilot_protocol::workspace::WorkspaceOperation::ReadTextFile {
+                root: root.clone(),
+                relative_path: PathBuf::from("large.txt"),
+            },
+        ) {
+            Ok(pengpilot_protocol::workspace::WorkspaceResult::TextFile { content: restored }) => {
+                assert_eq!(restored, content);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        assert!(
+            pengpilot_core::workspace::execute(
+                pengpilot_protocol::workspace::WorkspaceOperation::ReadTextFile {
+                    root: root.clone(),
+                    relative_path: PathBuf::from("missing.txt"),
+                },
+            )
+            .is_err()
+        );
 
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -2867,6 +2896,7 @@ impl Waku {
         editor.reading = true;
         editor.read_epoch += 1;
         let epoch = editor.read_epoch;
+        let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
 
         cx.spawn(async move |waku, cx| {
             let read = cx
@@ -2874,7 +2904,7 @@ impl Waku {
                 .spawn({
                     let project_path = project_path.clone();
                     let relative_path = relative_path.clone();
-                    async move { read_right_panel_file(&project_path, &relative_path) }
+                    async move { read_right_panel_file(&workspace, &project_path, &relative_path) }
                 })
                 .await;
             waku.update(cx, |waku, cx| {
@@ -3117,27 +3147,64 @@ impl Waku {
         }
 
         let content = editor.state.read(cx).content().to_owned();
-        match std::fs::write(project_path.join(&relative_path), content.as_bytes()) {
-            Ok(()) => {
-                if let Some(editor) = self.right_panel_file_editors.get_mut(&relative_path) {
-                    editor.disk_content = content;
-                    editor.dirty = false;
-                    // Any read still in flight predates this write, so its
-                    // result must not land back over what was just saved.
-                    editor.reading = false;
-                    editor.read_epoch += 1;
+        let Some(session_id) = self.state.selected_session else {
+            return;
+        };
+        let epoch = if let Some(editor) = self.right_panel_file_editors.get_mut(&relative_path) {
+            editor.reading = false;
+            editor.read_epoch += 1;
+            editor.read_epoch
+        } else {
+            return;
+        };
+        let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
+        cx.spawn(async move |waku, cx| {
+            let result = cx
+                .background_executor()
+                .spawn({
+                    let project_path = project_path.clone();
+                    let relative_path = relative_path.clone();
+                    let content = content.clone();
+                    async move {
+                        match workspace.request(pengpilot_client::WorkspaceOperation::WriteTextFile {
+                            root: project_path,
+                            relative_path: PathBuf::from(relative_path),
+                            content,
+                        })? {
+                            pengpilot_client::WorkspaceResult::Ack => Ok(()),
+                            _ => anyhow::bail!("the daemon returned an invalid file response"),
+                        }
+                    }
+                })
+                .await;
+            let _ = waku.update(cx, |waku, cx| {
+                if waku.state.selected_session != Some(session_id)
+                    || waku
+                        .selected_workspace_path()
+                        .is_none_or(|path| path != project_path)
+                {
+                    return;
+                }
+                match result {
+                    Ok(()) => {
+                        if let Some(editor) = waku.right_panel_file_editors.get_mut(&relative_path)
+                            && editor.read_epoch == epoch
+                        {
+                            let current = editor.state.read(cx).content();
+                            editor.disk_content = content.clone();
+                            editor.dirty = current != content;
+                        }
+                    }
+                    Err(error) => waku.show_toast(tr!(
+                        "files.could_not_save",
+                        path = relative_path,
+                        error = error.to_string()
+                    )),
                 }
                 cx.notify();
-            }
-            Err(error) => {
-                self.show_toast(tr!(
-                    "files.could_not_save",
-                    path = relative_path,
-                    error = error.to_string()
-                ));
-                cx.notify();
-            }
-        }
+            });
+        })
+        .detach();
     }
 
     fn render_right_panel_diff(
@@ -4004,12 +4071,35 @@ impl Waku {
             Query::Pending => {}
             Query::Missing(token) => {
                 let expanded = self.right_panel_expanded_paths.clone();
+                let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
                 cx.spawn(async move |waku, cx| {
                     let entries = cx
                         .background_executor()
                         .spawn({
                             let path = project_path.clone();
-                            async move { visible_working_tree_entries(&path, &expanded) }
+                            async move {
+                                match workspace.request(pengpilot_client::WorkspaceOperation::ListTree {
+                                    root: path,
+                                    expanded_paths: expanded.into_iter().collect(),
+                                }) {
+                                    Ok(pengpilot_client::WorkspaceResult::WorkingTree { entries }) => {
+                                        entries
+                                            .into_iter()
+                                            .map(|entry| WorkingTreeEntry {
+                                                file_icon: (!entry.is_dir)
+                                                    .then(|| file_icon_for_name(&entry.name)),
+                                                relative_path: entry.relative_path,
+                                                absolute_path: entry.absolute_path,
+                                                name: entry.name,
+                                                is_dir: entry.is_dir,
+                                                expanded: entry.expanded,
+                                                depth: entry.depth,
+                                            })
+                                            .collect()
+                                    }
+                                    Ok(_) | Err(_) => Vec::new(),
+                                }
+                            }
                         })
                         .await;
                     waku.update(cx, |waku, cx| {
@@ -4129,12 +4219,30 @@ impl Waku {
         self.right_panel_diff_error = None;
         cx.notify();
 
+        let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
         cx.spawn(async move |waku, cx| {
             let result = cx
                 .background_executor()
                 .spawn({
                     let project_path = project_path.clone();
-                    async move { crate::review_diff::collect(&project_path, source) }
+                    async move {
+                        match workspace.request(
+                            pengpilot_client::WorkspaceOperation::CollectReviewDiff {
+                                cwd: project_path,
+                                source: crate::review_diff::wire_source(source),
+                            },
+                        )? {
+                            pengpilot_client::WorkspaceResult::ReviewDiff { data } => {
+                                Ok(crate::review_diff::parse_collected(
+                                    source,
+                                    &data.numstat,
+                                    &data.patch,
+                                    data.complete_context,
+                                ))
+                            }
+                            _ => anyhow::bail!("the daemon returned an invalid review-diff response"),
+                        }
+                    }
                 })
                 .await;
             waku.update(cx, |waku, cx| {

@@ -14,6 +14,7 @@ use crate::settings::DaemonSettings;
 use crate::skills::SkillsCatalog;
 use crate::usage::PlanUsage;
 use crate::usage_history::{UsageHistory, UsageWindow};
+use crate::workspace::{WorkspaceOperation, WorkspaceResult};
 
 pub const PROTOCOL_VERSION: u32 = 3;
 pub const MAX_WIRE_MESSAGE_BYTES: usize = 48 * 1024 * 1024;
@@ -185,6 +186,9 @@ pub enum Command {
         path: PathBuf,
     },
     SweepBlobs,
+    Workspace {
+        operation: WorkspaceOperation,
+    },
     ForkSessionFromResponse {
         turn_count: usize,
     },
@@ -373,6 +377,9 @@ pub enum ResponsePayload {
         #[serde(with = "base64_bytes")]
         bytes: Vec<u8>,
     },
+    Workspace {
+        result: WorkspaceResult,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -488,6 +495,18 @@ mod tests {
         })
         .unwrap();
         assert_eq!(json["type"], "importPathAttachment");
+    }
+
+    #[test]
+    fn workspace_command_uses_stable_camel_case_tag() {
+        let json = serde_json::to_value(Command::Workspace {
+            operation: WorkspaceOperation::InspectBranches {
+                cwd: PathBuf::from("/tmp"),
+            },
+        })
+        .unwrap();
+        assert_eq!(json["type"], "workspace");
+        assert_eq!(json["operation"]["type"], "inspectBranches");
     }
 
     #[test]

@@ -447,6 +447,33 @@ pub fn delete_session_refs(
     update_refs(cwd, commands)
 }
 
+/// Delete every checkpoint ref owned by a session without requiring a client
+/// to know how many turns are stored. This is the remote-safe deletion path:
+/// the daemon enumerates its own repository refs as the authority.
+pub fn delete_all_session_refs(cwd: &Path, session_id: Uuid) -> anyhow::Result<()> {
+    let refs = session_checkpoint_ref_commits(cwd, session_id);
+    let mut commands = String::new();
+    for turn_count in refs.turns.keys() {
+        commands.push_str(&format!(
+            "delete {}\n",
+            checkpoint_ref(session_id, *turn_count)
+        ));
+    }
+    for turn_count in refs.starts.keys() {
+        commands.push_str(&format!(
+            "delete {}\n",
+            turn_start_ref(session_id, *turn_count)
+        ));
+    }
+    for turn_count in refs.diff_bases.keys() {
+        commands.push_str(&format!(
+            "delete {}\n",
+            turn_diff_base_ref(session_id, *turn_count)
+        ));
+    }
+    update_refs(cwd, commands)
+}
+
 pub fn copy_session_refs(
     cwd: &Path,
     source_session_id: Uuid,

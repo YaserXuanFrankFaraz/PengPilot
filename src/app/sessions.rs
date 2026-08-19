@@ -364,7 +364,6 @@ impl Waku {
             .iter()
             .find(|project| project.id == project_id)
             .is_some_and(Project::is_projectless);
-        let last_turn_count = self.state.sessions[index].turns.len();
         let project_path = self
             .workspace_path_for_session(&self.state.sessions[index])
             .map(std::path::Path::to_path_buf);
@@ -397,7 +396,15 @@ impl Waku {
             }
         }
         if let Some(project_path) = project_path {
-            let _ = checkpoint::delete_session_refs(&project_path, session_id, last_turn_count);
+            let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
+            cx.background_executor()
+                .spawn(async move {
+                    let _ = workspace.request(pengpilot_client::WorkspaceOperation::DeleteSessionRefs {
+                        cwd: project_path,
+                        session_id,
+                    });
+                })
+                .detach();
         }
         self.invalidate_checkpoint_refs();
 
@@ -1587,19 +1594,36 @@ impl Waku {
             return;
         }
 
-        let workspace = match crate::projectless::create_workspace(None) {
-            Ok(workspace) => workspace,
-            Err(error) => {
-                self.show_toast(tr!("errors.create_projectless_task", error = error));
-                cx.notify();
-                return;
-            }
-        };
-        let mut project = Project::from_path(workspace.cwd);
-        project.name = Project::PROJECTLESS_NAME.to_owned();
-        let project_id = project.id;
-        self.state.projects.push(project);
-        self.create_session_for(project_id, self.state.last_provider, cx);
+        let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
+        cx.spawn(async move |waku, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move {
+                    match workspace.request(
+                        pengpilot_client::WorkspaceOperation::CreateProjectlessWorkspace {
+                            prompt: None,
+                        },
+                    )? {
+                        pengpilot_client::WorkspaceResult::ProjectlessWorkspace { cwd } => Ok(cwd),
+                        _ => anyhow::bail!("the daemon returned an invalid projectless response"),
+                    }
+                })
+                .await;
+            let _ = waku.update(cx, |waku, cx| match result {
+                Ok(cwd) => {
+                    let mut project = Project::from_path(cwd);
+                    project.name = Project::PROJECTLESS_NAME.to_owned();
+                    let project_id = project.id;
+                    waku.state.projects.push(project);
+                    waku.create_session_for(project_id, waku.state.last_provider, cx);
+                }
+                Err(error) => {
+                    waku.show_toast(tr!("errors.create_projectless_task", error = error));
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 }
 

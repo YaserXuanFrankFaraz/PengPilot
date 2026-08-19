@@ -20,8 +20,10 @@ macro_rules! tr {
 pub mod agent;
 pub mod attachments;
 pub mod blob;
+pub mod composer;
 pub mod computer_use;
 mod driver_wire;
+pub mod git;
 pub mod i18n;
 pub mod identity;
 pub mod model;
@@ -35,6 +37,7 @@ pub mod theme;
 pub mod usage;
 pub mod usage_history;
 pub mod work;
+pub mod workspace;
 
 pub use driver_wire::{decode_enum, encode_enum, event_from_wire, event_to_wire};
 pub use protocol::{
@@ -44,3 +47,4 @@ pub use protocol::{
     WireDriverEvent, WireDriverStartOptions, WireSessionOptions,
 };
 pub use settings::DaemonSettings;
+pub use workspace::{WorkspaceOperation, WorkspaceResult};

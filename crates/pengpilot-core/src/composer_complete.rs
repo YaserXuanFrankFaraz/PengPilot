@@ -15,6 +15,8 @@ use nucleo_matcher::{Matcher, Utf32Str};
 
 use crate::model::{ProviderKind, ProviderModelOption, ReportedCommand};
 
+pub use pengpilot_protocol::composer::{CommandScope, FileEntry, SlashCommand};
+
 /// How many rows a filter pass returns. The popup shows a screenful and the
 /// keyboard walks the rest; past this the tail is noise, not choice.
 pub const FILTER_CAP: usize = 64;
@@ -83,40 +85,6 @@ pub fn detect_trigger(text: &str, cursor: usize) -> Option<Trigger> {
 }
 
 // ── Slash commands ─────────────────────────────────────────────────────────
-
-/// Where a command came from, in the order groups are listed.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum CommandScope {
-    Project,
-    User,
-    Skill,
-    Builtin,
-}
-
-impl CommandScope {
-    pub fn label(self) -> String {
-        match self {
-            Self::Project => tr!("command_scope.project"),
-            Self::User => tr!("command_scope.user"),
-            Self::Skill => tr!("command_scope.skill"),
-            Self::Builtin => tr!("command_scope.builtin"),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SlashCommand {
-    /// Invocation name without the leading slash, e.g. `compact` or
-    /// `frontend:component` for a namespaced command file.
-    pub name: String,
-    pub description: String,
-    pub scope: CommandScope,
-    pub argument_hint: Option<String>,
-    /// `Some` when Waku expands the command into its prompt at submit time.
-    /// `None` passes the typed `/name …` through to a provider that resolves
-    /// its own commands, which today is Claude Code's stream-json transport.
-    pub template: Option<String>,
-}
 
 /// Waku's own built-ins, available on every provider. Each is a plain prompt
 /// template Waku expands at submit, so they work over any transport — unlike
@@ -682,13 +650,6 @@ pub fn expanded_submission(prompt: &str, commands: &[SlashCommand]) -> Option<St
 }
 
 // ── Workspace file index ───────────────────────────────────────────────────
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FileEntry {
-    /// Path relative to the project root; directories carry a trailing `/`.
-    pub path: String,
-    pub is_dir: bool,
-}
 
 /// Index the project's files for `@` mentions. Background executor only.
 ///

@@ -1,5 +1,29 @@
 use super::*;
 
+fn workspace_ack(
+    workspace: &pengpilot_client::WorkspaceClient,
+    operation: pengpilot_client::WorkspaceOperation,
+) -> anyhow::Result<()> {
+    match workspace.request(operation)? {
+        pengpilot_client::WorkspaceResult::Ack => Ok(()),
+        _ => anyhow::bail!("the daemon returned an invalid workspace response"),
+    }
+}
+
+fn workspace_has_ref(
+    workspace: &pengpilot_client::WorkspaceClient,
+    cwd: &Path,
+    git_ref: &str,
+) -> anyhow::Result<bool> {
+    match workspace.request(pengpilot_client::WorkspaceOperation::HasRef {
+        cwd: cwd.to_path_buf(),
+        git_ref: git_ref.to_owned(),
+    })? {
+        pengpilot_client::WorkspaceResult::Bool { value } => Ok(value),
+        _ => anyhow::bail!("the daemon returned an invalid checkpoint response"),
+    }
+}
+
 fn start_driver(mut request: DriverStartRequest, cwd: PathBuf) -> anyhow::Result<PreparedDriver> {
     request.options.cwd = cwd;
     let (event_tx, events) = driver::event_channel(request.event_wake);
@@ -58,6 +82,7 @@ pub(super) fn merge_remote_session_catalog(
 /// executor; the UI thread owns applying the returned workspace afterward.
 
 fn prepare_submission(
+    workspace_client: pengpilot_client::WorkspaceClient,
     project: Project,
     workspace: SessionWorkspace,
     driver_start: Option<anyhow::Result<DriverStartRequest>>,
@@ -70,13 +95,17 @@ fn prepare_submission(
             if project.is_projectless() {
                 anyhow::bail!("a projectless task cannot create a Git worktree");
             }
-            let created = crate::worktree::create(
-                &project.path,
-                project.id,
-                session_id,
-                prompt,
-                base_branch.as_deref(),
-            )?;
+            let created =
+                match workspace_client.request(pengpilot_client::WorkspaceOperation::CreateWorktree {
+                    project_path: project.path.clone(),
+                    project_id: project.id,
+                    session_id,
+                    prompt: prompt.to_owned(),
+                    base_branch,
+                })? {
+                    pengpilot_client::WorkspaceResult::WorktreeCreated { worktree } => worktree,
+                    _ => anyhow::bail!("the daemon returned an invalid worktree response"),
+                };
             SessionWorkspace::Worktree {
                 path: created.path,
                 branch: created.branch,
@@ -89,9 +118,16 @@ fn prepare_submission(
     // Every turn gets its own immutable starting snapshot. Reusing the prior
     // response's ending ref would attribute branch switches or terminal edits
     // made between turns to the next response.
-    let checkpoint_warning = checkpoint::capture_turn_start(project_path, session_id, turn_count)
-        .err()
-        .map(|error| tr!("errors.capture_pre_turn_checkpoint", error = error));
+    let checkpoint_warning = workspace_ack(
+        &workspace_client,
+        pengpilot_client::WorkspaceOperation::CaptureTurnStart {
+            cwd: project_path.to_path_buf(),
+            session_id,
+            turn_count,
+        },
+    )
+    .err()
+    .map(|error| tr!("errors.capture_pre_turn_checkpoint", error = error));
 
     // Process startup can synchronously resolve executables, bind sockets,
     // and spawn children. It belongs behind the same animated preparation
@@ -114,6 +150,7 @@ fn prepare_submission(
 /// startup, and native transcript reads all happen in
 /// [`perform_message_rewind`] on the background executor.
 struct MessageRewindRequest {
+    workspace_client: pengpilot_client::WorkspaceClient,
     session_id: Uuid,
     provider: ProviderKind,
     provider_cursor: Option<ProviderResumeCursor>,
@@ -148,23 +185,59 @@ fn perform_message_rewind(
     let turn_start_ref =
         checkpoint::turn_start_ref(session_id, request.retained_turn_count.saturating_add(1));
     let retained_ref = checkpoint::checkpoint_ref(session_id, request.retained_turn_count);
-    let restore_ref = if checkpoint::has_ref(&request.project_path, &turn_start_ref) {
+    let restore_ref = if workspace_has_ref(
+        &request.workspace_client,
+        &request.project_path,
+        &turn_start_ref,
+    )
+    .map_err(|error| error.to_string())?
+    {
         turn_start_ref
     } else {
         retained_ref
     };
-    if !checkpoint::has_ref(&request.project_path, &restore_ref) {
+    if !workspace_has_ref(
+        &request.workspace_client,
+        &request.project_path,
+        &restore_ref,
+    )
+    .map_err(|error| error.to_string())?
+    {
         return Err(tr!("session.pre_turn_checkpoint_missing"));
     }
 
     let safety_ref = format!("refs/waku/revert-backup-{session_id}-{}", Uuid::new_v4());
-    checkpoint::capture_ref(&request.project_path, &safety_ref)
-        .map_err(|error| tr!("errors.create_rewind_snapshot", error = error))?;
-    if let Err(error) = checkpoint::restore_ref(&request.project_path, &restore_ref) {
+    workspace_ack(
+        &request.workspace_client,
+        pengpilot_client::WorkspaceOperation::CaptureRef {
+            cwd: request.project_path.clone(),
+            git_ref: safety_ref.clone(),
+        },
+    )
+    .map_err(|error| tr!("errors.create_rewind_snapshot", error = error))?;
+    if let Err(error) = workspace_ack(
+        &request.workspace_client,
+        pengpilot_client::WorkspaceOperation::RestoreRef {
+            cwd: request.project_path.clone(),
+            git_ref: restore_ref.clone(),
+        },
+    ) {
         return Err(
-            match checkpoint::restore_ref(&request.project_path, &safety_ref) {
+            match workspace_ack(
+                &request.workspace_client,
+                pengpilot_client::WorkspaceOperation::RestoreRef {
+                    cwd: request.project_path.clone(),
+                    git_ref: safety_ref.clone(),
+                },
+            ) {
                 Ok(()) => {
-                    let _ = checkpoint::delete_ref(&request.project_path, &safety_ref);
+                    let _ = workspace_ack(
+                        &request.workspace_client,
+                        pengpilot_client::WorkspaceOperation::DeleteRef {
+                            cwd: request.project_path.clone(),
+                            git_ref: safety_ref.clone(),
+                        },
+                    );
                     tr!("errors.restore_checkpoint", error = error)
                 }
                 Err(restore_error) => tr!(
@@ -182,9 +255,21 @@ fn perform_message_rewind(
         Ok(rewind) => rewind,
         Err(error) => {
             return Err(
-                match checkpoint::restore_ref(&request.project_path, &safety_ref) {
+                match workspace_ack(
+                    &request.workspace_client,
+                    pengpilot_client::WorkspaceOperation::RestoreRef {
+                        cwd: request.project_path.clone(),
+                        git_ref: safety_ref.clone(),
+                    },
+                ) {
                     Ok(()) => {
-                        let _ = checkpoint::delete_ref(&request.project_path, &safety_ref);
+                        let _ = workspace_ack(
+                            &request.workspace_client,
+                            pengpilot_client::WorkspaceOperation::DeleteRef {
+                                cwd: request.project_path.clone(),
+                                git_ref: safety_ref.clone(),
+                            },
+                        );
                         tr!("errors.rollback_rejected_workspace_restored", error = error)
                     }
                     Err(restore_error) => tr!(
@@ -198,12 +283,21 @@ fn perform_message_rewind(
         }
     };
 
-    let _ = checkpoint::delete_ref(&request.project_path, &safety_ref);
-    let cleanup_error = checkpoint::delete_turn_refs_after(
-        &request.project_path,
-        session_id,
-        request.retained_turn_count,
-        request.previous_turn_count,
+    let _ = workspace_ack(
+        &request.workspace_client,
+        pengpilot_client::WorkspaceOperation::DeleteRef {
+            cwd: request.project_path.clone(),
+            git_ref: safety_ref,
+        },
+    );
+    let cleanup_error = workspace_ack(
+        &request.workspace_client,
+        pengpilot_client::WorkspaceOperation::DeleteTurnRefsAfter {
+            cwd: request.project_path.clone(),
+            session_id,
+            retained_turn_count: request.retained_turn_count,
+            previous_turn_count: request.previous_turn_count,
+        },
     )
     .err()
     .map(|error| error.to_string());
@@ -397,6 +491,7 @@ fn perform_provider_rewind(
 /// native transcript I/O, and Git ref copying are all performed by
 /// [`perform_response_fork`] on the background executor.
 struct ResponseForkRequest {
+    workspace_client: pengpilot_client::WorkspaceClient,
     source: AgentSession,
     source_workspace_path: PathBuf,
     fork_title: String,
@@ -677,11 +772,14 @@ fn perform_response_fork(mut request: ResponseForkRequest) -> Result<PreparedRes
             checkpoint.git_ref = checkpoint::checkpoint_ref(fork_id, checkpoint.turn_count);
         }
     }
-    let checkpoint_warning = checkpoint::copy_session_refs(
-        &request.source_workspace_path,
-        request.source.id,
-        fork_id,
-        request.turn_count,
+    let checkpoint_warning = workspace_ack(
+        &request.workspace_client,
+        pengpilot_client::WorkspaceOperation::CopySessionRefs {
+            cwd: request.source_workspace_path.clone(),
+            source_session_id: request.source.id,
+            target_session_id: fork_id,
+            through_turn_count: request.turn_count,
+        },
     )
     .err()
     .map(|error| error.to_string());
@@ -1128,16 +1226,30 @@ impl Waku {
             {
                 continue;
             }
+            let workspace = pengpilot_client::WorkspaceClient::new(self.daemon.client());
             cx.spawn(async move |waku, cx| {
-                let captured =
-                    cx.background_executor()
-                        .spawn({
-                            let project_path = project_path.clone();
-                            async move {
-                                checkpoint::capture_turn(&project_path, session_id, turn_count)
+                let captured = cx
+                    .background_executor()
+                    .spawn({
+                        let project_path = project_path.clone();
+                        async move {
+                            match workspace.request(
+                                pengpilot_client::WorkspaceOperation::CaptureTurn {
+                                    cwd: project_path,
+                                    session_id,
+                                    turn_count,
+                                },
+                            )? {
+                                pengpilot_client::WorkspaceResult::Checkpoint { checkpoint } => {
+                                    Ok(checkpoint)
+                                }
+                                _ => anyhow::bail!(
+                                    "the daemon returned an invalid checkpoint response"
+                                ),
                             }
-                        })
-                        .await;
+                        }
+                    })
+                    .await;
                 waku.update(cx, |waku, cx| {
                     waku.checkpoint_captures_in_flight
                         .remove(&(session_id, turn_count));
@@ -1313,6 +1425,7 @@ impl Waku {
             None
         };
         let request = ResponseForkRequest {
+            workspace_client: pengpilot_client::WorkspaceClient::new(self.daemon.client()),
             source,
             source_workspace_path,
             fork_title,
@@ -1702,6 +1815,7 @@ impl Waku {
             return;
         };
         let request = MessageRewindRequest {
+            workspace_client: pengpilot_client::WorkspaceClient::new(self.daemon.client()),
             session_id,
             provider,
             provider_cursor,
@@ -2454,11 +2568,13 @@ impl Waku {
         cx.notify();
 
         let preparation_prompt = human_prompt;
+        let workspace_client = pengpilot_client::WorkspaceClient::new(self.daemon.client());
         cx.spawn(async move |waku, cx| {
             let prepared = cx
                 .background_executor()
                 .spawn(async move {
                     prepare_submission(
+                        workspace_client,
                         project,
                         workspace,
                         driver_start,

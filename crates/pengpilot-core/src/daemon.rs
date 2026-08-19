@@ -2,12 +2,14 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context as _, anyhow, bail};
 use parking_lot::Mutex;
+use pengpilot_protocol::session::{Checkpoint, CheckpointStatus};
 use pengpilot_protocol::{
-    Command, Request, ResponsePayload, WireDriverEvent, decode_enum, event_to_wire,
+    Command, Request, ResponsePayload, WireDriverEvent, WorkspaceOperation, WorkspaceResult,
+    decode_enum, event_to_wire,
 };
 use serde_json::Value;
 use uuid::Uuid;
@@ -31,6 +33,7 @@ pub struct PengPilotBackend {
     composer_drafts: ComposerDraftStore,
     attachments: AttachmentStore,
     default_cwd: std::path::PathBuf,
+    checkpoint_capture_locks: Mutex<HashMap<(PathBuf, Uuid, usize), Arc<Mutex<()>>>>,
 }
 
 impl PengPilotBackend {
@@ -62,6 +65,7 @@ impl PengPilotBackend {
             composer_drafts,
             attachments,
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+            checkpoint_capture_locks: Mutex::new(HashMap::new()),
         })
     }
 }
@@ -323,6 +327,21 @@ impl Backend for PengPilotBackend {
                 self.task_store.blob_sweep()();
                 Ok(ResponsePayload::Ack)
             }
+            Command::Workspace {
+                operation:
+                    WorkspaceOperation::CaptureTurn {
+                        cwd,
+                        session_id,
+                        turn_count,
+                    },
+            } => Ok(ResponsePayload::Workspace {
+                result: WorkspaceResult::Checkpoint {
+                    checkpoint: self.capture_turn_checkpoint(cwd, session_id, turn_count)?,
+                },
+            }),
+            Command::Workspace { operation } => Ok(ResponsePayload::Workspace {
+                result: crate::workspace::execute(operation)?,
+            }),
             Command::Start { options } => {
                 let previous = self.sessions.lock().remove(&session_id);
                 drop(previous);
@@ -425,6 +444,72 @@ impl Backend for PengPilotBackend {
     fn shutdown(&self) {
         let sessions = std::mem::take(&mut *self.sessions.lock());
         drop(sessions);
+    }
+}
+
+impl PengPilotBackend {
+    /// Desktop and Web may observe the same turn completion concurrently; a
+    /// per-turn lock prevents both clients from running the expensive Git
+    /// snapshot while leaving unrelated tasks independent.
+    fn capture_turn_checkpoint(
+        &self,
+        cwd: PathBuf,
+        session_id: Uuid,
+        turn_count: usize,
+    ) -> anyhow::Result<Checkpoint> {
+        let key = (cwd.clone(), session_id, turn_count);
+        let capture_lock = self
+            .checkpoint_capture_locks
+            .lock()
+            .entry(key)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone();
+        let _capture = capture_lock.lock();
+
+        {
+            let mut state = self.task_state.lock();
+            if let Some(index) = state
+                .sessions
+                .iter()
+                .position(|session| session.id == session_id)
+            {
+                self.task_store.hydrate(&mut state.sessions[index])?;
+                if let Some(checkpoint) = state.sessions[index]
+                    .turns
+                    .iter()
+                    .find(|turn| turn.turn_count == turn_count)
+                    .and_then(|turn| turn.checkpoint.as_ref())
+                    .filter(|checkpoint| {
+                        matches!(
+                            checkpoint.status,
+                            CheckpointStatus::Ready | CheckpointStatus::Unavailable
+                        )
+                    })
+                {
+                    return Ok(checkpoint.clone());
+                }
+            }
+        }
+
+        let checkpoint = crate::checkpoint::capture_turn(&cwd, session_id, turn_count)?;
+        let mut state = self.task_state.lock();
+        if let Some(index) = state
+            .sessions
+            .iter()
+            .position(|session| session.id == session_id)
+        {
+            self.task_store.hydrate(&mut state.sessions[index])?;
+            if let Some(turn) = state.sessions[index]
+                .turns
+                .iter_mut()
+                .find(|turn| turn.turn_count == turn_count)
+            {
+                turn.checkpoint = Some(checkpoint.clone());
+                state.mark_session_dirty(session_id);
+                self.task_store.save(&mut state)?;
+            }
+        }
+        Ok(checkpoint)
     }
 }
 
@@ -827,6 +912,38 @@ mod tests {
         backend
             .handle(request(Command::SweepBlobs), EventSink::discarded())
             .unwrap();
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn workspace_list_tree_round_trips_over_the_backend() {
+        let directory =
+            std::env::temp_dir().join(format!("pengpilot-backend-workspace-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(directory.join("src")).unwrap();
+        std::fs::write(directory.join("src/lib.rs"), "fn x() {}\n").unwrap();
+        let backend = backend_in(&directory);
+        let ResponsePayload::Workspace { result } = backend
+            .handle(
+                request(Command::Workspace {
+                    operation: pengpilot_protocol::WorkspaceOperation::ListTree {
+                        root: directory.clone(),
+                        expanded_paths: vec![directory.join("src")],
+                    },
+                }),
+                EventSink::discarded(),
+            )
+            .unwrap()
+        else {
+            panic!("expected workspace");
+        };
+        let pengpilot_protocol::WorkspaceResult::WorkingTree { entries } = result else {
+            panic!("expected working tree");
+        };
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.name == "lib.rs" && !entry.is_dir)
+        );
         let _ = std::fs::remove_dir_all(directory);
     }
 

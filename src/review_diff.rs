@@ -1,31 +1,21 @@
 //! Immutable, render-ready Git diffs for Waku's Review surface.
 //!
-//! Every function in this module performs subprocess work or parses potentially
-//! large output. Callers run [`collect`] on the background executor and keep the
-//! resulting snapshot in memory; a frame only indexes its visible rows.
+//! The daemon captures Git output. This desktop module only parses and expands
+//! that returned data off the UI thread; a frame only indexes stored rows.
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::{Command, Output};
 
-use anyhow::{Context as _, anyhow, bail};
+use anyhow::bail;
 use uuid::Uuid;
 
-use crate::checkpoint;
-use crate::git_branch;
 use crate::md::highlight::{Carry, Lang, Token, lang_for_tag, tokenize_line};
 
-const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 const COLLAPSED_CONTEXT_LINES: usize = 3;
 const COLLAPSED_CONTEXT_THRESHOLD: usize = 1;
 /// Pierre expands a directional hunk control in 100-line increments. The
 /// count label itself expands the complete region.
 pub const DEFAULT_EXPANSION_LINE_COUNT: usize = 100;
-/// Full-file context is what makes collapsed regions expandable without any
-/// frame-time I/O. Keep an escape hatch for pathological generated files; the
-/// compact patch remains reviewable when hydrating all context would retain an
-/// unreasonable amount of text.
-const MAX_HYDRATED_PATCH_BYTES: usize = 32 * 1024 * 1024;
 /// A pathological generated patch must not turn one Review tab into an
 /// unbounded in-memory document. The complete file summary remains available
 /// in the tree when rendered lines are capped.
@@ -261,153 +251,57 @@ fn push_remaining_gap(replacement: &mut Vec<Line>, file_index: usize, mut gap: G
     });
 }
 
-#[derive(Clone, Debug)]
-struct Range {
-    from: String,
-    to: String,
+/// Turn daemon-captured Git output into render-ready rows. Parsing and syntax
+/// tokenization remain client-side presentation work; no path is resolved and
+/// no subprocess is started here.
+pub fn parse_collected(
+    source: Source,
+    numstat: &str,
+    patch: &str,
+    complete_context: bool,
+) -> Snapshot {
+    let mut snapshot = parse(source, numstat, patch, complete_context);
+    if !complete_context {
+        snapshot.truncated = true;
+    }
+    snapshot
 }
 
-/// Capture one consistent source pair and parse its unified diff.
 pub fn collect(cwd: &Path, source: Source) -> anyhow::Result<Snapshot> {
-    ensure_repository(cwd)?;
-    let range = resolve_range(cwd, source)?;
-    let numstat = diff_output(cwd, &range, &["--numstat"])?;
-    let hydrated_patch = diff_output(cwd, &range, &["--unified=2147483647"])?;
-    if hydrated_patch.len() <= MAX_HYDRATED_PATCH_BYTES {
-        Ok(parse(source, &numstat, &hydrated_patch, true))
-    } else {
-        let compact_patch = diff_output(cwd, &range, &["--unified=3"])?;
-        let mut snapshot = parse(source, &numstat, &compact_patch, false);
-        snapshot.truncated = true;
-        Ok(snapshot)
+    match pengpilot_core::workspace::execute(
+        pengpilot_protocol::workspace::WorkspaceOperation::CollectReviewDiff {
+            cwd: cwd.to_path_buf(),
+            source: wire_source(source),
+        },
+    )? {
+        pengpilot_protocol::workspace::WorkspaceResult::ReviewDiff { data } => {
+            Ok(parse_collected(
+                source,
+                &data.numstat,
+                &data.patch,
+                data.complete_context,
+            ))
+        }
+        _ => bail!("the daemon returned an invalid review-diff response"),
     }
 }
 
-fn resolve_range(cwd: &Path, source: Source) -> anyhow::Result<Range> {
-    let head = resolve(cwd, "HEAD").unwrap_or_else(|| EMPTY_TREE.to_owned());
-    Ok(match source {
+pub fn wire_source(source: Source) -> pengpilot_protocol::workspace::ReviewDiffSource {
+    match source {
         Source::LastTurn {
             session_id,
+            turn_id,
             turn_count,
-            ..
-        } => {
-            if turn_count == 0 {
-                bail!("the first checkpoint is a baseline, not a completed turn");
-            }
-            let diff_base_ref = checkpoint::turn_diff_base_ref(session_id, turn_count);
-            let start_ref = checkpoint::turn_start_ref(session_id, turn_count);
-            let legacy_ref = checkpoint::checkpoint_ref(session_id, turn_count - 1);
-            let to_ref = checkpoint::checkpoint_ref(session_id, turn_count);
-            Range {
-                from: resolve(cwd, &diff_base_ref)
-                    .or_else(|| resolve(cwd, &start_ref))
-                    .or_else(|| resolve(cwd, &legacy_ref))
-                    .ok_or_else(|| anyhow!("the turn's starting checkpoint is unavailable"))?,
-                to: resolve(cwd, &to_ref)
-                    .ok_or_else(|| anyhow!("the turn's ending checkpoint is unavailable"))?,
-            }
-        }
-        Source::Uncommitted => Range {
-            from: head,
-            to: checkpoint::capture_worktree_commit(cwd)?,
+        } => pengpilot_protocol::workspace::ReviewDiffSource::LastTurn {
+            session_id,
+            turn_id,
+            turn_count,
         },
-        Source::Unstaged => Range {
-            from: index_tree(cwd)?,
-            to: checkpoint::capture_worktree_commit(cwd)?,
-        },
-        Source::Staged => Range {
-            from: head,
-            to: index_tree(cwd)?,
-        },
-        Source::Committed => Range {
-            from: branch_base(cwd)?,
-            to: head,
-        },
-        Source::Branch => Range {
-            from: branch_base(cwd)?,
-            to: checkpoint::capture_worktree_commit(cwd)?,
-        },
-    })
-}
-
-fn branch_base(cwd: &Path) -> anyhow::Result<String> {
-    let Some(snapshot) = git_branch::inspect(cwd)? else {
-        bail!("the workspace is not a Git repository");
-    };
-    let Some(head) = resolve(cwd, "HEAD") else {
-        return Ok(EMPTY_TREE.to_owned());
-    };
-    let current = snapshot.current.as_deref();
-    let default_branch = snapshot
-        .default_branch
-        .filter(|branch| current != Some(branch.as_str()))
-        .or_else(|| {
-            ["main", "master"]
-                .into_iter()
-                .find(|candidate| {
-                    current != Some(*candidate)
-                        && snapshot
-                            .branches
-                            .iter()
-                            .any(|branch| branch.name == *candidate)
-                })
-                .map(str::to_owned)
-        });
-    let Some(default_branch) = default_branch else {
-        return Ok(head);
-    };
-    let output = git(cwd, ["merge-base", "HEAD", default_branch.as_str()])?;
-    let base = output.trim();
-    Ok(if base.is_empty() {
-        head
-    } else {
-        base.to_owned()
-    })
-}
-
-fn index_tree(cwd: &Path) -> anyhow::Result<String> {
-    let output = Command::new("git")
-        .args(["write-tree"])
-        .current_dir(cwd)
-        .output()
-        .context("failed to snapshot the Git index")?;
-    if output.status.success() {
-        let tree = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-        if !tree.is_empty() {
-            return Ok(tree);
-        }
-    }
-    // A repository with no index represents an empty staged tree.
-    if resolve(cwd, "HEAD").is_none() {
-        Ok(EMPTY_TREE.to_owned())
-    } else {
-        bail!("{}", command_error(&output))
-    }
-}
-
-fn diff_output(cwd: &Path, range: &Range, modes: &[&str]) -> anyhow::Result<String> {
-    let mut command = Command::new("git");
-    command
-        .args([
-            "-c",
-            "core.quotePath=false",
-            "diff",
-            "--no-ext-diff",
-            "--no-color",
-        ])
-        .args(modes)
-        // Treat renames as a deletion plus an addition. It keeps the patch and
-        // numstat path sets one-to-one, including paths containing spaces.
-        .arg("--no-renames")
-        .arg(&range.from)
-        .arg(&range.to)
-        .args(["--", "."])
-        .current_dir(cwd);
-    let output = command.output().context("failed to generate Git diff")?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
-        bail!("{}", command_error(&output))
+        Source::Uncommitted => pengpilot_protocol::workspace::ReviewDiffSource::Uncommitted,
+        Source::Unstaged => pengpilot_protocol::workspace::ReviewDiffSource::Unstaged,
+        Source::Staged => pengpilot_protocol::workspace::ReviewDiffSource::Staged,
+        Source::Committed => pengpilot_protocol::workspace::ReviewDiffSource::Committed,
+        Source::Branch => pengpilot_protocol::workspace::ReviewDiffSource::Branch,
     }
 }
 
@@ -908,63 +802,22 @@ pub fn tokenize(language: Option<Lang>, content: &str, carry: Carry) -> (Vec<Tok
     )
 }
 
-fn ensure_repository(cwd: &Path) -> anyhow::Result<()> {
-    let output = Command::new("git")
-        .args(["rev-parse", "--is-inside-work-tree"])
-        .current_dir(cwd)
-        .output()
-        .context("failed to inspect Git workspace")?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        bail!("the workspace is not a Git repository")
-    }
-}
-
-fn resolve(cwd: &Path, revision: &str) -> Option<String> {
-    let output = Command::new("git")
-        .args(["rev-parse", "--verify", &format!("{revision}^{{commit}}")])
-        .current_dir(cwd)
-        .output()
-        .ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
-        .filter(|value| !value.is_empty())
-}
-
-fn git<I, S>(cwd: &Path, args: I) -> anyhow::Result<String>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<std::ffi::OsStr>,
-{
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .context("failed to execute git")?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
-        bail!("{}", command_error(&output))
-    }
-}
-
-fn command_error(output: &Output) -> String {
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    if stderr.is_empty() {
-        format!("git exited with {}", output.status)
-    } else {
-        stderr
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::process::{Command, Output};
 
     use super::*;
+    use crate::checkpoint;
+
+    fn command_error(output: &Output) -> String {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        if stderr.is_empty() {
+            format!("git exited with {}", output.status)
+        } else {
+            stderr
+        }
+    }
 
     fn git_ok(cwd: &Path, args: &[&str]) {
         let output = Command::new("git")

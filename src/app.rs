@@ -1620,7 +1620,10 @@ pub(super) fn next_time_label_change(sessions: &[AgentSession], now: u64) -> Opt
     next
 }
 
-fn migrate_legacy_projectless_projects(state: &mut PersistedState) -> std::io::Result<bool> {
+fn migrate_legacy_projectless_projects(
+    state: &mut PersistedState,
+    workspace: &pengpilot_client::WorkspaceClient,
+) -> std::io::Result<bool> {
     let legacy_indices = state
         .projects
         .iter()
@@ -1635,13 +1638,25 @@ fn migrate_legacy_projectless_projects(state: &mut PersistedState) -> std::io::R
 
     // Allocate everything first so a later failure never leaves only part of
     // the in-memory project list rewritten.
-    let workspaces = legacy_indices
-        .iter()
-        .map(|_| crate::projectless::create_workspace(None))
-        .collect::<std::io::Result<Vec<_>>>()?;
-    for (index, workspace) in legacy_indices.into_iter().zip(workspaces) {
+    let mut workspaces = Vec::with_capacity(legacy_indices.len());
+    for _ in &legacy_indices {
+        match workspace.request(
+            pengpilot_client::WorkspaceOperation::CreateProjectlessWorkspace { prompt: None },
+        ) {
+            Ok(pengpilot_client::WorkspaceResult::ProjectlessWorkspace { cwd }) => {
+                workspaces.push(cwd);
+            }
+            Ok(_) => {
+                return Err(std::io::Error::other(
+                    "the daemon returned an invalid projectless response",
+                ));
+            }
+            Err(error) => return Err(std::io::Error::other(error)),
+        }
+    }
+    for (index, cwd) in legacy_indices.into_iter().zip(workspaces) {
         state.projects[index].name = Project::PROJECTLESS_NAME.to_owned();
-        state.projects[index].path = workspace.cwd;
+        state.projects[index].path = cwd;
     }
     Ok(true)
 }
@@ -1919,7 +1934,8 @@ impl Waku {
         let sidebar_pane = WakuPane::new(Waku::sidebar_pane_content, cx);
         let transcript_pane = WakuPane::new(Waku::transcript_pane_content, cx);
         let right_panel_pane = WakuPane::new(Waku::right_panel_pane_content, cx);
-        let startup_toast = match migrate_legacy_projectless_projects(&mut state) {
+        let workspace_client = pengpilot_client::WorkspaceClient::new(daemon.client());
+        let startup_toast = match migrate_legacy_projectless_projects(&mut state, &workspace_client) {
             Ok(false) => None,
             Ok(true) => store
                 .save(&mut state)

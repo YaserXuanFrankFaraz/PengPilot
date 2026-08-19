@@ -15,6 +15,9 @@ use uuid::Uuid;
 
 use pengpilot_protocol::model::ProviderKind;
 
+pub use pengpilot_protocol::git::AgentInvocation;
+pub use pengpilot_protocol::git::CommitSnapshot as Snapshot;
+
 const GIT_TIMEOUT: Duration = Duration::from_secs(120);
 const AGENT_TIMEOUT: Duration = Duration::from_secs(180);
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(40);
@@ -35,26 +38,6 @@ const CODEX_COMMIT_MODEL: &str = "gpt-5.6-luna";
 // `none` is the floor: `minimal` is rejected by the API for this model with
 // `unsupported_value`, listing `none` as the lowest it accepts.
 const CODEX_COMMIT_EFFORT: &str = r#"model_reasoning_effort="none""#;
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Snapshot {
-    pub branch: String,
-    pub additions: u64,
-    pub deletions: u64,
-    pub staged_additions: u64,
-    pub staged_deletions: u64,
-    pub has_staged: bool,
-    pub has_unstaged: bool,
-    pub can_push: bool,
-}
-
-#[derive(Clone, Debug)]
-pub struct AgentInvocation {
-    pub provider: ProviderKind,
-    pub binary: PathBuf,
-    pub model: Option<String>,
-    pub reasoning_effort: Option<String>,
-}
 
 struct CapturedOutput {
     status: ExitStatus,

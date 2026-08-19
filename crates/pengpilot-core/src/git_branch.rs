@@ -16,39 +16,12 @@ use std::os::unix::ffi::OsStringExt as _;
 
 use anyhow::{Context as _, anyhow, bail};
 
+pub use pengpilot_protocol::git::{BranchEntry, BranchSnapshot};
+
 const MAX_UNTRACKED_FILES: usize = 2_048;
 const MAX_UNTRACKED_FILE_BYTES: u64 = 8 * 1_024 * 1_024;
 const MAX_UNTRACKED_TOTAL_BYTES: u64 = 32 * 1_024 * 1_024;
 const BINARY_PROBE_BYTES: usize = 8_000;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BranchEntry {
-    pub name: String,
-    /// Git refuses to check out one branch in two worktrees. Keep such rows
-    /// visible so the list remains truthful, but let the picker draw them
-    /// disabled.
-    pub checked_out_elsewhere: bool,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BranchSnapshot {
-    pub repository: PathBuf,
-    pub current: Option<String>,
-    pub detached_head: Option<String>,
-    pub default_branch: Option<String>,
-    pub branches: Vec<BranchEntry>,
-    /// Working-tree changes against `HEAD`, including untracked text files,
-    /// cached with the branch snapshot so environment UI never shells out from
-    /// a render path.
-    pub additions: u64,
-    pub deletions: u64,
-}
-
-impl BranchSnapshot {
-    pub fn display_branch(&self) -> Option<&str> {
-        self.current.as_deref().or(self.detached_head.as_deref())
-    }
-}
 
 /// Inspect local branches and which worktree, if any, currently owns each.
 /// `Ok(None)` means `cwd` is not inside a Git repository.
