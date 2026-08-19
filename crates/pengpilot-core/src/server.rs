@@ -973,6 +973,7 @@ mod tests {
     use super::*;
     use crate::WireDriverStartOptions;
     use crate::model::{AgentSession, ProviderKind};
+    use base64::Engine as _;
     use crossbeam_channel::bounded;
     use pengpilot_client::DaemonClient;
     use serde_json::json;
@@ -1349,6 +1350,100 @@ mod tests {
 
         source.shutdown();
         server.join().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn websocket_terminal_round_trip_streams_input_and_output() {
+        let root = std::env::temp_dir().join(format!("pengpilot-terminal-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let backend = crate::PengPilotBackend::new(
+            crate::DaemonSettingsStore::open(root.join("settings.json")).unwrap(),
+            crate::persistence::StateStore::daemon(root.join("app.db")),
+        )
+        .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let server_shutdown = shutdown.clone();
+        let server = std::thread::spawn(move || {
+            serve(
+                listener,
+                "secret".into(),
+                Arc::new(backend),
+                server_shutdown,
+                ServerOptions {
+                    allow_shutdown: true,
+                    ..ServerOptions::default()
+                },
+            )
+            .unwrap()
+        });
+
+        let client = DaemonClient::connect(&address.to_string(), "secret".into()).unwrap();
+        let terminal_id = Uuid::new_v4();
+        let events = client.subscribe(terminal_id, terminal_id);
+        assert!(matches!(
+            client
+                .request(
+                    terminal_id,
+                    terminal_id,
+                    Command::OpenTerminal {
+                        cwd: root.clone(),
+                        cols: 80,
+                        rows: 24,
+                    },
+                )
+                .unwrap(),
+            ResponsePayload::Ack
+        ));
+        client
+            .request(
+                terminal_id,
+                terminal_id,
+                Command::WriteTerminal {
+                    data: b"pengpilot-terminal-round-trip\r".to_vec(),
+                },
+            )
+            .unwrap();
+
+        let marker = b"pengpilot-terminal-round-trip";
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        let mut output = Vec::new();
+        let mut seen_events = Vec::new();
+        while std::time::Instant::now() < deadline
+            && !output.windows(marker.len()).any(|window| window == marker)
+        {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            let Ok(event) = events.recv_timeout(remaining) else {
+                break;
+            };
+            seen_events.push(event.event.kind.clone());
+            if event.event.kind != "terminalOutput" {
+                continue;
+            }
+            let data = event.event.payload["data"].as_str().unwrap();
+            output.extend(
+                base64::engine::general_purpose::STANDARD
+                    .decode(data)
+                    .unwrap(),
+            );
+        }
+        assert!(
+            output.windows(marker.len()).any(|window| window == marker),
+            "daemon terminal did not return the shell marker; events={seen_events:?}, output={}",
+            String::from_utf8_lossy(&output)
+        );
+        assert!(matches!(
+            client
+                .request(terminal_id, terminal_id, Command::CloseTerminal)
+                .unwrap(),
+            ResponsePayload::Ack
+        ));
+
+        client.shutdown();
+        server.join().unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

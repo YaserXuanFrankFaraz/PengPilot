@@ -52,6 +52,7 @@ pub mod projectless;
 pub mod settings;
 pub mod workspace;
 pub mod skills;
+pub mod terminal;
 pub mod usage;
 pub mod usage_history;
 pub mod worktree;

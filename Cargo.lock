@@ -4996,6 +4996,7 @@ name = "pengpilot-core"
 version = "0.1.20"
 dependencies = [
  "agent-client-protocol",
+ "alacritty_terminal",
  "anyhow",
  "base64",
  "chrono",

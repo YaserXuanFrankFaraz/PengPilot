@@ -289,6 +289,28 @@ pub fn default_terminal_shell() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/bin/sh"))
 }
 
+pub fn default_terminal_shell_args(shell: &Path) -> Vec<String> {
+    #[cfg(not(windows))]
+    {
+        let _ = shell;
+        vec!["-l".to_owned()]
+    }
+    #[cfg(windows)]
+    {
+        let is_powershell = shell
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .is_some_and(|stem| {
+                stem.eq_ignore_ascii_case("pwsh") || stem.eq_ignore_ascii_case("powershell")
+            });
+        if is_powershell {
+            vec!["-NoLogo".to_owned()]
+        } else {
+            Vec::new()
+        }
+    }
+}
+
 #[cfg(unix)]
 fn account_default_shell() -> Option<PathBuf> {
     let suggested_size = unsafe { libc::sysconf(libc::_SC_GETPW_R_SIZE_MAX) };

@@ -34,6 +34,7 @@ pub struct PengPilotBackend {
     attachments: AttachmentStore,
     default_cwd: std::path::PathBuf,
     checkpoint_capture_locks: Mutex<HashMap<(PathBuf, Uuid, usize), Arc<Mutex<()>>>>,
+    terminals: Mutex<HashMap<Uuid, (Uuid, crate::terminal::DaemonTerminal)>>,
 }
 
 impl PengPilotBackend {
@@ -66,6 +67,7 @@ impl PengPilotBackend {
             attachments,
             default_cwd: std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
             checkpoint_capture_locks: Mutex::new(HashMap::new()),
+            terminals: Mutex::new(HashMap::new()),
         })
     }
 }
@@ -429,13 +431,60 @@ impl Backend for PengPilotBackend {
                 };
                 handle_driver_command(&driver, command)
             }
+            Command::OpenTerminal { cwd, cols, rows } => {
+                ensure_shell_environment();
+                let terminal = crate::terminal::DaemonTerminal::open(&cwd, cols, rows, events)?;
+                let previous = self
+                    .terminals
+                    .lock()
+                    .insert(session_id, (runtime_id, terminal));
+                drop(previous);
+                Ok(ResponsePayload::Ack)
+            }
+            Command::WriteTerminal { data } => {
+                let terminals = self.terminals.lock();
+                let (active_runtime_id, terminal) = terminals
+                    .get(&session_id)
+                    .ok_or_else(|| anyhow!("daemon terminal {session_id} is not running"))?;
+                if *active_runtime_id != runtime_id {
+                    bail!(
+                        "daemon terminal {session_id} belongs to runtime {active_runtime_id}, not {runtime_id}"
+                    );
+                }
+                terminal.write(data)?;
+                Ok(ResponsePayload::Ack)
+            }
+            Command::ResizeTerminal { cols, rows } => {
+                let terminals = self.terminals.lock();
+                let (active_runtime_id, terminal) = terminals
+                    .get(&session_id)
+                    .ok_or_else(|| anyhow!("daemon terminal {session_id} is not running"))?;
+                if *active_runtime_id != runtime_id {
+                    bail!(
+                        "daemon terminal {session_id} belongs to runtime {active_runtime_id}, not {runtime_id}"
+                    );
+                }
+                terminal.resize(cols, rows);
+                Ok(ResponsePayload::Ack)
+            }
+            Command::CloseTerminal => {
+                let removed = {
+                    let mut terminals = self.terminals.lock();
+                    if let Some((active_runtime_id, _)) = terminals.get(&session_id) {
+                        if *active_runtime_id != runtime_id {
+                            bail!(
+                                "daemon terminal {session_id} belongs to runtime {active_runtime_id}, not {runtime_id}"
+                            );
+                        }
+                    }
+                    terminals.remove(&session_id)
+                };
+                drop(removed);
+                Ok(ResponsePayload::Ack)
+            }
             Command::AttachSession
             | Command::ForkSessionFromResponse { .. }
-            | Command::RewindSessionToMessage { .. }
-            | Command::OpenTerminal { .. }
-            | Command::WriteTerminal { .. }
-            | Command::ResizeTerminal { .. }
-            | Command::CloseTerminal => {
+            | Command::RewindSessionToMessage { .. } => {
                 bail!("daemon command is not implemented yet")
             }
         }
@@ -444,6 +493,8 @@ impl Backend for PengPilotBackend {
     fn shutdown(&self) {
         let sessions = std::mem::take(&mut *self.sessions.lock());
         drop(sessions);
+        let terminals = std::mem::take(&mut *self.terminals.lock());
+        drop(terminals);
     }
 }
 
